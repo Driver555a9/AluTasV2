@@ -1,6 +1,6 @@
 # AluTasV2
 
-## About AluTasV2:
+## What it does:
   - Early stage of development - thus far only free flight has been implemented.
   - The tool does not rely on Cheat Engine whatsoever anymore, it instead manually manipulates game memory
   - It can not be used in any way to gain a competitive advantage in a race, it is made to be scientific
