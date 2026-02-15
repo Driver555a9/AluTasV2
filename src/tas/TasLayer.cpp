@@ -49,20 +49,6 @@ namespace AsphaltTas
 
     void TasLayer::OnEvent(CoreEngine::Basic_Event& e)
     {
-        CoreEngine::EventDispatcher disp(e);
-
-        disp.Dispatch<CoreEngine::ApplicationShutdownEvent>
-        (
-            [] (CoreEngine::ApplicationShutdownEvent& e) -> bool 
-            { 
-                try { 
-                    MemoryRW::RestoreCameraUpdateCode(); 
-                } catch(...) {}
-                GameState::OnInvalidateAllCaches();
-                return false; 
-            }
-        );
-
         //CoreEngine::Freecam_3D_Layer::OnEvent(e);
     }
 
