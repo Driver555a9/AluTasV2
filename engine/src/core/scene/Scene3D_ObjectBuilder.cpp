@@ -1,0 +1,222 @@
+#include "core/scene/Scene3D_ObjectBuilder.h"
+
+//Own includes
+#include "core/model/BoxModel.h"
+#include "core/model/SphereModel.h"
+#include "core/model/PathModel.h"
+#include "core/model/PointsModel.h"
+
+#include "core/physics/PhysicsCar.h"
+
+#include "core/utility/PhysicsUtility.h"
+#include "core/utility/CommonUtility.h"
+#include "core/utility/Assert.h"
+
+//earcut
+#include "earcut/earcut.h"
+
+namespace CoreEngine
+{
+    Scene3D_ObjectBuilder::Scene3D_ObjectBuilder(btDiscreteDynamicsWorld* physics_world) noexcept : m_physics_world(physics_world) {}
+
+    std::unique_ptr<Scene3D_SceneObject> Scene3D_ObjectBuilder::Finalize() noexcept
+    {
+        ENGINE_ASSERT ( m_physics_world && "At Scene3D_ObjectBuilder::Finalize(): m_physics_world must not be nullptr. You may not reuse a Scene3D_ObjectBuilder.");
+
+        std::unique_ptr<PhysicsObject> physics_obj = nullptr;
+
+        if (m_render_model)
+        {
+            m_render_model->SetPosition(m_position);
+            m_render_model->SetRotation(m_rotation);
+        }
+
+        if (m_physics_type != PhysicsObjectType::NONE)
+        {
+            m_physics_object_config.m_start_transform.setOrigin(PhysicsUtility::GlmVec3ToBt(m_position));
+            m_physics_object_config.m_start_transform.setRotation(PhysicsUtility::GlmQuatToBt(m_rotation));
+
+            if (m_physics_type == PhysicsObjectType::Ordinary)
+            {
+                physics_obj = std::make_unique<PhysicsObject>(m_physics_world, std::move(m_physics_object_config));
+            }
+            else if (m_physics_type == PhysicsObjectType::Car)
+            {
+                physics_obj = std::make_unique<PhysicsCar>(m_physics_world, std::move(m_physics_object_config));
+            }
+        }
+        
+        m_physics_world = nullptr;
+    
+        return std::make_unique<Scene3D_SceneObject>(std::move(m_render_model), std::move(physics_obj), std::move(m_obj_name));
+    }
+
+    void Scene3D_ObjectBuilder::Scene3D_ObjectBuilder::RenderModel_SetFromPath(const std::string& path, const glm::vec3& scaleFactor) noexcept
+    {
+        m_render_model = std::make_unique<PathModel>(path, glm::vec3(0.0f), glm::identity<glm::quat>(), scaleFactor);
+    }
+
+    void Scene3D_ObjectBuilder::RenderModel_SetExisting(std::unique_ptr<Basic_Model> model) noexcept { m_render_model = std::move(model); }
+
+    void Scene3D_ObjectBuilder::CollisionShape_SetFromExisting (const btCollisionShape* shape) noexcept
+    { 
+        if (shape->getShapeType() == BOX_SHAPE_PROXYTYPE)
+        {
+            m_physics_object_config.m_shape_type       = PhysicsShapeType::BOX;
+            m_physics_object_config.m_box_half_extents = static_cast<const btBoxShape*>(shape)->getHalfExtentsWithoutMargin();
+        }
+        else if (shape->getShapeType() == SPHERE_SHAPE_PROXYTYPE)
+        {
+            m_physics_object_config.m_shape_type    = PhysicsShapeType::SPHERE;
+            m_physics_object_config.m_sphere_radius = static_cast<const btSphereShape*>(shape)->getRadius();
+        }
+        else 
+        {
+            ENGINE_ASSERT (false && "At Scene3D::ObjectBuilder::CollisionShape_SetFromExisting(): Unkown shape type provided. Only BOX and SPHERE supported.");
+        }
+    }
+
+    void Scene3D_ObjectBuilder::RenderAndCollision_SetFromPoints(std::vector<Vertex>&& points, const glm::vec3& color) noexcept
+    {
+        //////////////////////////////////////////////// 
+        //--------- Generate earcut indices
+        //////////////////////////////////////////////// 
+        if (points.size() < 3) return;
+
+        glm::vec3 min_pos = glm::vec3( std::numeric_limits<float>::max());
+        glm::vec3 max_pos = glm::vec3(-std::numeric_limits<float>::max());
+
+        for (const auto& vert : points)
+        {
+            min_pos = glm::min(min_pos, vert.m_position);
+            max_pos = glm::max(max_pos, vert.m_position);
+        }
+
+        const glm::vec3 center = (min_pos + max_pos) * 0.5f;
+
+        std::vector<float> flat_coords;
+        flat_coords.reserve(points.size() * 2);
+
+        for (auto& vert : points)
+        {
+            vert.m_position -= center;
+            flat_coords.push_back(vert.m_position.x);
+            flat_coords.push_back(vert.m_position.z);
+        }
+
+        m_position = center;
+
+        using Point   = std::array<float, 2>;
+        using Polygon = std::vector<Point>;
+
+        Polygon outer_ring;
+        outer_ring.reserve(points.size());
+
+        for (size_t i = 0; i < points.size(); ++i)
+        {
+            outer_ring.emplace_back(Point{ flat_coords[i * 2 + 0], flat_coords[i * 2 + 1]});
+        }
+
+        std::vector<Polygon> polygons = { std::move(outer_ring) };
+
+        std::vector<uint32_t> earcut_indices = mapbox::earcut<uint32_t>(polygons);
+
+        const size_t amount_indices = earcut_indices.size();
+
+        ENGINE_ASSERT ( amount_indices % 3 == 0 && "At Editor_Layer_3D::OnCreateTrianglePointObject(): Indices generated by earcut are not %3 == 0");
+
+        //////////////////////////////////////////////// 
+        //---------  Append CCW faces since earcut returns CW
+        //////////////////////////////////////////////// 
+        earcut_indices.reserve(amount_indices * 2);
+        for (size_t i = 0; i < amount_indices; i += 3) // amount_indices mustn't be changed by push_back() !
+        {
+            // Append CCW faces - so with culling both sides are visible. Hacky - improve if a problem
+            earcut_indices.push_back(earcut_indices[i+0]);
+            earcut_indices.push_back(earcut_indices[i+2]);
+            earcut_indices.push_back(earcut_indices[i+1]);
+        }
+
+        //////////////////////////////////////////////// 
+        //---------  Create bt physics shape
+        //////////////////////////////////////////////// 
+        std::shared_ptr<btTriangleMesh> triangle_mesh = std::make_unique<btTriangleMesh>();
+
+        for (size_t i = 0; i < earcut_indices.size(); i += 3)
+        {
+            const uint32_t index0 = earcut_indices[i+0];
+            const uint32_t index1 = earcut_indices[i+1];
+            const uint32_t index2 = earcut_indices[i+2];
+
+            const btVector3 v0(PhysicsUtility::GlmVec3ToBt(points[index0].m_position));
+            const btVector3 v1(PhysicsUtility::GlmVec3ToBt(points[index1].m_position));
+            const btVector3 v2(PhysicsUtility::GlmVec3ToBt(points[index2].m_position));
+
+            triangle_mesh->addTriangle(v0, v1, v2);
+        }
+
+        m_physics_object_config.m_shape_type = PhysicsShapeType::TRIANGLE_MESH_SHAPE;
+        m_physics_object_config.m_triangle_mesh_shape = std::make_unique<OwnedBvhTriangleMeshShape>(std::move(triangle_mesh), true);
+
+        //////////////////////////////////////////////// 
+        //---------  Create render model
+        //////////////////////////////////////////////// 
+        std::vector<Mesh> meshes { Mesh { std::move(points), std::move(earcut_indices), std::make_shared<MaterialPBR>(MaterialPBR{ .m_base_color_factor = color}) } };
+        m_render_model = std::make_unique<PointsModel>( std::move(meshes), glm::vec3{}, glm::quat{}, color );
+    }
+
+    void Scene3D_ObjectBuilder::RenderAndCollision_SetBox (const glm::vec3& half_extents, const glm::vec3& color) noexcept
+    {
+        m_render_model = std::make_unique<BoxModel>(half_extents, glm::vec3(0.0f), glm::identity<glm::quat>(), color);
+        m_physics_object_config.m_shape_type       = PhysicsShapeType::BOX;
+        m_physics_object_config.m_box_half_extents = PhysicsUtility::GlmVec3ToBt(half_extents);
+    }
+
+    void Scene3D_ObjectBuilder::RenderAndCollision_SetSphere(const float radius, const glm::vec3& color) noexcept
+    {
+        m_render_model = std::make_unique<SphereModel>(radius, glm::vec3(0.0f), glm::identity<glm::quat>(), color);
+        m_physics_object_config.m_shape_type       = PhysicsShapeType::SPHERE;
+        m_physics_object_config.m_sphere_radius    = radius;
+    }
+
+    void Scene3D_ObjectBuilder::CollisionShape_SetBoxFromRenderModelExtents() noexcept
+    {
+        ENGINE_ASSERT (m_render_model && "At Scene3D_ObjectBuilder::SetBtBoxShape_FromGivenRenderModelExtents(): Render model must be initialized before this method.");
+        m_physics_object_config.m_shape_type       = PhysicsShapeType::BOX;
+        m_physics_object_config.m_box_half_extents = PhysicsUtility::GlmVec3ToBt(m_render_model->GetWorldSpaceAABB().m_half_extents);
+    }
+
+    void Scene3D_ObjectBuilder::CollisionShape_SetStaticTriangleMeshFromModel() noexcept
+    {
+        ENGINE_ASSERT (m_render_model && "At Scene3D_ObjectBuilder::CollisionShape_SetStaticTriangleMeshFromModel(): Render model must be initialized before this method.");
+
+        std::shared_ptr<btTriangleMesh> triangle_mesh = std::make_unique<btTriangleMesh>();
+
+        for (const Mesh& mesh : m_render_model->GetMeshVectorConstReference())
+        {
+            const std::vector<Vertex>& vertices = mesh.GetVerticesConstReference();
+            const std::vector<GLuint>& indices  = mesh.GetIndicesConstReference();
+            for (size_t i = 0; i < indices.size(); i += 3)
+            {
+                const GLuint idx0 = indices[i + 0];
+                const GLuint idx1 = indices[i + 1];
+                const GLuint idx2 = indices[i + 2];
+
+                const btVector3 v0(PhysicsUtility::GlmVec3ToBt(vertices[idx0].m_position));
+                const btVector3 v1(PhysicsUtility::GlmVec3ToBt(vertices[idx1].m_position));
+                const btVector3 v2(PhysicsUtility::GlmVec3ToBt(vertices[idx2].m_position));
+
+                triangle_mesh->addTriangle(v0, v1, v2);
+            }
+        }
+
+        m_physics_object_config.m_shape_type = PhysicsShapeType::TRIANGLE_MESH_SHAPE;
+        m_physics_object_config.m_triangle_mesh_shape = std::make_unique<OwnedBvhTriangleMeshShape>(std::move(triangle_mesh), true);
+    }
+
+    void Scene3D_ObjectBuilder::SetPhysicsObjectType (const PhysicsObjectType type)  noexcept { m_physics_type                  = type;          }
+    void Scene3D_ObjectBuilder::SetMass (const Units::Kilogram mass_kg)              noexcept { m_physics_object_config.m_mass  = mass_kg.Get(); }
+    void Scene3D_ObjectBuilder::SetPosition (const glm::vec3& pos)                   noexcept { m_position                      = pos;           }
+    void Scene3D_ObjectBuilder::SetRotation (const glm::quat& rot)                   noexcept { m_rotation                      = rot;           }
+    void Scene3D_ObjectBuilder::SetName(const std::string& name)                     noexcept { m_obj_name                      = name;          }
+}
