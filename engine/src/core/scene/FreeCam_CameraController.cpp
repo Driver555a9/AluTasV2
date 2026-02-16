@@ -52,7 +52,7 @@ namespace CoreEngine
     ////////////////////////////////////////////////
         float fov_now = camera.GetFovDeg();
         fov_now -= input_state.m_mouse_wheel_scroll_delta * 2.0f;
-        fov_now = std::clamp(fov_now, 20.0f, 120.0f);
+        fov_now = std::clamp(fov_now, 10.0f, 160.0f);
         camera.SetFovDeg(fov_now);
     }
 

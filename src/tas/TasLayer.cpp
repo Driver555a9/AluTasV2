@@ -206,15 +206,27 @@ namespace AsphaltTas
             }
 
             float fov_deg = m_pseudo_game_camera.GetFovDeg();
-            if (ImGui::SliderFloat("Fov", &fov_deg, 1.0f, 160.0f, "%.1f°"))
+            if (ImGui::SliderFloat("Fov", &fov_deg, 10.0f, 160.0f, "%.1f°"))
             {
                 m_pseudo_game_camera.SetFovDeg(fov_deg);
             }
-
-            bool recenter = MouseInputService::GetAlwaysRecenterCursor();
-            if (ImGui::Checkbox("Lock Mouse Position", &recenter))
+            bool enable_mouse_input = MouseInputService::GetThreadIsRunning();
+            if (ImGui::Checkbox("Enable Mouse Input", &enable_mouse_input))
             {
-                MouseInputService::SetAlwaysRecenterCursor(recenter);
+                if (enable_mouse_input)
+                    MouseInputService::LaunchMouseCaptureThread();
+                else 
+                    MouseInputService::StopMouseCaptureThread();
+            }
+
+            if (enable_mouse_input)
+            {
+                ImGui::SameLine();
+                bool recenter = MouseInputService::GetAlwaysRecenterCursor();
+                if (ImGui::Checkbox("Lock Mouse Position", &recenter))
+                {
+                    MouseInputService::SetAlwaysRecenterCursor(recenter);
+                }
             }
 
             if (ImGui::Button("Move To"))
