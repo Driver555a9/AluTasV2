@@ -10,7 +10,8 @@
   - As of now, this utility only works for the Steam version (I'll perhaps fix MS eventually)
   - As everything is statically linked, you should only require the .exe file, no external dependencies or dll
   - Run the .exe as administrator and it should detect Asphalt Legends automatically
-  - You for some reason must not use "uncapped" fps in game, limit them to 120fps
+  - You for some reason must **not** use "uncapped" fps in game, limit them to 120fps
+  - Controls: WASD, space = up, left ctrl = down
 
 
 
