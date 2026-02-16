@@ -10,7 +10,8 @@ namespace CoreEngine
         WindowClose, FramebufferResize,
         MousePressed, MouseReleased, MouseMoved, MouseScrolled,
         KeyPressed, KeyReleased,
-        ApplicationShutdown
+        ApplicationShutdown, 
+        Custom
     };
 
     class Basic_Event

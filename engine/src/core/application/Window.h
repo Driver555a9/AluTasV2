@@ -31,9 +31,10 @@ namespace CoreEngine
 
     #ifdef _WIN32
         void SetClickthrough(bool enable) noexcept;
-    #endif
         [[nodiscard]] bool GetIsClickthrough() const noexcept;
-
+        
+        [[nodiscard]] bool IsAnyImGuiWindowVisible() noexcept;
+    #endif
     ///////////////////////////////
     // Copying forbidden
     ///////////////////////////////

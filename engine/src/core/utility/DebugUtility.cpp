@@ -1,6 +1,8 @@
 #include "core/utility/DebugUtility.h"
 #include "core/utility/ColorCodes.h"
 
+#include "core/application/ApplicationGlobalState.h"
+
 //std
 #include <iostream>
 
@@ -25,6 +27,25 @@ namespace CoreEngine::DebugUtility
     #endif
     }
 
+#ifdef _WIN32
+namespace 
+{
+    BOOL WINAPI ConsoleHandler(DWORD ctrlType)
+    {
+        switch (ctrlType)
+        {
+            case CTRL_C_EVENT:
+            case CTRL_BREAK_EVENT:
+            case CTRL_CLOSE_EVENT: 
+            case CTRL_LOGOFF_EVENT:
+            case CTRL_SHUTDOWN_EVENT:
+                GlobalSet<GlobalSet_StopApplication>();
+        }
+        return FALSE;
+    }
+}
+#endif
+
     void ForceInitConsole()
     {
     #ifdef _WIN32
@@ -41,6 +62,8 @@ namespace CoreEngine::DebugUtility
             mode |= ENABLE_PROCESSED_OUTPUT | ENABLE_WRAP_AT_EOL_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
             SetConsoleMode(hOut, mode);
         }
+
+        SetConsoleCtrlHandler(ConsoleHandler, TRUE);
     #endif
     }
 

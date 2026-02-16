@@ -12,63 +12,55 @@
 namespace AsphaltTas::MemoryUtility
 {
 //////////////////////////////////////////////////////////
-// Get process
+// Get Asphalt process
 //////////////////////////////////////////////////////////
+    static std::optional<libmem::Process> g_GAME_PROCESS_OPT;
+    static std::optional<libmem::Module>  g_GAME_MODULE_OPT;
+    static std::atomic<bool> g_HAS_CACHED_PROCESS = false;
+    static std::atomic<bool> g_HAS_CACHED_MODULE  = false;
 
-// TODO: INSURE THESE CAN BE INVALIDADED e.g. IF GAME CLOSES!!
-    static std::optional<libmem::Process> _GAME_PROCESS_OPT;
-    static std::optional<libmem::Module>  _GAME_MODULE_OPT;
-    static std::atomic<bool> _HAS_CACHED_PROCESS = false;
-    static std::atomic<bool> _HAS_CACHED_MODULE  = false;
-
-    libmem::Process GetProcessOrThrow()
+    libmem::Process GetAsphaltProcessOrThrow()
     {
         if (! GameState::GetHasValidCurrentPlatform())
             throw MemoryManipFailedException("MemoryUtility: Could not read because no platform has been set.");
 
-        if (_HAS_CACHED_PROCESS.load(std::memory_order::acquire))
+        if (g_HAS_CACHED_PROCESS.load(std::memory_order::acquire))
         {
-            return _GAME_PROCESS_OPT.value();
+            return g_GAME_PROCESS_OPT.value();
         }
 
         const GameState::GamePlatform platform = GameState::GetCurrentPlatform();
 
-        _GAME_PROCESS_OPT = libmem::FindProcess(GameState::GetGameExeNameFromPlatform(platform));
-        if (! _GAME_PROCESS_OPT.has_value()) 
+        g_GAME_PROCESS_OPT = libmem::FindProcess(GameState::GetGameExeNameFromPlatform(platform));
+        if (! g_GAME_PROCESS_OPT.has_value()) 
             throw MemoryManipFailedException("MemoryUtility: Failed to open process.");
 
-        _HAS_CACHED_PROCESS.store(true, std::memory_order::release);
+        g_HAS_CACHED_PROCESS.store(true, std::memory_order::release);
 
-        return _GAME_PROCESS_OPT.value();
+        return g_GAME_PROCESS_OPT.value();
     }
 
-    std::pair<libmem::Process, libmem::Module> GetProcessAndModuleOrThrow()
+    std::pair<libmem::Process, libmem::Module> GetAsphaltProcessAndModuleOrThrow()
     {
         if (! GameState::GetHasValidCurrentPlatform())
             throw MemoryManipFailedException("MemoryUtility: Could not read because no platform has been set.");
 
-        if (_HAS_CACHED_PROCESS.load(std::memory_order::acquire) && _HAS_CACHED_MODULE.load(std::memory_order::acquire))
+        if (g_HAS_CACHED_PROCESS.load(std::memory_order::acquire) && g_HAS_CACHED_MODULE.load(std::memory_order::acquire))
         {
-            return { _GAME_PROCESS_OPT.value(), _GAME_MODULE_OPT.value() };
+            return { g_GAME_PROCESS_OPT.value(), g_GAME_MODULE_OPT.value() };
         }
 
         GameState::GamePlatform platform = GameState::GetCurrentPlatform();
 
-        _GAME_PROCESS_OPT = libmem::FindProcess(GameState::GetGameExeNameFromPlatform(platform));
-        if (!_GAME_PROCESS_OPT) throw MemoryManipFailedException("MemoryUtility: Failed to open process.");
-        _HAS_CACHED_PROCESS.store(true, std::memory_order::release);
+        g_GAME_PROCESS_OPT = libmem::FindProcess(GameState::GetGameExeNameFromPlatform(platform));
+        if (!g_GAME_PROCESS_OPT) throw MemoryManipFailedException("MemoryUtility: Failed to open process.");
+        g_HAS_CACHED_PROCESS.store(true, std::memory_order::release);
 
-        _GAME_MODULE_OPT = libmem::FindModule(&_GAME_PROCESS_OPT.value(), GameState::GetGameExeNameFromPlatform(platform));
-        if (!_GAME_MODULE_OPT) throw MemoryManipFailedException("MemoryUtility: Failed to open process.");
-        _HAS_CACHED_MODULE.store(true, std::memory_order::release);
+        g_GAME_MODULE_OPT = libmem::FindModule(&g_GAME_PROCESS_OPT.value(), GameState::GetGameExeNameFromPlatform(platform));
+        if (!g_GAME_MODULE_OPT) throw MemoryManipFailedException("MemoryUtility: Failed to open process.");
+        g_HAS_CACHED_MODULE.store(true, std::memory_order::release);
 
-        return { _GAME_PROCESS_OPT.value(), _GAME_MODULE_OPT.value() };
-    }
-
-    void InvalidateCache() noexcept
-    {
-        _HAS_CACHED_PROCESS.store(false, std::memory_order::release);
-        _HAS_CACHED_MODULE.store(false, std::memory_order::release);
+        return { g_GAME_PROCESS_OPT.value(), g_GAME_MODULE_OPT.value() };
     }
 
 //////////////////////////////////////////////////////////
@@ -216,11 +208,11 @@ namespace AsphaltTas::MemoryUtility
 
         return suspended;
     }
-#endif
+
 //////////////////////////////////////////////////////////
 // Process visibility state (Windows API required)
 //////////////////////////////////////////////////////////
-#ifdef _WIN32
+
     bool ProcessIsInForeground(libmem::Pid process_id) noexcept
     {
         HWND fg = GetForegroundWindow();
@@ -229,13 +221,13 @@ namespace AsphaltTas::MemoryUtility
 
         return pid == static_cast<DWORD>(process_id);
     }
-#endif
+
 
 //////////////////////////////////////////////////////////
 // Get HWND from pid
 //////////////////////////////////////////////////////////
-#ifdef _WIN32
-    static HWND _FOUND_HWND = nullptr;
+
+    static HWND g_FOUND_HWND = nullptr;
 
     static BOOL CALLBACK EnumWindowsCallback(HWND hwnd, LPARAM pid_to_find) noexcept
     {
@@ -244,7 +236,7 @@ namespace AsphaltTas::MemoryUtility
 
         if (pid == (DWORD)pid_to_find && IsWindowVisible(hwnd))
         {
-            _FOUND_HWND = hwnd;
+            g_FOUND_HWND = hwnd;
             return FALSE;
         }
         return TRUE;
@@ -253,27 +245,36 @@ namespace AsphaltTas::MemoryUtility
     HWND GetHWNDFromPID(libmem::Pid pid) noexcept
     {
     
-        _FOUND_HWND = nullptr;
+        g_FOUND_HWND = nullptr;
         EnumWindows(EnumWindowsCallback, (LPARAM)pid);
-        return _FOUND_HWND;
+        return g_FOUND_HWND;
     }
-#endif
+
 //////////////////////////////////////////////////////////
 // Call callback once external application closes
 //////////////////////////////////////////////////////////
-#ifdef _WIN32
+
     void ApplicationShutdownWatchdog(libmem::Pid pid, const std::function<void()>& callback) noexcept
     {
         HANDLE hProc = OpenProcess(SYNCHRONIZE, FALSE, pid);
 
         if (!hProc) return;
 
-        std::thread(
-            [hProc, callback]() 
+        std::thread([hProc, callback]() 
             { 
                 WaitForSingleObject(hProc, INFINITE); CloseHandle(hProc);
                 callback();
             }).detach();
     }
+
 #endif
+
+//////////////////////////////////////////////////////////
+// Invalidate all cache
+//////////////////////////////////////////////////////////
+    void InvalidateCache() noexcept
+    {
+        g_HAS_CACHED_PROCESS.store(false, std::memory_order::release);
+        g_HAS_CACHED_MODULE.store(false, std::memory_order::release);
+    }
 }

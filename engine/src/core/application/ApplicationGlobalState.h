@@ -19,6 +19,7 @@ namespace CoreEngine
 //-------------------
     struct GlobalSet_VsyncIsOn {};
     struct GlobalSet_StopApplication {};
+    struct GlobalSet_RaiseEvent {};
 
     template <typename TSet, typename Arg>
     void GlobalSet(Arg&&);

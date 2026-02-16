@@ -48,7 +48,7 @@ namespace AsphaltTas
     uintptr_t MemoryAddressFinder::FindRacerStateBaseAddress()
     {
         std::scoped_lock lock(RacerCache::MUTEX);
-        auto [process, module] = MemoryUtility::GetProcessAndModuleOrThrow();
+        auto [process, module] = MemoryUtility::GetAsphaltProcessAndModuleOrThrow();
 
         ////////////////////////////////////////
         // Find hook location & save original code
@@ -220,14 +220,14 @@ namespace AsphaltTas
         ////////////////////////////////////////
         static libmem::Address ORIGINAL_CODE_ADDRESS = INVALID_ADDRESS;
 
-        constexpr static size_t                          ORIGINAL_CODE_SIZE = 14;
+        constexpr static size_t                         ORIGINAL_CODE_SIZE = 14;
         static std::array<uint8_t, ORIGINAL_CODE_SIZE>  ORIGINAL_CODE;
-        static bool                                      ORIGINAL_CODE_CACHE_HAS_VALUE = false;
+        static bool                                     ORIGINAL_CODE_CACHE_HAS_VALUE = false;
 
         ////////////////////////////////////////
         // Cave
         ////////////////////////////////////////
-        constexpr size_t       ALLOCATED_CAVE_SIZE   = 0x1000;
+        constexpr size_t       ALLOCATED_CAVE_SIZE    = 0x1000;
         static libmem::Address ALLOCATED_CAVE_ADDRESS = INVALID_ADDRESS;
 
         ////////////////////////////////////////
@@ -241,7 +241,7 @@ namespace AsphaltTas
     {
         std::scoped_lock lock(CameraCache::MUTEX);
 
-        auto [process, module] = MemoryUtility::GetProcessAndModuleOrThrow();
+        auto [process, module] = MemoryUtility::GetAsphaltProcessAndModuleOrThrow();
 
         ////////////////////////////////////////
         // Find hook location & save original code
@@ -362,7 +362,10 @@ namespace AsphaltTas
         {
             if (hook_installed) 
             {
-                MemoryUtility::TryWriteMemoryOrNothing(&process, CameraCache::ORIGINAL_CODE_ADDRESS, CameraCache::ORIGINAL_CODE.data(), CameraCache::ORIGINAL_CODE_SIZE);
+                if (! MemoryUtility::TryWriteMemoryOrNothing(&process, CameraCache::ORIGINAL_CODE_ADDRESS, CameraCache::ORIGINAL_CODE.data(), CameraCache::ORIGINAL_CODE_SIZE))
+                {
+                    ENGINE_DEBUG_PRINT("Warning: Failed to restore original code after timeout.");
+                }
             }
             
             throw;
@@ -372,7 +375,7 @@ namespace AsphaltTas
     [[deprecated("Better of using FinalCameraStateAddresses()")]]
     uintptr_t MemoryAddressFinder::FindActionCameraBaseAddress()
     {
-        auto [process, module] = MemoryUtility::GetProcessAndModuleOrThrow();
+        auto [process, module] = MemoryUtility::GetAsphaltProcessAndModuleOrThrow();
 
         libmem::Address original = MemoryUtility::AOBScanOrThrow(&process, "F2 0F 11 87 70 FE FF FF 41 0F 28 C3", module.base, module.size);
 
@@ -472,7 +475,7 @@ namespace AsphaltTas
         std::scoped_lock lock(RacerCache::MUTEX, CameraCache::MUTEX);
         try 
         {
-            const libmem::Process process = MemoryUtility::GetProcessOrThrow();
+            const libmem::Process process = MemoryUtility::GetAsphaltProcessOrThrow();
 
             auto FREE_IF_REQUIRED = [&process](libmem::Address address, size_t size) -> void
             {
@@ -485,7 +488,7 @@ namespace AsphaltTas
             FREE_IF_REQUIRED(RacerCache::ALLOCATED_CAVE_ADDRESS,    RacerCache::ALLOCATED_CAVE_SIZE);
             FREE_IF_REQUIRED(RacerCache::ALLOCATED_POINTER_ADDRESS, RacerCache::ALLOCATED_POINTER_SIZE);
 
-            FREE_IF_REQUIRED(CameraCache::ALLOCATED_CAVE_ADDRESS,     CameraCache::ALLOCATED_CAVE_SIZE);
+            FREE_IF_REQUIRED(CameraCache::ALLOCATED_CAVE_ADDRESS,    CameraCache::ALLOCATED_CAVE_SIZE);
             FREE_IF_REQUIRED(CameraCache::ALLOCATED_POINTER_ADDRESS, CameraCache::ALLOCATED_POINTER_SIZE);
         }  
         catch (const std::exception& e)

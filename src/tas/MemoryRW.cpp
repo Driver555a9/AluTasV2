@@ -19,7 +19,7 @@ namespace AsphaltTas
         if (! RacerStateAddresses::AddressesAreValid()) 
             throw MemoryUtility::MemoryManipFailedException("ReadRacerState(): Requires valid RacerStateAddresses to read RacerState.");
 
-        const libmem::Process process = MemoryUtility::GetProcessOrThrow();
+        const libmem::Process process = MemoryUtility::GetAsphaltProcessOrThrow();
 
         glm::mat4 trans;
         glm::vec3 velocity;
@@ -49,7 +49,7 @@ namespace AsphaltTas
         if (! CameraStateAddresses::AddressesAreValid()) 
             throw MemoryUtility::MemoryManipFailedException("ReadCameraState(): Requires valid FinalCameraStateAddresses to read FinalCameraState.");
 
-        const libmem::Process process = MemoryUtility::GetProcessOrThrow();
+        const libmem::Process process = MemoryUtility::GetAsphaltProcessOrThrow();
 
         constexpr size_t CAMERA_BLOCK_SIZE = CameraStateAddresses::OFFSET_ASPECT_RATIO + sizeof(float);
 
@@ -89,7 +89,7 @@ namespace AsphaltTas
         if (! RacerStateAddresses::AddressesAreValid()) 
             throw MemoryUtility::MemoryManipFailedException("WriteRacerState(): Requires valid RacerStateAddresses to write RacerState.");
 
-        const libmem::Process process = MemoryUtility::GetProcessOrThrow();
+        const libmem::Process process = MemoryUtility::GetAsphaltProcessOrThrow();
 
         //////////////////////////////////////////////////////////
         // Swapping Y and Z to convert to XZY convention; Flipping sign of (y) = Z in glm convention for handiness
@@ -107,7 +107,7 @@ namespace AsphaltTas
         if (! CameraStateAddresses::AddressesAreValid()) 
             throw MemoryUtility::MemoryManipFailedException("FinalCameraStateAddresses(): Requires valid FinalCameraStateAddresses to write FinalCameraState.");
 
-        const libmem::Process process = MemoryUtility::GetProcessOrThrow();
+        const libmem::Process process = MemoryUtility::GetAsphaltProcessOrThrow();
 
         CameraState copy = state;
         
@@ -203,7 +203,7 @@ namespace AsphaltTas
         
         if (CamCache::CAMERA_CODE_IS_DESTROYED) return;
 
-        auto [process, module] = MemoryUtility::GetProcessAndModuleOrThrow();
+        auto [process, module] = MemoryUtility::GetAsphaltProcessAndModuleOrThrow();
 
         try
         {
@@ -354,7 +354,7 @@ namespace AsphaltTas
         std::scoped_lock lock(CamCache::DESTROY_RESTORE_CAMERA_MUTEX);
         if (! CamCache::CAMERA_CODE_IS_DESTROYED) return;
 
-        const libmem::Process process = MemoryUtility::GetProcessOrThrow();
+        const libmem::Process process = MemoryUtility::GetAsphaltProcessOrThrow();
 
         // Restore position
         MemoryUtility::TryWriteMemoryOrNothing(&process, CamCache::POSITION_XY_ADDRESS, CamCache::ORIGINAL_POSITION_XZ.data(), CamCache::ORIGINAL_POSITION_XZ.size());

@@ -15,6 +15,8 @@
 #include "tas/RacerState.h"
 #include "tas/CameraState.h"
 #include "tas/GameState.h"
+#include "tas/MemoryUtility.h"
+#include "tas/MouseInputService.h"
 
 //ImGUI
 #include "imgui/imgui.h"
@@ -69,31 +71,7 @@ namespace AsphaltTas
             //////////////////////////////////////////////////////////
             // Calculate delta mouse movement from last update
             //////////////////////////////////////////////////////////
-            POINT mouse_pos;
-            GetCursorPos(&mouse_pos);
-
-            if (!ImGui::GetIO().WantCaptureMouse)
-            {
-                if (m_pseudo_game_input_state.m_previous_mouse_pos.has_value())
-                {
-                    const glm::ivec2 prev = *m_pseudo_game_input_state.m_previous_mouse_pos;
-                    m_pseudo_game_input_state.m_mouse_move_delta.x = mouse_pos.x - prev.x;
-                    m_pseudo_game_input_state.m_mouse_move_delta.y = mouse_pos.y - prev.y;
-                }
-            }
-
-            //////////////////////////////////////////////////////////
-            // Center mouse in window
-            //////////////////////////////////////////////////////////
-            if (m_free_flight_recenter)
-            {
-                SetCursorPos(100, 100);
-                m_pseudo_game_input_state.m_previous_mouse_pos = {100, 100};
-            }
-            else 
-            {
-                m_pseudo_game_input_state.m_previous_mouse_pos = { mouse_pos.x, mouse_pos.y };
-            }
+            m_pseudo_game_input_state.m_mouse_move_delta = MouseInputService::GetMouseDeltaMovementAndReset();
 
             m_pseudo_game_camera_controller.Update(m_pseudo_game_camera, m_pseudo_game_input_state, CoreEngine::Units::Convert<CoreEngine::Units::Second>(dt));
 
@@ -119,71 +97,148 @@ namespace AsphaltTas
 
     void TasLayer::OnImGuiRender()
     {   
-        ImGui::SetNextWindowSize(ImVec2(600, 800), ImGuiCond_FirstUseEver);
+        ImVec2 display = ImGui::GetIO().DisplaySize;
 
-        ImGui::Begin("Asphalt Tool", nullptr, ImGuiWindowFlags_NoNav );
+        ImGui::SetNextWindowPos(ImVec2(0, 0));
+        ImGui::SetNextWindowSize(display);
+        
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, COLOR_BLACK);
 
-        if (IsInFreeFlight())
-        {
-            OnImGuiRender_FreeFlightOptions();
-        }
-        else 
-        {
-            if (ImGui::Button("Enter Free Flight"))
-            {
-                try 
-                {
-                    CameraState camera_state_now;
-                    camera_state_now = MemoryRW::ReadCameraState();
-                    
-                    m_pseudo_game_camera.SetPosition(camera_state_now.m_position);
-                    m_pseudo_game_camera.SetRotation(camera_state_now.m_rotation);
-                    m_pseudo_game_camera.SetFovRad(camera_state_now.m_fov_radians);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 
-                    MemoryRW::DestroyCameraUpdateCode();
-                } 
-                catch (std::exception& e) { ENGINE_DEBUG_PRINT(e.what()); }
-            }
-        }
-
-        if (ImGui::CollapsingHeader("Addresses", ImGuiTreeNodeFlags_DefaultOpen))
+        ImGuiWindowFlags flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse
+                               | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus;
+        
+        ImGui::Begin("Asphalt Tool", nullptr, flags );
+        
+    //////////////////////////////////////////////////////////
+    // Address state
+    //////////////////////////////////////////////////////////
+        if (ImGui::CollapsingHeader("Addresses", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf))
         {
             switch (GameState::GetCurrentPlatform())
             {
-                case GameState::GamePlatform::MS:    ImGui::TextUnformatted("Platform: MS");    break;
-                case GameState::GamePlatform::STEAM: ImGui::TextUnformatted("Platform: Steam"); break;
-                default:                             ImGui::TextUnformatted("Platform: NONE");  break;
-            }
-
-            /*
-            if (ImGui::Button("Generate"))
-            {
-                constexpr bool force_update = true;
-                OnAttemptUpdateAddresses(force_update);
-            } 
-
-            if (ImGui::Checkbox("Automatically Update Addresses", &m_enable_auto_attempt_update_address))
-            {
-                if (m_enable_auto_attempt_update_address)
+                case GameState::GamePlatform::MS:
                 {
-                    RacerStateAddresses::LaunchAddressUpdateServiceThread();
-                    CameraStateAddresses::LaunchAddressUpdateServiceThread();
+                    ImGui::PushStyleColor(ImGuiCol_Text, COLOR_GREEN);
+                    ImGui::TextUnformatted("Platform: MS");
+                    ImGui::PopStyleColor();
+                    break;
                 }
-                else 
+                case GameState::GamePlatform::STEAM: 
                 {
-                    RacerStateAddresses::StopAddressUpdateServiceThread();
-                    CameraStateAddresses::StopAddressUpdateServiceThread();
+                    ImGui::PushStyleColor(ImGuiCol_Text, COLOR_GREEN);
+                    ImGui::TextUnformatted("Platform: Steam");
+                    ImGui::PopStyleColor();
+                    break;
+                }
+                default:
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
+                    ImGui::TextUnformatted("Platform: NONE");
+                    ImGui::PopStyleColor();
                 }
             }
-            */
 
             ImGui::TextUnformatted("Camera:");
+            ImGui::PushStyleColor(ImGuiCol_Text, CameraStateAddresses::AddressesAreValid() ? COLOR_GREEN : COLOR_RED);
             ImGui::TextUnformatted(CameraStateAddresses::ToString().c_str());
+            ImGui::PopStyleColor();
+
             ImGui::TextUnformatted("Racer:");
+            ImGui::PushStyleColor(ImGuiCol_Text, RacerStateAddresses::AddressesAreValid() ? COLOR_GREEN : COLOR_RED);
             ImGui::TextUnformatted(RacerStateAddresses::ToString().c_str());
+            ImGui::PopStyleColor();
         }
 
-        if (ImGui::CollapsingHeader("Tool Performance"))
+    //////////////////////////////////////////////////////////
+    // Free flight
+    //////////////////////////////////////////////////////////
+        if (ImGui::CollapsingHeader("Free Flight", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf))
+        {
+            if (! IsInFreeFlight())
+            {
+                ImGui::PushStyleColor(ImGuiCol_Button, COLOR_GREEN);
+                if (ImGui::Button("Enter Free Flight"))
+                {
+                    try 
+                    {
+                        CameraState camera_state_now;
+                        camera_state_now = MemoryRW::ReadCameraState();
+                        
+                        m_pseudo_game_camera.SetPosition(camera_state_now.m_position);
+                        m_pseudo_game_camera.SetRotation(camera_state_now.m_rotation);
+                        m_pseudo_game_camera.SetFovRad(camera_state_now.m_fov_radians);
+
+                        MemoryRW::DestroyCameraUpdateCode();
+                        MouseInputService::LaunchMouseCaptureThread();
+                    } 
+                    catch (std::exception& e) { ENGINE_DEBUG_PRINT("Failed to enter free flight: " << e.what()); }
+                }
+                ImGui::PopStyleColor();
+            }
+            else 
+            {
+                ImGui::PushStyleColor(ImGuiCol_Button, COLOR_RED);
+                if (ImGui::Button("Leave Free Flight"))
+                {
+                    try 
+                    {
+                        MemoryRW::RestoreCameraUpdateCode();
+                        MouseInputService::StopMouseCaptureThread();
+                    } catch (std::exception& e) { ENGINE_DEBUG_PRINT("Failed to leave free flight: " << e.what()); }
+                }
+                ImGui::PopStyleColor();
+            }
+
+            float velo = m_pseudo_game_camera_controller.GetMoveSpeed();
+            if (ImGui::SliderFloat("Fly Speed", &velo, 0.1, 1000.0f, "%.3f"))
+            {
+                m_pseudo_game_camera_controller.SetMoveSpeed(velo);
+            }
+
+            float sensitivity = m_pseudo_game_camera_controller.GetSensitivity();
+            if (ImGui::SliderFloat("Sensitivity", &sensitivity, 0.01f, 0.5f, "%.3f"))
+            {
+                m_pseudo_game_camera_controller.SetSensitivity(sensitivity);
+            }
+
+            float fov_deg = m_pseudo_game_camera.GetFovDeg();
+            if (ImGui::SliderFloat("Fov", &fov_deg, 1.0f, 160.0f, "%.1f°"))
+            {
+                m_pseudo_game_camera.SetFovDeg(fov_deg);
+            }
+
+            bool recenter = MouseInputService::GetAlwaysRecenterCursor();
+            if (ImGui::Checkbox("Lock Mouse Position", &recenter))
+            {
+                MouseInputService::SetAlwaysRecenterCursor(recenter);
+            }
+
+            if (ImGui::Button("Move To"))
+            {
+                m_pseudo_game_camera.SetPosition(m_free_cam_input_position);
+            }
+            ImGui::SameLine();
+            ImGui::InputFloat3("##input_tp", glm::value_ptr(m_free_cam_input_position));
+
+            if (IsInFreeFlight())
+            {
+                ImGui::TextUnformatted(("Position : " + CoreEngine::CommonUtility::GlmVec3ToString(m_pseudo_game_camera.GetPosition())).c_str());
+                ImGui::TextUnformatted(("Rotation : " + CoreEngine::CommonUtility::GlmQuatToString(m_pseudo_game_camera.GetRotation())).c_str());
+                ImGui::TextUnformatted(("Rot Euler: " + CoreEngine::CommonUtility::GlmVec3ToString(glm::eulerAngles(m_pseudo_game_camera.GetRotation()))).c_str());
+            }
+            else 
+            {
+                ImGui::TextUnformatted("Position : [x.x, x.x, x.x]");
+                ImGui::TextUnformatted("Rotation : [x.x, x.x, x.x, x.x]");
+                ImGui::TextUnformatted("Rot Euler: [x.x, x.x, x.x]");
+            }
+        }
+        
+        if (ImGui::CollapsingHeader("Tool Performance", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf))
         {
             ImGui::Text("Tool FPS: %.0f", ImGui::GetIO().Framerate);
 
@@ -193,73 +248,37 @@ namespace AsphaltTas
                 CoreEngine::GlobalSet<CoreEngine::GlobalSet_VsyncIsOn>(vsync_is_on);
             }
 
-            const std::vector<CoreEngine::PerFrameScopeTimes::ScopeTimeData>& scope_times = CoreEngine::PerFrameScopeTimes::GetScopeTimeDataConstRef();
-            for (const CoreEngine::PerFrameScopeTimes::ScopeTimeData& data : scope_times)
+            if (ImGui::CollapsingHeader("Thread Status", ImGuiTreeNodeFlags_DefaultOpen ))
             {
-                ImGui::TextUnformatted(data.ToString().c_str());
+                auto LogThread = [](const char* name, bool is_active) -> void 
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Text, is_active ? COLOR_GREEN : COLOR_RED);
+                    ImGui::TextUnformatted(name);
+                    ImGui::SameLine();
+                    ImGui::TextUnformatted(is_active ? "Active" : "Inactive");
+                    ImGui::PopStyleColor();
+                };
+
+                LogThread("Game State Watchdog   : ", GameState::DetectGameServiceThreadIsRunning());
+                LogThread("Update Racer Address  : ", RacerStateAddresses::GetAddressUpdateServiceThreadIsRunning());
+                LogThread("Update Camera Address : ", CameraStateAddresses::GetAddressUpdateServiceThreadIsRunning());
+                LogThread("Mouse Input Service   : ", MouseInputService::GetThreadIsRunning());
+            }
+
+            if (ImGui::CollapsingHeader("Frame Times", ImGuiTreeNodeFlags_DefaultOpen ))
+            {
+                const std::vector<CoreEngine::PerFrameScopeTimes::ScopeTimeData>& scope_times = CoreEngine::PerFrameScopeTimes::GetScopeTimeDataConstRef();
+                for (const CoreEngine::PerFrameScopeTimes::ScopeTimeData& data : scope_times)
+                {
+                    ImGui::TextUnformatted(data.ToString().c_str());
+                }
             }
         }
 
-        ImGui::PushStyleColor(ImGuiCol_Button, COLOR_RED);
-        if (ImGui::Button("Exit"))
-        {
-            CoreEngine::GlobalSet<CoreEngine::GlobalSet_StopApplication>();
-        }
-        ImGui::PopStyleColor();
-
         ImGui::End();
-    }
 
-    void TasLayer::OnImGuiRender_FreeFlightOptions() noexcept
-    {
-        ImGui::SetNextWindowSize(ImVec2(600, 450), ImGuiCond_FirstUseEver);
-
-        ImGui::Begin("Free Flight", nullptr, ImGuiWindowFlags_NoNav );
-
-        float velo = m_pseudo_game_camera_controller.GetMoveSpeed();
-        if (ImGui::SliderFloat("Fly Speed", &velo, 0.1, 1000.0f, "%.3f"))
-        {
-            m_pseudo_game_camera_controller.SetMoveSpeed(velo);
-        }
-
-        float sensitivity = m_pseudo_game_camera_controller.GetSensitivity();
-        if (ImGui::SliderFloat("Sensitivity", &sensitivity, 0.01f, 0.5f, "%.3f"))
-        {
-            m_pseudo_game_camera_controller.SetSensitivity(sensitivity);
-        }
-
-        float fov_deg = m_pseudo_game_camera.GetFovDeg();
-        if (ImGui::SliderFloat("Fov", &fov_deg, 1.0f, 160.0f, "%.1f°"))
-        {
-            m_pseudo_game_camera.SetFovDeg(fov_deg);
-        }
-
-        ImGui::Checkbox("Center Mouse", &m_free_flight_recenter);
-
-        const std::string pos_msg = "Position : " + CoreEngine::CommonUtility::GlmVec3ToString(m_pseudo_game_camera.GetPosition());
-        ImGui::TextUnformatted(pos_msg.c_str());
-
-        const std::string rot_msg = "Rotation : " + CoreEngine::CommonUtility::GlmQuatToString(m_pseudo_game_camera.GetRotation());
-        ImGui::TextUnformatted(rot_msg.c_str());
-
-        const std::string rot_euler_msg = "Rot Euler: " + CoreEngine::CommonUtility::GlmVec3ToString(glm::eulerAngles(m_pseudo_game_camera.GetRotation()));
-        ImGui::TextUnformatted(rot_euler_msg.c_str());
-
-        ImGui::PushStyleColor(ImGuiCol_Button, COLOR_RED);
-        if (ImGui::Button("Exit"))
-        {
-            try 
-            {
-                MemoryRW::RestoreCameraUpdateCode();
-            } 
-            catch (std::exception& e)
-            {
-                ENGINE_DEBUG_PRINT(e.what());
-            }
-        }
         ImGui::PopStyleColor();
-
-        ImGui::End();
+        ImGui::PopStyleVar(3);
     }
 
     bool TasLayer::OnAttemptUpdateAddresses(bool force_update_each) noexcept
@@ -289,4 +308,5 @@ namespace AsphaltTas
     {
         return MemoryRW::CameraCodeIsDestroyed();
     }
+
 }

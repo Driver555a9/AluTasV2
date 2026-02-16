@@ -22,15 +22,13 @@ namespace AsphaltTas
     // Exceptions thrown by functions
     //////////////////////////////////////////////////////////
         struct MemoryManipFailedException : public std::runtime_error { explicit MemoryManipFailedException(const char* what) noexcept : std::runtime_error(what) {} };
-    
+
     //////////////////////////////////////////////////////////
     // Get process
     //////////////////////////////////////////////////////////
-        [[nodiscard]] libmem::Process GetProcessOrThrow();
+        [[nodiscard]] libmem::Process GetAsphaltProcessOrThrow();
 
-        [[nodiscard]] std::pair<libmem::Process, libmem::Module> GetProcessAndModuleOrThrow();
-
-        void InvalidateCache() noexcept;
+        [[nodiscard]] std::pair<libmem::Process, libmem::Module> GetAsphaltProcessAndModuleOrThrow();
 
     //////////////////////////////////////////////////////////
     // Pattern searching
@@ -79,10 +77,10 @@ namespace AsphaltTas
             WriteMemoryOrThrow(process, address, reinterpret_cast<uint8_t*>(glm::value_ptr(data)), sizeof(decltype(data)));
         }
 
+#ifdef _WIN32
     //////////////////////////////////////////////////////////
     // Suspend / Pause process (Windows API required)
     //////////////////////////////////////////////////////////
-#ifdef _WIN32
         struct SuspendedProcess
         {
             std::vector<void*> m_thread_handles;
@@ -107,7 +105,13 @@ namespace AsphaltTas
     // Call callback once external application closes (Windows API required)
     //////////////////////////////////////////////////////////
         void ApplicationShutdownWatchdog(libmem::Pid process_id, const std::function<void()>& callback) noexcept;
+;
 #endif
+
+    //////////////////////////////////////////////////////////
+    // Invalidate any cache
+    //////////////////////////////////////////////////////////
+        void InvalidateCache() noexcept;
     }
 
 }

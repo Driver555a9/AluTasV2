@@ -58,6 +58,11 @@ namespace CoreEngine
             glfwSwapInterval(value);
             return;
         }
+        else if constexpr (std::same_as<TSet, GlobalSet_RaiseEvent> && std::is_base_of_v<Basic_Event, std::remove_cvref_t<Arg>>)
+        {
+            Application::s_application_instance_ptr->RaiseEvent<std::remove_cvref_t<Arg>>(std::forward<Arg>(arg));
+            return;
+        }
         else 
         {
             static_assert(sizeof(TSet) == 0 && "At GlobalSet(Arg&& arg): Unrecognized type to set.");
@@ -70,6 +75,7 @@ namespace CoreEngine
     template void GlobalSet<TSet, const Arg&>(const Arg&);
 
     INSTANTIATE_GLOBALSET(GlobalSet_VsyncIsOn, bool)
+    template void GlobalSet<GlobalSet_RaiseEvent, Basic_Event>(Basic_Event&&);
 
     #undef INSTANTIATE_GLOBALSET
 

@@ -34,7 +34,6 @@ namespace AsphaltTas
 
     void RacerStateAddresses::LaunchAddressUpdateServiceThread() noexcept
     {
-        if (GetAddressUpdateServiceThreadIsRunning()) return;
         s_address_update_service_thread_is_running.store(true, std::memory_order::release);
         std::thread([](){
             while (GetAddressUpdateServiceThreadIsRunning())
@@ -43,7 +42,8 @@ namespace AsphaltTas
                 {
                     ManuallySetAddresses(MemoryAddressFinder::FindRacerStateBaseAddress());
                 } 
-                catch (...) {
+                catch (...) 
+                { 
                     ManuallySetAddresses(0);
                 }
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -68,9 +68,13 @@ namespace AsphaltTas
 
     std::string RacerStateAddresses::ToString() noexcept
     {
+        if (GetBaseAddress() == INVALID_ADDRESS)
+        {
+            return std::string("Invalid : Base\nInvalid : Trans Matrix\nInvalid : Velocity");
+        }
         std::ostringstream ss;
         ss << "0x" << std::hex << GetBaseAddress() << " : Base\n"
-        << "0x" << std::hex << GetTransMatrixAddress() << " : Trans Matrix4\n"
+        << "0x" << std::hex << GetTransMatrixAddress() << " : Trans Matrix\n"
         << "0x" << std::hex << GetVelocityVec3Address() << " : Velocity";
         return ss.str();
     }
@@ -119,7 +123,6 @@ namespace AsphaltTas
 
     void CameraStateAddresses::LaunchAddressUpdateServiceThread() noexcept
     {
-        if (GetAddressUpdateServiceThreadIsRunning()) return;
         s_address_update_service_thread_is_running.store(true, std::memory_order::release);
         std::thread([](){
             while (GetAddressUpdateServiceThreadIsRunning())
@@ -153,6 +156,10 @@ namespace AsphaltTas
 
     std::string CameraStateAddresses::ToString() noexcept
     {
+        if (GetBaseAddress() == INVALID_ADDRESS)
+        {
+            return std::string("Invalid : Base\nInvalid : Position\nInvalid : Rotation\nInvalid : Fov Radians\nInvalid : Aspect Ratio");
+        }
         std::ostringstream ss;
         ss << "0x" << std::hex << GetBaseAddress() << " : Base\n" 
         << "0x" << std::hex << GetPositionVec3Address() << " : Position\n" 

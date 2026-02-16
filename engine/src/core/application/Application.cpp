@@ -23,7 +23,7 @@
 namespace CoreEngine
 {
     //Constructor
-    Application::Application(Window&& window) : m_window(std::move(window)), m_stop_flag(false)
+    Application::Application(Window&& window, ApplicationConfig config) : m_window(std::move(window)), m_stop_flag(false), m_original_config(config)
     {
         s_application_instance_ptr = this;
     }
@@ -47,26 +47,26 @@ namespace CoreEngine
         Renderer::InitializeImGui(window_ptr);
         ImGuiIO& io = ImGui::GetIO();
 
-        Timer timer {};
+        Timer frame_timer {};
 
         while (! m_stop_flag)
         {
-            ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME("Entire Loop    ");
+            ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME("Main Loop()    ");
             //////////////////////////////////////////////// 
             //--------- Updating
             ////////////////////////////////////////////////
+            #ifdef _WIN32
             if (m_window.GetIsClickthrough())
             {
-            #ifdef _WIN32
                 const bool mouse_over_imgui = ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) || ImGui::IsAnyItemHovered() || io.WantCaptureMouse;
                 m_window.SetClickthrough(! mouse_over_imgui);
-            #endif
             }
+            #endif
 
             {
                 ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME("OnUpdate()     ");
                 //from 0.001 milisec - 100 milisec
-                m_frame_delta_time = std::clamp<Units::MicroSecond>(timer.GetElapsedAndRestart<Units::MicroSecond>(), Units::MicroSecond(1L), Units::MicroSecond(100'000L));
+                m_frame_delta_time = std::clamp<Units::MicroSecond>(frame_timer.GetElapsedAndRestart<Units::MicroSecond>(), Units::MicroSecond(1L), Units::MicroSecond(100'000L));
                 for (std::unique_ptr<Basic_Layer>& layer : m_layers)
                 {
                     layer->OnUpdate(m_frame_delta_time);
@@ -90,7 +90,7 @@ namespace CoreEngine
             //////////////////////////////////////////////// 
             {
                 ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME("OnImGuiRender()");
-                Renderer::BeginImGuiFrame();;
+                Renderer::BeginImGuiFrame();
                 for (std::unique_ptr<Basic_Layer>& layer : m_layers)
                 {
                     layer->OnImGuiRender();
@@ -107,7 +107,14 @@ namespace CoreEngine
             //////////////////////////////////////////////// 
             {
                 ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME("Events()       ");
-                glfwPollEvents();
+                if (m_original_config.m_use_glfw_await_events)
+                {
+                    glfwWaitEvents();
+                }
+                else 
+                {
+                    glfwPollEvents();
+                }
             }
         }
         
@@ -136,7 +143,7 @@ namespace CoreEngine
 
     void Application::MouseMovedCallback(GLFWwindow* window, double x_pos, double y_pos)
     {
-        s_application_instance_ptr->RaiseEvent(MouseMovedEvent {x_pos, y_pos} );
+        s_application_instance_ptr->RaiseEvent(MouseMovedEvent{x_pos, y_pos});
     }
 
     void Application::MouseScrollCallback(GLFWwindow* window, double x_offset, double y_offset)
@@ -163,7 +170,7 @@ namespace CoreEngine
     {
         if (s_application_instance_ptr)
         {
-            throw std::runtime_error("At Application::Create() called multiple times. Only one Application instance is allowed.");
+            ENGINE_ASSERT(false && "At Application::Create() called multiple times. Only one Application instance is allowed.");
         }
 
         if (! glfwInit())
@@ -245,16 +252,40 @@ namespace CoreEngine
         }
 
     //------------ Set GLFW Callbacks
-        glfwSetKeyCallback              (WINDOW_RAW_PTR, &Application::KeyCallback);
-        glfwSetFramebufferSizeCallback  (WINDOW_RAW_PTR, &Application::FramebufferResizeCallback);
-        glfwSetMouseButtonCallback      (WINDOW_RAW_PTR, &Application::MouseButtonCallback);
-        glfwSetCursorPosCallback        (WINDOW_RAW_PTR, &Application::MouseMovedCallback);
-        glfwSetScrollCallback           (WINDOW_RAW_PTR, &Application::MouseScrollCallback);
-        glfwSetWindowCloseCallback      (WINDOW_RAW_PTR, &Application::WindowCloseCallback);
+        if ( (config.m_disable_callback_flags & ApplicationConfig::CallbackDisableFlags::KeyCallback) == ApplicationConfig::CallbackDisableFlags::NONE)
+        {
+            glfwSetKeyCallback (WINDOW_RAW_PTR, &Application::KeyCallback);
+        }
+        if ( (config.m_disable_callback_flags & ApplicationConfig::CallbackDisableFlags::FramebufferResizeCallback) == ApplicationConfig::CallbackDisableFlags::NONE )
+        {
+            glfwSetFramebufferSizeCallback (WINDOW_RAW_PTR, &Application::FramebufferResizeCallback);
+        }
+        if ( (config.m_disable_callback_flags & ApplicationConfig::CallbackDisableFlags::MouseButtonCallback) == ApplicationConfig::CallbackDisableFlags::NONE )
+        {
+            glfwSetMouseButtonCallback (WINDOW_RAW_PTR, &Application::MouseButtonCallback);
+        }
+        if ( (config.m_disable_callback_flags & ApplicationConfig::CallbackDisableFlags::MouseMovedCallback) == ApplicationConfig::CallbackDisableFlags::NONE )
+        {
+            glfwSetCursorPosCallback (WINDOW_RAW_PTR, &Application::MouseMovedCallback);
+        }
+        if ( (config.m_disable_callback_flags & ApplicationConfig::CallbackDisableFlags::MouseScrollCallback) == ApplicationConfig::CallbackDisableFlags::NONE )
+        {
+            glfwSetScrollCallback (WINDOW_RAW_PTR, &Application::MouseScrollCallback);
+        }
+        if ( (config.m_disable_callback_flags & ApplicationConfig::CallbackDisableFlags::WindowCloseCallback) == ApplicationConfig::CallbackDisableFlags::NONE )
+        {
+            glfwSetWindowCloseCallback (WINDOW_RAW_PTR, &Application::WindowCloseCallback);
+        }
 
         s_vsync_is_on = config.m_enable_vsync;
         glfwSwapInterval(s_vsync_is_on);
 
-        return Application {std::move(window)};
+        glfwSetInputMode(WINDOW_RAW_PTR, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
+
+        Renderer::s_imgui_config_flags |= config.m_imgui_config_flags;
+
+        return Application {std::move(window), config};
     }
+
+    
 }

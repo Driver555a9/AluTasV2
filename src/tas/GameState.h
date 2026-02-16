@@ -22,6 +22,7 @@ namespace AsphaltTas
         GameState() noexcept = delete;
 
         static void LaunchDetectGameServiceThread() noexcept;
+        [[nodiscard]] static bool DetectGameServiceThreadIsRunning() noexcept;
 
         [[nodiscard]] static GamePlatform GetCurrentPlatform() noexcept;
 
@@ -48,7 +49,8 @@ namespace AsphaltTas
     private:
         static inline std::atomic<GamePlatform> s_platform  = GamePlatform::NONE;
         static inline std::atomic<HWND>         s_game_hwnd = nullptr;
-
+        
+        static inline std::atomic<bool> s_detect_game_thread_is_running = false;
         static inline std::condition_variable s_game_closed_cv;
         static inline std::mutex s_game_closed_mutex;
     };

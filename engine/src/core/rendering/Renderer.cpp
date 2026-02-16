@@ -61,15 +61,13 @@ namespace CoreEngine
         ImGui_ImplOpenGL3_Init("#version 460");
 
         ImGuiIO& io = ImGui::GetIO();
-        io.FontGlobalScale = 1.1f;
         
         ImFontConfig cfg;
         cfg.FontDataOwnedByAtlas = false;
-        io.Fonts->AddFontFromMemoryTTF(JET_BRAINS_MONO_BOLD, JET_BRAINS_MONO_BOLD_length, 16.0f, &cfg);
+        io.Fonts->AddFontFromMemoryTTF(JET_BRAINS_MONO_BOLD, JET_BRAINS_MONO_BOLD_length, 18.0f, &cfg);
         ImGui::StyleColorsDark();
 
-        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-        io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+        io.ConfigFlags |= s_imgui_config_flags;
 
         if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
         {

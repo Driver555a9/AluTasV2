@@ -16,6 +16,10 @@
     #include "GLFW/glfw.h"
 #endif
 
+//ImGUI
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_opengl3.h"
 
 namespace CoreEngine
 {
@@ -111,10 +115,40 @@ namespace CoreEngine
         
         SetWindowLong(hwnd, GWL_EXSTYLE, style);
     }
-#endif
 
     bool Window::GetIsClickthrough() const noexcept
     {
         return m_is_clickthrough_window;
     }
+
+    bool Window::IsAnyImGuiWindowVisible() noexcept
+    {
+        if (!m_window_ptr) return false;
+        bool any_window_visible = !glfwGetWindowAttrib(m_window_ptr, GLFW_ICONIFIED); 
+        
+        if (! any_window_visible) 
+        {
+            ImGuiIO& io = ImGui::GetIO();
+            if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) 
+            {
+                ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+                
+                for (int i = 0; i < platform_io.Viewports.Size; i++) 
+                {
+                    ImGuiViewport* viewport = platform_io.Viewports[i];
+                    if (viewport->PlatformHandle) 
+                    {
+                        HWND hwnd = (HWND)viewport->PlatformHandle;
+                        if (!IsIconic(hwnd) && IsWindowVisible(hwnd)) 
+                        {
+                            any_window_visible = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        return any_window_visible;
+    }
+#endif
 }

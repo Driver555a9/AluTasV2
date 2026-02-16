@@ -5,6 +5,7 @@
 #include "tas/MemoryUtility.h"
 #include "tas/MemoryRW.h"
 #include "tas/MemoryAddressFinder.h"
+#include "tas/MouseInputService.h"
 
 #include <thread>
 
@@ -17,9 +18,10 @@ namespace AsphaltTas
 
     void GameState::LaunchDetectGameServiceThread() noexcept
     {
+        s_detect_game_thread_is_running.store(true, std::memory_order::release);
         std::thread([]() -> void
         {
-            while (true)
+            while (DetectGameServiceThreadIsRunning())
             {
                 std::optional<libmem::Process> opt_process;
 
@@ -34,17 +36,27 @@ namespace AsphaltTas
 
                 if (opt_process.has_value())
                 {
-                    s_game_hwnd.store(MemoryUtility::GetHWNDFromPID(opt_process->pid), std::memory_order::release);
-      
+                    HWND hwnd = MemoryUtility::GetHWNDFromPID(opt_process->pid);
+                    s_game_hwnd.store(hwnd, std::memory_order::release);
+                    //MouseInputService::InitializeRawInputCapture();
+                        
                     MemoryUtility::ApplicationShutdownWatchdog(opt_process->pid, &OnInvalidateAllCaches);
 
                     std::unique_lock lock(s_game_closed_mutex);
                     s_game_closed_cv.wait(lock, []{ return !GetHasValidCurrentPlatform(); });
+
+                    //MouseInputService::ShutdownRawInputCapture();
                 }
                 
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
+            s_detect_game_thread_is_running.store(false, std::memory_order::release);
         }).detach();
+    }
+
+    bool GameState::DetectGameServiceThreadIsRunning() noexcept
+    {
+        return s_detect_game_thread_is_running.load(std::memory_order::relaxed);
     }
 
     bool GameState::GetIsGameInForeground() noexcept
@@ -54,7 +66,7 @@ namespace AsphaltTas
 
         try 
         {
-            libmem::Process process = MemoryUtility::GetProcessOrThrow();
+            libmem::Process process = MemoryUtility::GetAsphaltProcessOrThrow();
             return MemoryUtility::ProcessIsInForeground(process.pid);
         } 
         catch (...) { return false; }
@@ -73,11 +85,11 @@ namespace AsphaltTas
 
     void GameState::OnInvalidateAllCaches() noexcept
     {
-        s_platform.store(GamePlatform::NONE, std::memory_order::release);
-        s_game_hwnd.store(nullptr, std::memory_order::release);
         MemoryUtility::InvalidateCache();
         MemoryRW::InvalidateCache();
         MemoryAddressFinder::InvalidateCache();
+        s_platform.store(GamePlatform::NONE, std::memory_order::release);
+        s_game_hwnd.store(nullptr, std::memory_order::release);
         s_game_closed_cv.notify_all();
     }
 
