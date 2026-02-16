@@ -11,7 +11,7 @@ namespace AsphaltTas
 {
     namespace MouseInputService 
     {  
-        // Will lock mouse pos if enables + hwnd is in foreground
+        // Will lock mouse pos if enabled + game is focussed
         void LaunchMouseCaptureThread() noexcept;
         
         void StopMouseCaptureThread() noexcept;

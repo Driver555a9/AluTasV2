@@ -4,11 +4,11 @@
 #include "core/event/InputEvents.h"
 #include "core/event/WindowEvents.h"
 #include "core/event/EventDispatcher.h"
-#include "core/Utility/Assert.h"
+#include "core/utility/Assert.h"
+#include "core/utility/Performance.h"
 #include "core/scene/DummyCameraController.h"
 #include "core/scene/FreeCam_CameraController.h"
 #include "core/application/ApplicationGlobalState.h"
-#include "core/utility/Performance.h"
 
 #include "tas/MemoryRW.h"
 #include "tas/MemoryAddressState.h"
@@ -51,7 +51,7 @@ namespace AsphaltTas
 
     void TasLayer::OnEvent(CoreEngine::Basic_Event& e)
     {
-        //CoreEngine::Freecam_3D_Layer::OnEvent(e);
+        
     }
 
     void TasLayer::OnUpdate(CoreEngine::Units::MicroSecond dt)
@@ -87,12 +87,12 @@ namespace AsphaltTas
         #endif
         }
 
-        //CoreEngine::Freecam_3D_Layer::OnUpdate(dt);
+        
     }
 
     void TasLayer::OnRender()
     {
-        //CoreEngine::Freecam_3D_Layer::OnRender();
+        
     }
 
     void TasLayer::OnImGuiRender()
@@ -228,7 +228,7 @@ namespace AsphaltTas
             {
                 ImGui::TextUnformatted(("Position : " + CoreEngine::CommonUtility::GlmVec3ToString(m_pseudo_game_camera.GetPosition())).c_str());
                 ImGui::TextUnformatted(("Rotation : " + CoreEngine::CommonUtility::GlmQuatToString(m_pseudo_game_camera.GetRotation())).c_str());
-                ImGui::TextUnformatted(("Rot Euler: " + CoreEngine::CommonUtility::GlmVec3ToString(glm::eulerAngles(m_pseudo_game_camera.GetRotation()))).c_str());
+                ImGui::TextUnformatted(("Rot Euler: " + CoreEngine::CommonUtility::GlmVec3ToString(glm::degrees(glm::eulerAngles(m_pseudo_game_camera.GetRotation())))).c_str());
             }
             else 
             {
@@ -290,7 +290,9 @@ namespace AsphaltTas
             try 
             {
                 success &= RacerStateAddresses::UpdateAddresses();
-            } catch (...) {}
+            } catch (...) {
+                success = false;
+            }
         }
 
         if (! CameraStateAddresses::AddressesAreValid() || force_update_each)
@@ -298,7 +300,9 @@ namespace AsphaltTas
             try 
             {
                 success &= CameraStateAddresses::UpdateAddresses();
-            } catch (...) {}
+            } catch (...) {
+                success = false;
+            }
         }
 
         return success;
