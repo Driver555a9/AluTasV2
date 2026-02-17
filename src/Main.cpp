@@ -11,10 +11,10 @@ int main()
     const CoreEngine::Application::ApplicationConfig config 
     {
         .m_application_name                 = "Asphalt Tool",
-        .m_window_size                      = {500, 900},
+        .m_relative_window_size             = {500.0f / 1920.0f, 900.0f / 1080.0f},
         .m_MSAA_sample_count                = 0,
         .m_disable_callback_flags           = event_disable,
-        .m_imgui_config_flags               = static_cast<ImGuiConfigFlags>(ImGuiConfigFlags_DpiEnableScaleFonts | ImGuiConfigFlags_DpiEnableScaleViewports),
+        .m_imgui_config_flags               = static_cast<ImGuiConfigFlags>(ImGuiConfigFlags_DpiEnableScaleFonts),
         .m_enable_vsync                     = true,
         .m_borderless_fullscreen            = false,
         .m_transparent_click_through_window = false,

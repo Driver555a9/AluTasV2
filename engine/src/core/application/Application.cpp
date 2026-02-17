@@ -188,7 +188,7 @@ namespace CoreEngine
         glfwWindowHint(GLFW_VISIBLE, ! config.m_launch_with_hidden_window);
 
         Window::WindowCreationConfig window_config;
-        window_config.m_size                        = config.m_window_size;
+        window_config.m_relative_size               = config.m_relative_window_size;
         window_config.m_is_windowed_fullscren       = config.m_borderless_fullscreen;
         window_config.m_is_transparent_clickthrough = config.m_transparent_click_through_window;
         window_config.m_title                       = config.m_application_name;

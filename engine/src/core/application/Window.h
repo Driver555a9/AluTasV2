@@ -14,7 +14,7 @@ namespace CoreEngine
         struct WindowCreationConfig 
         {
             std::string m_title;
-            std::pair<int, int> m_size {500, 500};
+            std::pair<float, float> m_relative_size {1.0f, 1.0f};
             bool m_is_windowed_fullscren = false;
             bool m_is_transparent_clickthrough = false;
         };

@@ -39,11 +39,11 @@ namespace CoreEngine
         m_camera_pitch -= input_state.m_mouse_move_delta.y * m_sensitivity;
         m_camera_pitch = std::clamp(m_camera_pitch, -89.0f, 89.0f);
 
-        const glm::quat qYaw   = glm::angleAxis(glm::radians(m_camera_yaw), glm::vec3(0, 1, 0));
-        const glm::vec3 right  = qYaw * glm::vec3(1, 0, 0); 
-        const glm::quat qPitch = glm::angleAxis(glm::radians(m_camera_pitch), right);
+        const glm::quat q_yaw   = glm::angleAxis(glm::radians(m_camera_yaw), glm::vec3(0, 1, 0));
+        const glm::vec3 right  = q_yaw * glm::vec3(1, 0, 0); 
+        const glm::quat q_pitch = glm::angleAxis(glm::radians(m_camera_pitch), right);
 
-        const glm::quat rotation = qPitch * qYaw;
+        const glm::quat rotation = q_pitch * q_yaw;
 
         camera.SetRotation(rotation);
 

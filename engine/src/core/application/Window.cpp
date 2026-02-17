@@ -23,9 +23,18 @@
 
 namespace CoreEngine
 {
-    Window::Window(WindowCreationConfig config) noexcept
-    : m_window_ptr(glfwCreateWindow(config.m_size.first, config.m_size.second, config.m_title.c_str(), nullptr, nullptr)), m_is_clickthrough_window(config.m_is_transparent_clickthrough)
+    Window::Window(WindowCreationConfig config) noexcept: m_is_clickthrough_window(config.m_is_transparent_clickthrough)
     {
+        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+
+        const int window_width  = static_cast<int>(mode->width  * config.m_relative_size.first);
+        const int window_height = static_cast<int>(mode->height * config.m_relative_size.second);
+
+        m_window_ptr = glfwCreateWindow(window_width, window_height, config.m_title.c_str(), nullptr, nullptr);
+
+        glfwSetWindowPos(m_window_ptr, (mode->width - window_width) / 2, (mode->height - window_height) / 2);
+
         ENGINE_ASSERT (m_window_ptr && "Failed to create window");
 
     #ifdef _WIN32

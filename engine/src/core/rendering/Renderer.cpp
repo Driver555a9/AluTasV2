@@ -75,6 +75,15 @@ namespace CoreEngine
             style.WindowRounding = 0.0f;
             style.Colors[ImGuiCol_WindowBg].w = 1.0f;
         }
+
+        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+
+        float scale = std::min(mode->width / 1920.0f, mode->height / 1080.0f);
+
+        ImGuiStyle& style = ImGui::GetStyle();
+        style.ScaleAllSizes(scale);
+        io.FontGlobalScale = scale;
     }
 
     void Renderer::ShutdownImGui()

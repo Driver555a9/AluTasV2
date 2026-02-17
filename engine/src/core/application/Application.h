@@ -37,17 +37,17 @@ namespace CoreEngine
                 WindowCloseCallback         = 1 << 5
             };
             
-            std::string            m_application_name                 {"generic"};
-            std::pair<int, int>    m_window_size                      {1920, 1080};
-            std::uint8_t           m_MSAA_sample_count                {0};
-            CallbackDisableFlags   m_disable_callback_flags           {CallbackDisableFlags::NONE};
-            ImGuiConfigFlags       m_imgui_config_flags               {};
-            bool                   m_enable_vsync                     {false};
-            bool                   m_borderless_fullscreen            {false};
-            bool                   m_transparent_click_through_window {false};
-            bool                   m_launch_with_hidden_window        {false};
-            bool                   m_debug_launch_with_console        {true};
-            bool                   m_use_glfw_await_events            {false};
+            std::string             m_application_name                 {"generic"};
+            std::pair<float, float> m_relative_window_size             {1.0f, 1.0f};
+            std::uint8_t            m_MSAA_sample_count                {0};
+            CallbackDisableFlags    m_disable_callback_flags           {CallbackDisableFlags::NONE};
+            ImGuiConfigFlags        m_imgui_config_flags               {};
+            bool                    m_enable_vsync                     {false};
+            bool                    m_borderless_fullscreen            {false};
+            bool                    m_transparent_click_through_window {false};
+            bool                    m_launch_with_hidden_window        {false};
+            bool                    m_debug_launch_with_console        {true};
+            bool                    m_use_glfw_await_events            {false};
         };
 
         /////////////////////////////////////////////// 
