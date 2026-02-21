@@ -20,7 +20,7 @@ namespace CoreEngine
     class Freecam_3D_Layer : public Basic_Layer
     {
     public:
-        explicit Freecam_3D_Layer() noexcept;
+        explicit Freecam_3D_Layer(Window::Handle window_handle) noexcept;
         virtual ~Freecam_3D_Layer() noexcept = default;
 
     //------- Allowed default move
@@ -32,10 +32,10 @@ namespace CoreEngine
         Freecam_3D_Layer& operator=(const Freecam_3D_Layer&) = delete;
 
     //------- Implementations of Basic_Layers abstract methods
-        virtual void OnUpdate(Units::MicroSecond delta_time) override;
-        virtual void OnEvent(Basic_Event& event) override;
-        virtual void OnRender() override;
-        virtual void OnImGuiRender() override;
+        virtual void OnUpdate(Units::MicroSecond delta_time) noexcept override;
+        virtual void OnEvent(Basic_Event& event) noexcept override;
+        virtual void OnRender() noexcept override;
+        virtual void OnImGuiRender() noexcept override;
     //-------
     
     protected:

@@ -1,9 +1,6 @@
 #include "core/application/Application.h"
 
 //Own includes
-#include "core/application/ApplicationGlobalState.h"
-
-#include "core/rendering/Renderer.h"
 
 #include "core/event/WindowEvents.h"
 #include "core/event/InputEvents.h"
@@ -23,223 +20,210 @@
 namespace CoreEngine
 {
     //Constructor
-    Application::Application(Window&& window, ApplicationConfig config) : m_window(std::move(window)), m_stop_flag(false), m_original_config(config)
+    Application::Application(ApplicationConfig config) noexcept : m_original_config(config), m_vsync_is_on(config.m_enable_vsync)
     {
         s_application_instance_ptr = this;
     }
 
     Application::~Application()
     {
-        Application::OnCleanup();
-    }
-
-    void Application::OnCleanup() noexcept
-    {
-        glfwTerminate();
+        m_window_layer_stacks.clear();
         s_application_instance_ptr = nullptr;
+        glfwTerminate();
     }
 
     void Application::Run() noexcept
     {
         m_stop_flag = false;
-        GLFWwindow* window_ptr = m_window.GetRawPtr();
-
-        Renderer::InitializeImGui(window_ptr);
-        ImGuiIO& io = ImGui::GetIO();
 
         Timer frame_timer {};
 
         while (! m_stop_flag)
         {
-            ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME("Main Loop()    ");
-            //////////////////////////////////////////////// 
-            //--------- Updating
-            ////////////////////////////////////////////////
-            #ifdef _WIN32
-            if (m_window.GetIsClickthrough())
-            {
-                const bool mouse_over_imgui = ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) || ImGui::IsAnyItemHovered() || io.WantCaptureMouse;
-                m_window.SetClickthrough(! mouse_over_imgui);
-            }
-            #endif
+            ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME("Main Loop()  ");
 
+            constexpr Units::MicroSecond min_dt (1L);
+            constexpr Units::MicroSecond max_dt (100'000L);
+            m_frame_delta_time = std::clamp<Units::MicroSecond>(frame_timer.GetElapsedAndRestart<Units::MicroSecond>(), min_dt, max_dt);
+
+            for (std::unique_ptr<WindowLayerStack>& wls : m_window_layer_stacks)
             {
-                ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME("OnUpdate()     ");
-                //from 0.001 milisec - 100 milisec
-                m_frame_delta_time = std::clamp<Units::MicroSecond>(frame_timer.GetElapsedAndRestart<Units::MicroSecond>(), Units::MicroSecond(1L), Units::MicroSecond(100'000L));
-                for (std::unique_ptr<Basic_Layer>& layer : m_layers)
+                //////////////////////////////////////////////// 
+                //--------- Updating
+                //////////////////////////////////////////////// 
                 {
-                    layer->OnUpdate(m_frame_delta_time);
+                    ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME( wls->m_window_ptr->GetTitle() + std::string(" : OnUpdate()     ") );
+                    for (std::unique_ptr<Basic_Layer>& layer : wls->m_layer_stack)
+                    {
+                        layer->OnUpdate(m_frame_delta_time);
+                    }
+                }
+
+                if (! wls->m_window_ptr->IsVisible())
+                {
+                    continue;
+                }
+
+                //////////////////////////////////////////////// 
+                //--------- Rendering
+                //////////////////////////////////////////////// 
+                wls->m_window_ptr->BeginFrame();
+                {
+                    ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME( wls->m_window_ptr->GetTitle() + std::string(" : OnRender()     ") );
+                    for (std::unique_ptr<Basic_Layer>& layer : wls->m_layer_stack)
+                    {
+                        layer->OnRender();
+                    }
+                }
+                
+                //////////////////////////////////////////////// 
+                //--------- Gui Rendering
+                //////////////////////////////////////////////// 
+                {
+                    ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME( wls->m_window_ptr->GetTitle() + std::string(" : OnImGuiRender()") );
+                    wls->m_window_ptr->BeginImGuiFrame();
+                    for (std::unique_ptr<Basic_Layer>& layer : wls->m_layer_stack)
+                    {
+                        layer->OnImGuiRender();
+                    }
+                    wls->m_window_ptr->FinishImGuiFrame();
+                }
+
+                {
+                    ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME(wls->m_window_ptr->GetTitle() + std::string(" : FinishFrame()  "));
+                    wls->m_window_ptr->FinishFrame();
                 }
             }
 
-            //////////////////////////////////////////////// 
-            //--------- Rendering
-            //////////////////////////////////////////////// 
-            {
-                ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME("OnRender()     ");
-                Renderer::BeginFrame(window_ptr);
-                for (std::unique_ptr<Basic_Layer>& layer : m_layers)
-                {
-                    layer->OnRender();
-                }
-            }
-
-            //////////////////////////////////////////////// 
-            //--------- GUI Rendering
-            //////////////////////////////////////////////// 
-            {
-                ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME("OnImGuiRender()");
-                Renderer::BeginImGuiFrame();
-                for (std::unique_ptr<Basic_Layer>& layer : m_layers)
-                {
-                    layer->OnImGuiRender();
-                }
-                Renderer::FinalizeImGuiFrame();
-            }
-
-            {
-                ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME("FinalizeFrame()");
-                Renderer::FinalizeFrame(window_ptr);
-            }   
             //////////////////////////////////////////////// 
             //--------- Events
             //////////////////////////////////////////////// 
             {
-                ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME("Events()       ");
                 if (m_original_config.m_use_glfw_await_events)
                 {
+                    ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME("AwaitEvents()");
                     glfwWaitEvents();
                 }
                 else 
                 {
+                    ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME("PollEvents() ");
                     glfwPollEvents();
                 }
             }
+
+            //////////////////////////////////////////////// 
+            //--------- Deleting windows
+            //////////////////////////////////////////////// 
+            {
+                ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME("Add Layers() ");
+                for (auto rit = m_window_layer_stacks_to_delete_next_frame.rbegin(); rit != m_window_layer_stacks_to_delete_next_frame.rend(); ++rit)
+                {
+                    const auto handle  = *rit;
+                    if (handle == Window::Handle::INVALID)
+                    {
+                        ENGINE_DEBUG_PRINT("Attempted to delete window with invalid handle: " << handle);
+                        continue;
+                    }
+                    const size_t index = FindWindowLayerStackIndexFromWindowHandle(handle);
+
+                    m_window_layer_stacks.erase(m_window_layer_stacks.begin() + index);
+                }
+                m_window_layer_stacks_to_delete_next_frame.clear();
+
+                //////////////////////////////////////////////// 
+                //--------- Adding windows
+                //////////////////////////////////////////////// 
+                for (std::pair<Window::WindowCreationConfig, std::vector<Application::LayerFactory>>& request : m_window_creations_to_add_next_frame)
+                {
+                    m_window_layer_stacks.emplace_back(std::make_unique<WindowLayerStack>(std::make_unique<Window>(request.first)));
+                    Window::Handle new_handle = m_window_layer_stacks.back()->m_window_ptr->GetHandle();
+                    WindowLayerStack* new_wls = m_window_layer_stacks.back().get();
+
+                    glfwMakeContextCurrent(new_wls->m_window_ptr->GetGLFWwindow());
+                    glfwSwapInterval(m_vsync_is_on);
+
+                    for (LayerFactory& factory : request.second)
+                    {
+                        std::unique_ptr<Basic_Layer> layer = factory(new_handle);
+                        new_wls->m_layer_stack.push_back(std::move(layer));
+                    }
+                }
+                m_window_creations_to_add_next_frame.clear();
+            }
         }
-        
-        glfwHideWindow(window_ptr);
-        Renderer::ShutdownImGui();
     }
 
     void Application::Stop() noexcept
     {
         m_stop_flag = true;
-        RaiseEvent(ApplicationShutdownEvent {});
+        
+        for (std::unique_ptr<CoreEngine::Application::WindowLayerStack>& window_layerstack : m_window_layer_stacks)
+        {
+            RaiseEvent(window_layerstack->m_window_ptr->GetHandle(), ApplicationShutdownEvent {});
+        }
     }
 
-    //--------------- Static callbacks
-    void Application::KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+    void Application::QueueDeleteWindowLayerStack(Window::Handle group_handle) noexcept
     {
-        if (action == GLFW_PRESS)        s_application_instance_ptr->RaiseEvent(KeyPressedEvent  {key} );
-        else if (action == GLFW_RELEASE) s_application_instance_ptr->RaiseEvent(KeyReleasedEvent {key} );
+        m_window_layer_stacks_to_delete_next_frame.push_back(group_handle);
     }
 
-    void Application::MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+    Window* Application::GetWindowPtr(Window::Handle group_handle) noexcept
     {
-        if (action == GLFW_PRESS)        s_application_instance_ptr->RaiseEvent(MousePressedEvent  {button, CommonUtility::GetMousePosition(window)});
-        else if (action == GLFW_RELEASE) s_application_instance_ptr->RaiseEvent(MouseReleasedEvent {button, CommonUtility::GetMousePosition(window)});
+        return m_window_layer_stacks[FindWindowLayerStackIndexFromWindowHandle(group_handle)]->m_window_ptr.get();
     }
 
-    void Application::MouseMovedCallback(GLFWwindow* window, double x_pos, double y_pos)
+    size_t Application::GetAmountWindows() const noexcept
     {
-        s_application_instance_ptr->RaiseEvent(MouseMovedEvent{x_pos, y_pos});
+        return m_window_layer_stacks.size();
     }
 
-    void Application::MouseScrollCallback(GLFWwindow* window, double x_offset, double y_offset)
+    void Application::SetVsync(bool on) noexcept
     {
-        s_application_instance_ptr->RaiseEvent(MouseScrolledEvent {x_offset, y_offset} );
+        m_vsync_is_on = on;
+        GLFWwindow* context = glfwGetCurrentContext();
+        for (std::unique_ptr<WindowLayerStack>& wls : m_window_layer_stacks)
+        {
+            glfwMakeContextCurrent(wls->m_window_ptr->GetGLFWwindow());
+            glfwSwapInterval(on);
+        }
+        glfwMakeContextCurrent(context);
     }
 
-    void Application::FramebufferResizeCallback(GLFWwindow* window, int width, int height)
+    bool Application::GetVsyncIsOn() const noexcept
     {
-        glfwMakeContextCurrent(window);
-        glViewport(0, 0, width, height);
+        return m_vsync_is_on;
+    }  
 
-        s_application_instance_ptr->RaiseEvent(FramebufferResizeEvent {width, height});
-    }
-
-    void Application::WindowCloseCallback(GLFWwindow* window)
+    Units::MicroSecond Application::GetLastFrameTime() const noexcept
     {
-        s_application_instance_ptr->RaiseEvent(WindowCloseEvent {});
-        s_application_instance_ptr->Stop();
+        return m_frame_delta_time;
     }
-
-    //--------------- Static initializer
+    
+    /////////////////////////////////////////////// 
+    // Application creation
+    //////////////////////////////////////////////// 
     Application Application::Create(const ApplicationConfig& config)
     {
         if (s_application_instance_ptr)
         {
             ENGINE_ASSERT(false && "At Application::Create() called multiple times. Only one Application instance is allowed.");
         }
-
         if (! glfwInit())
         {
-            Application::OnCleanup();
             throw std::runtime_error("At Application::Create(): failed to initialize GLFW.");
         }
-
-    //------------ Initializaion of dependencies
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-        glfwWindowHint(GLFW_SAMPLES, std::max<int>(8, config.m_MSAA_sample_count));
-        glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, config.m_transparent_click_through_window);
-        glfwWindowHint(GLFW_VISIBLE, ! config.m_launch_with_hidden_window);
-
-        Window::WindowCreationConfig window_config;
-        window_config.m_relative_size               = config.m_relative_window_size;
-        window_config.m_is_windowed_fullscren       = config.m_borderless_fullscreen;
-        window_config.m_is_transparent_clickthrough = config.m_transparent_click_through_window;
-        window_config.m_title                       = config.m_application_name;
-
-        CoreEngine::Window window {window_config};
-        GLFWwindow* const WINDOW_RAW_PTR = window.GetRawPtr();
-        if (! WINDOW_RAW_PTR)
-        {
-            Application::OnCleanup();
-            throw std::runtime_error("At Application::Create(): failed to create GLFW Window.");
-        }
-
-        glfwMakeContextCurrent(WINDOW_RAW_PTR);
-
-        if (! gladLoadGL(glfwGetProcAddress)) 
-        { 
-            Application::OnCleanup();
-            throw std::runtime_error("At Application::Create(): failed to initialize GLAD.");
-        }
-
-    //------------ OpenGL settings
-        glClearColor(0.f, 0.f, 0.f, 1.f);
-
-        if (config.m_transparent_click_through_window)
-        {
-            glClearColor(0.f, 0.f, 0.f, 0.f);
-            
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        }
         
-        int framebuff_width, framebuff_height;
-        glfwGetFramebufferSize(WINDOW_RAW_PTR, &framebuff_width, &framebuff_height);
-        glViewport(0, 0, framebuff_width, framebuff_height);
+        glfwWindowHint(GLFW_VISIBLE, false);
+        GLFWwindow* dummy = glfwCreateWindow(1, 1, "", nullptr, nullptr);
+        glfwWindowHint(GLFW_VISIBLE, true);
+        ENGINE_ASSERT(dummy && "Failed to create dummy GLFW window for GLAD");
 
-        glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
-        glDepthFunc(GL_GREATER);
-        glClearDepth(0.0);
-        glEnable(GL_DEPTH_TEST);
+        glfwMakeContextCurrent(dummy);
+        ENGINE_ASSERT(gladLoadGL(glfwGetProcAddress) && "Failed to load GL");
 
-        glFrontFace(GL_CCW); 
-        glCullFace(GL_BACK);
-        glEnable(GL_CULL_FACE);
+        glfwSwapInterval(config.m_enable_vsync);
 
-        if (config.m_MSAA_sample_count > 0) 
-        {
-            glEnable(GL_MULTISAMPLE);
-            glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
-        }
-
-    //------------ Enable debug messages on console
         if (config.m_debug_launch_with_console)
         {
             CoreEngine::DebugUtility::ForceInitConsole();
@@ -251,41 +235,90 @@ namespace CoreEngine
             CoreEngine::DebugUtility::ForceCloseConsole();
         }
 
-    //------------ Set GLFW Callbacks
-        if ( (config.m_disable_callback_flags & ApplicationConfig::CallbackDisableFlags::KeyCallback) == ApplicationConfig::CallbackDisableFlags::NONE)
-        {
-            glfwSetKeyCallback (WINDOW_RAW_PTR, &Application::KeyCallback);
-        }
-        if ( (config.m_disable_callback_flags & ApplicationConfig::CallbackDisableFlags::FramebufferResizeCallback) == ApplicationConfig::CallbackDisableFlags::NONE )
-        {
-            glfwSetFramebufferSizeCallback (WINDOW_RAW_PTR, &Application::FramebufferResizeCallback);
-        }
-        if ( (config.m_disable_callback_flags & ApplicationConfig::CallbackDisableFlags::MouseButtonCallback) == ApplicationConfig::CallbackDisableFlags::NONE )
-        {
-            glfwSetMouseButtonCallback (WINDOW_RAW_PTR, &Application::MouseButtonCallback);
-        }
-        if ( (config.m_disable_callback_flags & ApplicationConfig::CallbackDisableFlags::MouseMovedCallback) == ApplicationConfig::CallbackDisableFlags::NONE )
-        {
-            glfwSetCursorPosCallback (WINDOW_RAW_PTR, &Application::MouseMovedCallback);
-        }
-        if ( (config.m_disable_callback_flags & ApplicationConfig::CallbackDisableFlags::MouseScrollCallback) == ApplicationConfig::CallbackDisableFlags::NONE )
-        {
-            glfwSetScrollCallback (WINDOW_RAW_PTR, &Application::MouseScrollCallback);
-        }
-        if ( (config.m_disable_callback_flags & ApplicationConfig::CallbackDisableFlags::WindowCloseCallback) == ApplicationConfig::CallbackDisableFlags::NONE )
-        {
-            glfwSetWindowCloseCallback (WINDOW_RAW_PTR, &Application::WindowCloseCallback);
-        }
+        glfwMakeContextCurrent(nullptr);
+        glfwDestroyWindow(dummy);
 
-        s_vsync_is_on = config.m_enable_vsync;
-        glfwSwapInterval(s_vsync_is_on);
-
-        glfwSetInputMode(WINDOW_RAW_PTR, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
-
-        Renderer::s_imgui_config_flags |= config.m_imgui_config_flags;
-
-        return Application {std::move(window), config};
+        return Application {config};
     }
 
+    Application* Application::Get() noexcept
+    {
+        ENGINE_ASSERT(s_application_instance_ptr && "Can not call Get() if no instance of application exists.");
+        return s_application_instance_ptr;
+    }
+
+    //////////////////////////////////////////////// 
+    //--------- Glfw callbacks
+    //////////////////////////////////////////////// 
+    void Application::KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+    {
+        const Window::Handle handle = s_application_instance_ptr->FindWindowHandleFromGlfwWindow(window);
+        if (action == GLFW_PRESS)        s_application_instance_ptr->RaiseEvent(handle, KeyPressedEvent  {key} );
+        else if (action == GLFW_RELEASE) s_application_instance_ptr->RaiseEvent(handle, KeyReleasedEvent {key} );
+    }
+
+    void Application::MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+    {
+        const Window::Handle handle = s_application_instance_ptr->FindWindowHandleFromGlfwWindow(window);
+        if (action == GLFW_PRESS)        s_application_instance_ptr->RaiseEvent(handle, MousePressedEvent  {button, CommonUtility::GetMousePosition(window)});
+        else if (action == GLFW_RELEASE) s_application_instance_ptr->RaiseEvent(handle, MouseReleasedEvent {button, CommonUtility::GetMousePosition(window)});
+    }
+
+    void Application::MouseMovedCallback(GLFWwindow* window, double x_pos, double y_pos)
+    {
+        const Window::Handle handle = s_application_instance_ptr->FindWindowHandleFromGlfwWindow(window);
+        s_application_instance_ptr->RaiseEvent(handle, MouseMovedEvent{x_pos, y_pos});
+    }
+
+    void Application::MouseScrollCallback(GLFWwindow* window, double x_offset, double y_offset)
+    {
+        const Window::Handle handle = s_application_instance_ptr->FindWindowHandleFromGlfwWindow(window);
+        s_application_instance_ptr->RaiseEvent(handle, MouseScrolledEvent {x_offset, y_offset} );
+    }
+
+    void Application::FramebufferResizeCallback(GLFWwindow* window, int width, int height)
+    {
+        glfwMakeContextCurrent(window);
+        glViewport(0, 0, width, height);
+        const Window::Handle handle = s_application_instance_ptr->FindWindowHandleFromGlfwWindow(window);
+        s_application_instance_ptr->RaiseEvent(handle, FramebufferResizeEvent {width, height});
+    }
+
+    void Application::WindowCloseCallback(GLFWwindow* window)
+    {
+        const Window::Handle handle = s_application_instance_ptr->FindWindowHandleFromGlfwWindow(window);
+        s_application_instance_ptr->RaiseEvent(handle, WindowCloseEvent {});
+
+        s_application_instance_ptr->QueueDeleteWindowLayerStack(s_application_instance_ptr->FindWindowHandleFromGlfwWindow(window));
+
+        if (s_application_instance_ptr->m_window_layer_stacks.size() == 1)
+        {
+            s_application_instance_ptr->Stop();
+        }
+    }
     
+
+    //////////////////////////////////////////////// 
+    //--------- Private methods
+    //////////////////////////////////////////////// 
+    Window::Handle Application::FindWindowHandleFromGlfwWindow(GLFWwindow* window) const noexcept
+    {
+        for (size_t index{}; index < m_window_layer_stacks.size(); ++index)
+        {
+            if (m_window_layer_stacks[index]->m_window_ptr->GetGLFWwindow() == window)
+                return m_window_layer_stacks[index]->m_window_ptr->GetHandle();
+        }
+        ENGINE_ASSERT(false && "Failed to fetch Window Handle from glfw window*: GLFWwindow not part of window layer stack.");
+    }
+
+    size_t Application::FindWindowLayerStackIndexFromWindowHandle(Window::Handle handle) const noexcept
+    {
+        for (size_t index{}; index < m_window_layer_stacks.size(); ++index)
+        {
+            if (m_window_layer_stacks[index]->m_window_ptr->GetHandle() == handle)
+                return index;
+        }
+
+        ENGINE_ASSERT(false && "Failed to find window layer stack index from Handle: GLFWwindow not part of window layer stack.");
+    }
 }

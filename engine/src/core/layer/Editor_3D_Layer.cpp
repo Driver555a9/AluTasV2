@@ -1,11 +1,11 @@
 #include "core/layer/Editor_3D_Layer.h"
 
 //Own includes
-#include "core/application/ApplicationGlobalState.h"
-
 #include "core/utility/PhysicsUtility.h"
 #include "core/utility/CommonUtility.h"
 #include "core/utility/Performance.h"
+
+#include "core/application/Application.h"
 
 #include "core/model/PointsModel.h"
 
@@ -31,7 +31,7 @@ namespace CoreEngine
 //////////////////////////////////////////////// 
     MathUtility::Ray3D Editor_3D_Layer::ScreenPointToRay(const double mouse_x, const double mouse_y) const noexcept
     {
-        const auto [width, height] = GlobalGet<GlobalGet_FramebufferSize>();
+        const auto [width, height] = Application::Get()->GetWindowPtr(m_handle)->GetFramebufferSize();
 
         const float ndc_x = (2.0f * mouse_x) / width - 1.0f;
         const float ndc_y = 1.0f - (2.0f * mouse_y) / height;
@@ -62,7 +62,7 @@ namespace CoreEngine
     void Editor_3D_Layer::OnSceneResetAndLoadFromPath(const std::string& path) noexcept
     {
         OnSetSelectedSceneObject(nullptr); //Insure no dangling pointers
-        m_camera = m_scene.LoadFromSerializedFile(path);
+        m_scene.LoadFromSerializedFile(path, &m_camera);
     }
     
 //////////////////////////////////////////////// 
@@ -174,7 +174,7 @@ namespace CoreEngine
 //////////////////////////////////////////////// 
 //---------  Basic_Layer abstract methods
 //////////////////////////////////////////////// 
-    void Editor_3D_Layer::OnUpdate(Units::MicroSecond delta_time)
+    void Editor_3D_Layer::OnUpdate(Units::MicroSecond delta_time) noexcept
     {
         //////////////////////////////////////////////// 
         //---------  If no longer selected object, quit orbital cam
@@ -205,12 +205,12 @@ namespace CoreEngine
         Freecam_3D_Layer::OnUpdate(delta_time);
     }
 
-    void Editor_3D_Layer::OnEvent(Basic_Event& event)
+    void Editor_3D_Layer::OnEvent(Basic_Event& event) noexcept
     {
         Freecam_3D_Layer::OnEvent(event);
     }
 
-    void Editor_3D_Layer::OnRender()
+    void Editor_3D_Layer::OnRender() noexcept
     {
         Freecam_3D_Layer::OnRender();
     
@@ -240,7 +240,7 @@ namespace CoreEngine
         }
     }
 
-    void Editor_3D_Layer::OnImGuiRender()
+    void Editor_3D_Layer::OnImGuiRender() noexcept
     {
         OnImGuiRender_TopNavigationBar(); // order is relevant - they rely on the last updating relevant size variables
         OnImGuiRender_LeftOptionPanel();
@@ -372,7 +372,7 @@ namespace CoreEngine
 
         if (ImGui::Button("✕", ImVec2(square_size, square_size)))
         {
-            GlobalSet<GlobalSet_StopApplication>();
+            Application::Get()->Stop();
         }
 
         ImGui::PopFont();
@@ -598,9 +598,11 @@ namespace CoreEngine
             if (wire_frames) m_bt_debug_draw_pipeline.setDebugMode(flags |= btIDebugDraw::DBG_DrawWireframe);
             else m_bt_debug_draw_pipeline.setDebugMode(flags &= ~btIDebugDraw::DBG_DrawWireframe);
 
-            bool vsync_now = GlobalGet<GlobalGet_VsyncIsOn>();
-            ImGui::Checkbox("Toggle Vsync", &vsync_now);
-            GlobalSet<GlobalSet_VsyncIsOn>(vsync_now);
+            bool vsync_now = Application::Get()->GetVsyncIsOn();
+            if (ImGui::Checkbox("Toggle Vsync", &vsync_now))
+            {
+                Application::Get()->SetVsync(vsync_now);
+            }
 
             ImGui::Unindent();
         }
@@ -960,7 +962,7 @@ namespace CoreEngine
                 ImGui::Indent();
 
                 //--------- Position move
-                const float delta_time_secs = GlobalGet<GlobalGet_DeltaTimeSeconds>().Get();
+                const float delta_time_secs = Application::Get()->GetLastFrameTime().Get();
                 const float MOVE_SPEED = 0.5 * m_selected_object_state.m_object_ptr->GetWorldSpaceMaxBoundingSphereRadius();
 
                 ImGui::TextUnformatted("Position");

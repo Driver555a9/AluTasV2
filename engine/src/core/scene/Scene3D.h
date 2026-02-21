@@ -70,8 +70,8 @@ namespace CoreEngine
         bool SerializeToFile(const std::string& file_path, const CameraReverseZ& camera) const;
         [[nodiscard]] std::string SerializeToString(const CameraReverseZ& camera) const;
 
-        CameraReverseZ LoadFromSerializedFile(const std::string& file_path);
-        CameraReverseZ LoadFromSerializedString(const std::string& data);
+        void LoadFromSerializedFile(const std::string& file_path, std::optional<CameraReverseZ*> opt_camera);
+        void LoadFromSerializedString(const std::string& data, std::optional<CameraReverseZ*> opt_camera);
 
         //////////////////////////////////////////////// 
         //--------- Raycasting

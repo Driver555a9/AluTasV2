@@ -1,11 +1,10 @@
 #include "core/layer/Freecam_3D_Layer.h"
 
 //Own includes
-#include "core/application/ApplicationGlobalState.h"
-
 #include "core/utility/Assert.h"
 
 #include "core/scene/FreeCam_CameraController.h"
+#include "core/application/Application.h"
 
 //GLFW
 #define GLFW_INCLUDE_NONE
@@ -23,14 +22,14 @@
 namespace CoreEngine
 {
     //-------- Public methods
-    Freecam_3D_Layer::Freecam_3D_Layer() noexcept 
-    : m_camera(glm::vec3(0.0f), GlobalGet<GlobalGet_AspectRatio>(), 50, 0.1f), m_camera_controller(std::make_unique<FreeCam_CameraController>())
+    Freecam_3D_Layer::Freecam_3D_Layer(Window::Handle window_handle) noexcept : Basic_Layer(window_handle), 
+    m_camera(glm::vec3(0.0f), Application::Get()->GetWindowPtr(m_handle)->GetAspectRatio(), 50, 0.1f), m_camera_controller(std::make_unique<FreeCam_CameraController>())
     {
         m_scene.SetDebugDrawer(&m_bt_debug_draw_pipeline);
     }
 
     //--------- Implementation of Basic_Layers abstract methods 
-    void Freecam_3D_Layer::OnUpdate(Units::MicroSecond delta_time)
+    void Freecam_3D_Layer::OnUpdate(Units::MicroSecond delta_time) noexcept
     {
         //---- Physics updates
         if (m_update_scene_physics) 
@@ -55,7 +54,7 @@ namespace CoreEngine
         m_bt_debug_draw_pipeline.SetCameraMatrixAndFrustumCull(cam_matrix);
     }
 
-    void Freecam_3D_Layer::OnEvent(Basic_Event& event) 
+    void Freecam_3D_Layer::OnEvent(Basic_Event& event) noexcept
     {   
         EventDispatcher dispatcher(event);
         dispatcher.Dispatch<KeyPressedEvent>(         [this](KeyPressedEvent&  e)         -> bool { return OnKeyPressed(e);          });
@@ -68,7 +67,7 @@ namespace CoreEngine
         dispatcher.Dispatch<ApplicationShutdownEvent>([this](ApplicationShutdownEvent& e) -> bool { return OnApplicationShutdown(e); });
     }
 
-    void Freecam_3D_Layer::OnRender()
+    void Freecam_3D_Layer::OnRender() noexcept
     {
         m_pipeline.Render();
 
@@ -79,16 +78,18 @@ namespace CoreEngine
         }
     }
 
-    void Freecam_3D_Layer::OnImGuiRender() 
+    void Freecam_3D_Layer::OnImGuiRender() noexcept
     {
         const std::string unique_window_name = std::format("Freecam3D_Layer##{}", (void*)this);
         ImGui::Begin(unique_window_name.c_str());
 
         ImGui::Checkbox("Update Physics ", &m_update_scene_physics);
 
-        bool vsync_now = GlobalGet<GlobalGet_VsyncIsOn>();
-        ImGui::Checkbox("Toggle Vsync", &vsync_now);
-        GlobalSet<GlobalSet_VsyncIsOn>(vsync_now);
+        bool vsync_now = Application::Get()->GetVsyncIsOn();
+        if (ImGui::Checkbox("Toggle Vsync", &vsync_now))
+        {
+            Application::Get()->SetVsync(vsync_now);
+        }
 
         ImGui::SliderFloat(":Speed-factor ", &m_physics_speed_scale, 0.01f, 20.0f);
 

@@ -27,7 +27,7 @@ namespace CoreEngine
             
             [[nodiscard]] constexpr inline std::string ToString() const
             {
-                return m_message + " time micros: " + std::to_string(m_time.Get());
+                return m_message + " µs : " + std::to_string(m_time.Get());
             }
         };
 

@@ -17,8 +17,6 @@
 #include "core/utility/CommonUtility.h"
 #include "core/utility/Assert.h"
 
-#include "core/application/ApplicationGlobalState.h"
-
 namespace CoreEngine
 {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -236,12 +234,12 @@ namespace CoreEngine
         return json_obj.dump(0);
     }
 
-    CameraReverseZ Scene3D::LoadFromSerializedFile(const std::string& file_path)
+    void Scene3D::LoadFromSerializedFile(const std::string& file_path, std::optional<CameraReverseZ*> opt_camera)
     {
-        return LoadFromSerializedString(CommonUtility::ReadFileToString(file_path.c_str()));
+        return LoadFromSerializedString(CommonUtility::ReadFileToString(file_path.c_str()), opt_camera);
     }
 
-    CameraReverseZ Scene3D::LoadFromSerializedString(const std::string& data)
+    void Scene3D::LoadFromSerializedString(const std::string& data, std::optional<CameraReverseZ*> opt_camera)
     {
         nlohmann::json json = nlohmann::json::parse(data);
         
@@ -291,17 +289,23 @@ namespace CoreEngine
         ///////////////////////////////////////////////////
         //-------- Camera
         ///////////////////////////////////////////////////
-        const auto& camera_json = json.at(_SerializeKey::Camera::Root);
-        const auto& c_pos_json  = camera_json.at(_SerializeKey::Camera::Position);
-        const auto& c_rot_json  = camera_json.at(_SerializeKey::Camera::Rotation);
+        if (opt_camera.has_value() && opt_camera.value())
+        {
+            const auto& camera_json = json.at(_SerializeKey::Camera::Root);
+            const auto& c_pos_json  = camera_json.at(_SerializeKey::Camera::Position);
+            const auto& c_rot_json  = camera_json.at(_SerializeKey::Camera::Rotation);
 
-        const glm::vec3 c_pos { c_pos_json.at("x").get<float>(), c_pos_json.at("y").get<float>(), c_pos_json.at("z").get<float>() };
-        const glm::quat c_rot { c_rot_json.at("w").get<float>(), c_rot_json.at("x").get<float>(), c_rot_json.at("y").get<float>(), c_rot_json.at("z").get<float>()};
-        const float aspect  = GlobalGet<GlobalGet_AspectRatio>();
-        const float fov_deg = camera_json.at(_SerializeKey::Camera::FovDeg).get<float>();
-        const float near    = camera_json.at(_SerializeKey::Camera::NearPlane).get<float>();
+            const glm::vec3 c_pos { c_pos_json.at("x").get<float>(), c_pos_json.at("y").get<float>(), c_pos_json.at("z").get<float>() };
+            const glm::quat c_rot { c_rot_json.at("w").get<float>(), c_rot_json.at("x").get<float>(), c_rot_json.at("y").get<float>(), c_rot_json.at("z").get<float>()};
+            const float fov_deg = camera_json.at(_SerializeKey::Camera::FovDeg).get<float>();
+            const float near    = camera_json.at(_SerializeKey::Camera::NearPlane).get<float>();
 
-        return CameraReverseZ(c_pos, aspect, fov_deg, near, c_rot);
+            CameraReverseZ* camera = *opt_camera;
+            camera->SetPosition(c_pos);
+            camera->SetRotation(c_rot);
+            camera->SetFovDeg(fov_deg);
+            camera->SetNearPlane(near);
+        }
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////

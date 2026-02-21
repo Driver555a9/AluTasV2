@@ -1,29 +1,31 @@
 #include "core/application/Application.h"
 
-#include "tas/TasLayer.h"
+#include "tas/layers/TasLayer.h"
 
 int main()
 {
-    using Calldis = CoreEngine::Application::ApplicationConfig::CallbackDisableFlags;
 
-    constexpr Calldis event_disable = static_cast<Calldis>(Calldis::KeyCallback | Calldis::MouseButtonCallback | Calldis::MouseMovedCallback | Calldis::MouseScrollCallback);
-
-    const CoreEngine::Application::ApplicationConfig config 
+    constexpr CoreEngine::Application::ApplicationConfig application_config 
     {
-        .m_application_name                 = "Asphalt Tool",
-        .m_relative_window_size             = {500.0f / 1920.0f, 900.0f / 1080.0f},
-        .m_MSAA_sample_count                = 0,
-        .m_disable_callback_flags           = event_disable,
-        .m_imgui_config_flags               = static_cast<ImGuiConfigFlags>(ImGuiConfigFlags_DpiEnableScaleFonts),
         .m_enable_vsync                     = true,
-        .m_borderless_fullscreen            = false,
-        .m_transparent_click_through_window = false,
-        .m_launch_with_hidden_window        = false,
         .m_debug_launch_with_console        = true,
         .m_use_glfw_await_events            = false
     };
 
-    CoreEngine::Application app = CoreEngine::Application::Create(config);
-    app.PushLayer<AsphaltTas::TasLayer>();
+    using Cdis = CoreEngine::Window::WindowCreationConfig::CallbackDisableFlags;
+
+    const CoreEngine::Window::WindowCreationConfig window_config
+    {
+        .m_title                       = "Asphalt Tool",
+        .m_relative_size               = {500.0f / 1920.0f, 800.0f / 1080.0f},
+        .m_callback_disable_flags      = static_cast<Cdis>(Cdis::KeyCallback | Cdis::MouseButtonCallback | Cdis::MouseMovedCallback | Cdis::MouseScrollCallback),
+        .m_imgui_flags                 = {},
+        .m_MSAA_sample_count           = 0,
+        .m_is_windowed_fullscren       = false,
+        .m_has_transparent_framebuffer = false
+    };
+
+    CoreEngine::Application app = CoreEngine::Application::Create(application_config);
+    app.QueueCreateWindowAndPushLayer<AsphaltTas::TasLayer>(window_config);
     app.Run();
 }

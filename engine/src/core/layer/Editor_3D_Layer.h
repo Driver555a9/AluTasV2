@@ -32,14 +32,14 @@ namespace CoreEngine
             LIGHT_SOURCE        = 1 << 4
         };
 
-        Editor_3D_Layer() = default;
-        virtual ~Editor_3D_Layer() = default;
+        explicit Editor_3D_Layer(Window::Handle window_handle) noexcept : Freecam_3D_Layer(window_handle) {}
+        virtual ~Editor_3D_Layer() noexcept = default;
 
         //------- Implementations of Basic_Layers abstract methods
-        virtual void OnUpdate(Units::MicroSecond delta_time) override;
-        virtual void OnEvent(Basic_Event& event) override;
-        virtual void OnRender() override;
-        virtual void OnImGuiRender() override;
+        virtual void OnUpdate(Units::MicroSecond delta_time) noexcept override;
+        virtual void OnEvent(Basic_Event& event) noexcept override;
+        virtual void OnRender() noexcept override;
+        virtual void OnImGuiRender() noexcept override;
         //-------
 
     protected:        

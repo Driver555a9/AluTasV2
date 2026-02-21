@@ -31,7 +31,7 @@ namespace CoreEngine
         glDepthMask(GL_TRUE); 
         glEnable(GL_DEPTH_TEST);
 
-        //Reverse Z matrices
+        //Reverse Z matrices expected
         glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
         glDepthFunc(GL_GREATER);
         glClearDepth(0.0);
@@ -44,7 +44,7 @@ namespace CoreEngine
 
     //-------------------  Bind buffers
         m_indirect_command_buffer.Bind();
-        m_vao.Bind();  //Remember: VAO binds VBO and EBO implicitly already!
+        m_vao.Bind();  //VAO binds VBO and EBO implicitly already
         m_camera_ubo.BindBase();
 
         m_active_draw_indices_ssbo.BindBase();
@@ -56,7 +56,7 @@ namespace CoreEngine
 
         glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr, m_draw_command_count, 0);
 
-    //------------------- Unbind buffers to avoid othe pipelines having them active
+    //------------------- Unbind buffers to avoid other pipelines modifying them
         m_shader_program.Deactivate();
         
         m_indirect_command_buffer.Unbind();
