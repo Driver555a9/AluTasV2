@@ -60,6 +60,10 @@ namespace AsphaltTas
     {
         CoreEngine::EventDispatcher disp(e);
         disp.Dispatch<CoreEngine::WindowCloseEvent>([](CoreEngine::WindowCloseEvent& e) -> bool {
+            try 
+            {
+                MemoryRW::RestoreCameraUpdateCode(); ///Why is this needed? ~CameraToolLayer() should handle it! 
+            } catch (...) {}
             CoreEngine::Application::Get()->Stop();
             return true;
         });
