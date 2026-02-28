@@ -65,7 +65,7 @@ namespace CoreEngine
 
     }
 
-    void IndirectDraw3D_RenderPipeline::SetSceneData(const std::vector<Basic_Model*>& model_vec, const std::vector<Light>& lights_vec) noexcept
+    void IndirectDraw3D_RenderPipeline::SetSceneData(const std::vector<const Basic_Model*>& model_vec, const std::vector<Light>& lights_vec) noexcept
     {
     //------------------ Calcualting these up front to avoid resizing later
         size_t amount_meshes   {};
@@ -107,16 +107,16 @@ namespace CoreEngine
         GLuint offset_mesh     = 0;
     //------------------
 
-        for(Basic_Model* model_ptr : model_vec)
+        for(const Basic_Model* model_ptr : model_vec)
         {
             const glm::mat4 model_matrix = model_ptr->GetModelMatrix();
 
-            for (Mesh& mesh : model_ptr->GetMeshVectorReference()) 
+            for (const Mesh& mesh : model_ptr->GetMeshVectorConstReference()) 
             {
                 m_active_draw_indices.push_back(offset_mesh);
                 m_mesh_transforms.push_back(model_matrix);
-                ENGINE_ASSERT(mesh.GetMaterialSharedPtr() && "At IndirectDraw3D::SetSceneData(): Mesh should have a non null material ptr.");
-                m_material_ptrs.push_back(mesh.GetMaterialSharedPtr());
+                ENGINE_ASSERT(mesh.GetMaterialConstSharedPtr() && "At IndirectDraw3D::SetSceneData(): Mesh should have a non null material ptr.");
+                m_material_ptrs.push_back(mesh.GetMaterialConstSharedPtr());
 
                 const std::vector<Vertex>& verts   = mesh.GetVerticesConstReference();
                 const std::vector<GLuint>& indices = mesh.GetIndicesConstReference();
@@ -169,7 +169,7 @@ namespace CoreEngine
         m_ebo.SetNewData(temp_mesh_indices);
     }
 
-    void IndirectDraw3D_RenderPipeline::UpdateModelTransforms(const std::vector<Basic_Model*>& model_vec, const glm::mat4& view_projection) noexcept
+    void IndirectDraw3D_RenderPipeline::UpdateModelTransforms(const std::vector<const Basic_Model*>& model_vec, const glm::mat4& view_projection) noexcept
     {
         size_t amount_meshes {0};
         for (const Basic_Model* model_ptr : model_vec)

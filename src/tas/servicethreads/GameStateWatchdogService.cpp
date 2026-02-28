@@ -19,6 +19,7 @@ namespace
 
     void GameCloseCallback() noexcept
     {
+        ENGINE_INFO_LOG("Asphalt closure detected.");
         GameState::OnInvalidateAllCaches();
         g_wait_for_game_close_cv.notify_all();
     }
@@ -32,6 +33,7 @@ namespace
 
         std::thread([]()
         {
+            ENGINE_INFO_LOG("Game State Watchdog Thread launched.");
             while (GetThreadIsRunning())
             {
                 std::optional<libmem::Process> opt_process;
@@ -58,6 +60,7 @@ namespace
                 
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
+            ENGINE_INFO_LOG("Game State Watchdog Thread stopped.");
         }).detach();
     }
 

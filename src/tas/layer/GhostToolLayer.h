@@ -4,11 +4,11 @@
 
 namespace AsphaltTas
 {
-    class SpeedometerLayer : public CoreEngine::Basic_Layer
+    class GhostToolLayer : public CoreEngine::Basic_Layer 
     {
     public:
-        explicit SpeedometerLayer(CoreEngine::Window::Handle handle) noexcept;
-        virtual ~SpeedometerLayer() noexcept;    
+        explicit GhostToolLayer(CoreEngine::Window::Handle handle) noexcept;
+        virtual ~GhostToolLayer() noexcept;    
 
         virtual void OnEvent(CoreEngine::Basic_Event& e) noexcept override;
         virtual void OnUpdate(CoreEngine::Units::MicroSecond dt) noexcept override;
@@ -18,14 +18,13 @@ namespace AsphaltTas
         static void CreateInstance() noexcept;
         [[nodiscard]] static bool InstanceExists() noexcept;
         static void DeleteInstance() noexcept;
+        
+    private: 
+        static inline GhostToolLayer* s_instance = nullptr;
 
-    private:
-        void OnLock() noexcept;
-        void OnUnlock() noexcept;
-        static inline SpeedometerLayer* s_instance = nullptr;
-
-        float m_font_size = 5.0f;
-        bool m_is_locked  = false;
-        bool m_left_mouse_pressed_after_unlock_disable_gui_input = false;
+        /////////////////////////////////
+        // Gui state
+        /////////////////////////////////
+        std::string m_current_loaded_model;
     };
 }

@@ -22,7 +22,7 @@ namespace AsphaltTas
         }
         catch (MemoryUtility::MemoryManipFailedException& e) 
         {
-            ManuallySetAddresses(0);
+            ManuallySetAddresses(INVALID_ADDRESS);
             return false;
         }
     }
@@ -44,9 +44,9 @@ namespace AsphaltTas
             return std::string("Invalid : Base\nInvalid : Trans Matrix\nInvalid : Velocity");
         }
         std::ostringstream ss;
-        ss << "0x" << std::hex << GetBaseAddress() << " : Base\n"
-        << "0x" << std::hex << GetTransMatrixAddress() << " : Trans Matrix\n"
-        << "0x" << std::hex << GetVelocityVec3Address() << " : Velocity";
+        ss << "0x" << std::hex << std::uppercase << GetBaseAddress() << " : Base\n"
+        << "0x" << std::hex << std::uppercase << GetTransMatrixAddress() << " : Trans Matrix\n"
+        << "0x" << std::hex << std::uppercase << GetVelocityVec3Address() << " : Velocity";
         return ss.str();
     }
 
@@ -66,7 +66,7 @@ namespace AsphaltTas
     }
 
 /////////////////////////////////////////
-// ActionCameraStateAddresses
+// CameraStateAddresses
 /////////////////////////////////////////
     bool CameraStateAddresses::UpdateAddresses() noexcept
     {
@@ -77,7 +77,7 @@ namespace AsphaltTas
         }
         catch (MemoryUtility::MemoryManipFailedException& e) 
         {
-            ManuallySetAddresses(0);
+            ManuallySetAddresses(INVALID_ADDRESS);
             return false;
         }
     }
@@ -99,11 +99,11 @@ namespace AsphaltTas
             return std::string("Invalid : Base\nInvalid : Position\nInvalid : Rotation\nInvalid : Fov Radians\nInvalid : Aspect Ratio");
         }
         std::ostringstream ss;
-        ss << "0x" << std::hex << GetBaseAddress() << " : Base\n" 
-        << "0x" << std::hex << GetPositionVec3Address() << " : Position\n" 
-        << "0x" << std::hex << GetRotationQuatAddress() << " : Rotation\n"
-        << "0x" << std::hex << GetFovRadiansAddress()   << " : Fov Radians\n"
-        << "0x" << std::hex << GetAspectRatioAddress()  << " : Aspect Ratio\n";
+        ss << "0x" << std::hex << std::uppercase << GetBaseAddress() << " : Base\n" 
+        << "0x" << std::hex << std::uppercase << GetPositionVec3Address() << " : Position\n" 
+        << "0x" << std::hex << std::uppercase << GetRotationQuatAddress() << " : Rotation\n"
+        << "0x" << std::hex << std::uppercase << GetFovRadiansAddress()   << " : Fov Radians\n"
+        << "0x" << std::hex << std::uppercase << GetAspectRatioAddress()  << " : Aspect Ratio\n";
 
         return ss.str();
     }
@@ -137,5 +137,69 @@ namespace AsphaltTas
     {
         return GetBaseAddress() + OFFSET_ASPECT_RATIO;
     }
+
+/////////////////////////////////////////
+// RaceProgressStateAddresses
+/////////////////////////////////////////
+    bool RaceProgressStateAddresses::UpdateAddresses() noexcept
+    {
+        try 
+        {
+            SetLapTimeAddress(MemoryAddressFinder::FindLapTimeAddress());
+            return true;
+        } 
+        catch (MemoryUtility::MemoryManipFailedException& e)
+        {
+            SetLapTimeAddress(INVALID_ADDRESS);
+            return false;
+        }
+    }
+
+    void RaceProgressStateAddresses::SetLapTimeAddress(uintptr_t lap_time) noexcept
+    {
+        s_lap_time_address.store(lap_time, std::memory_order::release);
+    }
+
+    void RaceProgressStateAddresses::SetRaceProgressAddress(uintptr_t progress) noexcept
+    {
+        s_race_progress_address.store(progress, std::memory_order::release);
+    }
+
+    void RaceProgressStateAddresses::SetCheckpointAddress(uintptr_t cp) noexcept
+    {
+        s_checkpoint_address.store(cp, std::memory_order::release);
+    }
+
+    std::string RaceProgressStateAddresses::ToString() noexcept
+    {
+        std::ostringstream ss;
+
+        const auto AddAddress = [&ss](uintptr_t (*func)(), const char* label) -> void {
+            const uintptr_t addrr = func();
+            addrr == INVALID_ADDRESS ? (ss << "Invalid : " << label << "\n") : (ss << "0x" << std::hex << std::uppercase << addrr << " : " << label << "\n");
+        };
+
+        AddAddress(&GetLapTimeAddress, "Lap Time");
+        AddAddress(&GetRaceProgressAddress, "Progress");
+        AddAddress(&GetCheckpointAddress, "Checkpoint");
+
+        return ss.str();
+    }
+
+    uintptr_t RaceProgressStateAddresses::GetLapTimeAddress() noexcept
+    {
+        return s_lap_time_address.load(std::memory_order::acquire);
+    }
+
+    uintptr_t RaceProgressStateAddresses::GetRaceProgressAddress() noexcept
+    {
+        return s_race_progress_address.load(std::memory_order::acquire);
+    }
+
+    uintptr_t RaceProgressStateAddresses::GetCheckpointAddress() noexcept
+    {
+        return s_checkpoint_address.load(std::memory_order::acquire);
+    }
+
 
 }

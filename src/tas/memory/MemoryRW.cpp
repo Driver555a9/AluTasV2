@@ -74,6 +74,32 @@ namespace AsphaltTas
 
         return game_state;
     }
+
+    CoreEngine::Units::MicroSecond MemoryRW::ReadCurrentRaceTime()
+    {
+        const uintptr_t address = RaceProgressStateAddresses::GetLapTimeAddress();
+        if (address == INVALID_ADDRESS) 
+            throw MemoryUtility::MemoryManipFailedException("ReadCurrentRaceTime(): Requires valid RaceProgressStateAddresses::GetLapTimeAddress() to read Lap Time.");
+
+        const libmem::Process process = MemoryUtility::GetAsphaltProcessOrThrow();
+
+        std::uint32_t out;
+        MemoryUtility::ReadMemoryOrThrow(&process, address, &out, sizeof(decltype(out)));
+        return CoreEngine::Units::MicroSecond(static_cast<CoreEngine::Units::MicroSecond::value_type>(out));
+    }
+
+    float MemoryRW::ReadCurrentRaceProgress()
+    {
+        const uintptr_t address = RaceProgressStateAddresses::GetRaceProgressAddress();
+        if (address == INVALID_ADDRESS) 
+            throw MemoryUtility::MemoryManipFailedException("ReadCurrentRaceProgress(): Requires valid RaceProgressStateAddresses::GetRaceProgressAddress() to read Progress %.");
+
+        const libmem::Process process = MemoryUtility::GetAsphaltProcessOrThrow();
+
+        float out;
+        MemoryUtility::ReadMemoryOrThrow(&process, address, &out, sizeof(decltype(out)));
+        return out * 100.0f;
+    }
         
     //////////////////////////////////////////////////////////
     // Write

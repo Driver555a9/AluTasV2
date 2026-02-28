@@ -45,7 +45,7 @@ namespace CoreEngine
             requires Units::Is_Time_Unit<T>
             [[nodiscard]] inline T GetElapsed() const noexcept 
             {
-                const Units::MicroSecond time_now = Timer::GetTimeSinceEpoch<Units::MicroSecond>();
+                const Units::MicroSecond time_now = Timer::GetMonotonicTime<Units::MicroSecond>();
 
                 if (m_state == TimerState::PAUSED) 
                     return Units::Convert<T>((time_now - m_begin_time) - m_pause_time_counter - (time_now - m_time_last_pause));
@@ -57,9 +57,16 @@ namespace CoreEngine
                 return T {};
             }
 
+            template <typename T>
+            requires Units::Is_Time_Unit<T>
+            [[nodiscard]] inline bool AtLeastElapsed(T minimum) const noexcept
+            {
+                return minimum < GetElapsed<T>();
+            }
+
             template <typename T> 
             requires Units::Is_Time_Unit<T>
-            [[nodiscard]] static inline T GetTimeSinceEpoch() noexcept 
+            [[nodiscard]] static inline T GetMonotonicTime() noexcept 
             {
                 const Units::MicroSecond time_now (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
                 return Units::Convert<T>(time_now);

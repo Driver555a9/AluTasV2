@@ -21,7 +21,11 @@ namespace AsphaltTas
     //////////////////////////////////////////////////////////
     // Exceptions thrown by functions
     //////////////////////////////////////////////////////////
-        struct MemoryManipFailedException : public std::runtime_error { explicit MemoryManipFailedException(const char* what) noexcept : std::runtime_error(what) {} };
+        struct MemoryManipFailedException : public std::runtime_error 
+        { 
+            explicit MemoryManipFailedException(const char* what) noexcept : std::runtime_error(what) {} 
+            explicit MemoryManipFailedException(std::string&& what) noexcept : std::runtime_error(std::move(what)) {} 
+        };
 
     //////////////////////////////////////////////////////////
     // Get process
@@ -40,12 +44,19 @@ namespace AsphaltTas
     //////////////////////////////////////////////////////////
         [[nodiscard]] libmem::Address AllocMemoryOrThrow(const libmem::Process* process, size_t size, libmem::Prot protection);
 
+    #ifdef _WIN32
+        [[nodiscard]] libmem::Address AllocMemoryNearAddressOrThrow(const libmem::Process* process, libmem::Address desired_address, size_t size, uintptr_t max_distance);
+    #endif
     //////////////////////////////////////////////////////////
     // Freeing
     //////////////////////////////////////////////////////////
         void FreeMemoryOrThrow(const libmem::Process* process, libmem::Address address, size_t size);
 
         bool TryFreeMemoryOrNothing(const libmem::Process* process, libmem::Address address, size_t size) noexcept;
+
+    #ifdef _WIN32    
+        void FreeMemoryAllocatedNearAddressOrThrow(const libmem::Process* process, libmem::Address address, size_t size);
+    #endif
 
     //////////////////////////////////////////////////////////
     // Reading
@@ -105,7 +116,15 @@ namespace AsphaltTas
     // Call callback once external application closes (Windows API required)
     //////////////////////////////////////////////////////////
         void LaunchApplicationShutdownWatchdogThread(libmem::Pid process_id, const std::function<void()>& callback) noexcept;
-;
+
+    //////////////////////////////////////////////////////////
+    // Get Window Dimensions 
+    //////////////////////////////////////////////////////////
+        struct WindowInfo
+        {
+            int m_x_position, m_y_position, m_width, m_height;
+        };
+        [[nodiscard]] WindowInfo GetWindowInfoOrThrow(HWND hwnd);
 #endif
 
     //////////////////////////////////////////////////////////

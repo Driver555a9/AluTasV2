@@ -10,6 +10,61 @@ namespace CoreEngine
 {
     namespace Units
     {
+    ////////////////////////////////////
+    // Concept Traits
+    ////////////////////////////////////
+        namespace UnitCategory
+        {
+            struct Time     {};
+            struct Mass     {};
+            struct Distance {};
+            struct Velocity {};
+            struct Force    {};
+            struct Angle    {};
+        }
+
+        template <typename T>
+        concept Is_Unit = requires { typename T::category_type; typename T::value_type; typename T::period; };
+        
+        template <typename T>
+        concept Is_Time_Unit = Is_Unit<T> && std::same_as<typename T::category_type, UnitCategory::Time>;
+
+        template <typename T>
+        concept Is_Mass_Unit = Is_Unit<T> && std::same_as<typename T::category_type, UnitCategory::Mass>;
+
+        template <typename T>
+        concept Is_Distance_Unit = Is_Unit<T> && std::same_as<typename T::category_type, UnitCategory::Distance>;
+
+        template <typename T>
+        concept Is_Velocity_Unit = Is_Unit<T> && std::same_as<typename T::category_type, UnitCategory::Velocity>;
+
+        template <typename T>
+        concept Is_Force_Unit = Is_Unit<T> && std::same_as<typename T::category_type, UnitCategory::Force>;
+
+        template <typename T>
+        concept Is_Angle_Unit = Is_Unit<T> && std::same_as<typename T::category_type, UnitCategory::Angle>;
+
+        template <typename A, typename B>
+        concept Is_Same_Unit_Category = Is_Unit<A> && Is_Unit<B> && std::same_as<typename A::category_type, typename B::category_type>;
+
+    ////////////////////////////////////
+    // Conversion
+    ////////////////////////////////////
+        template <typename To, typename From>
+        requires ( Is_Same_Unit_Category<To, From> ) 
+        [[nodiscard]] constexpr inline To Convert(const From& from) noexcept
+        {
+            using FromPeriod = typename From::period;
+            using ToPeriod   = typename To::period;
+
+            constexpr const double factor = static_cast<double>(FromPeriod::num) / FromPeriod::den * static_cast<double>(ToPeriod::den) / ToPeriod::num;
+
+            return To(static_cast<typename To::value_type>(from.Get() * factor));
+        }
+
+    ////////////////////////////////////
+    // Unit
+    ////////////////////////////////////
         template <typename Derived, typename Category, typename Rep, typename Period>
         struct Basic_Unit
         {
@@ -123,19 +178,23 @@ namespace CoreEngine
                 return static_cast<Derived&>(*this);
             }
 
+            ////////////////////////////////////////////////
+            // Conversion 
+            ////////////////////////////////////////////////
+            template <typename TReturn>
+            requires Is_Unit<TReturn> && Is_Same_Unit_Category<Derived, TReturn>
+            [[nodiscard]] constexpr TReturn ConvertTo() const noexcept 
+            {
+                return Convert<TReturn>(*this);
+            }
+
         protected:
             Rep m_value{};
         };
 
-        namespace UnitCategory
-        {
-            struct Time     {};
-            struct Mass     {};
-            struct Distance {};
-            struct Velocity {};
-            struct Force    {};
-            struct Angle    {};
-        }
+        ////////////////////////////////////////////////
+        // Creating generic units
+        ////////////////////////////////////////////////
 
         #define DEFINE_UNIT(name, category, rep, ratio)       \
             struct name : Basic_Unit<name, category, rep, ratio> { \
@@ -157,41 +216,5 @@ namespace CoreEngine
         DEFINE_UNIT(Degrees,        UnitCategory::Angle,      float,          std::ratio<1>)
 
         #undef DEFINE_UNIT
-
-        template <typename T>
-        concept Is_Unit = requires { typename T::category_type; typename T::value_type; typename T::period; };
-        
-        template <typename T>
-        concept Is_Time_Unit = Is_Unit<T> && std::same_as<typename T::category_type, UnitCategory::Time>;
-
-        template <typename T>
-        concept Is_Mass_Unit = Is_Unit<T> && std::same_as<typename T::category_type, UnitCategory::Mass>;
-
-        template <typename T>
-        concept Is_Distance_Unit = Is_Unit<T> && std::same_as<typename T::category_type, UnitCategory::Distance>;
-
-        template <typename T>
-        concept Is_Velocity_Unit = Is_Unit<T> && std::same_as<typename T::category_type, UnitCategory::Velocity>;
-
-        template <typename T>
-        concept Is_Force_Unit = Is_Unit<T> && std::same_as<typename T::category_type, UnitCategory::Force>;
-
-        template <typename T>
-        concept Is_Angle_Unit = Is_Unit<T> && std::same_as<typename T::category_type, UnitCategory::Angle>;
-
-        template <typename A, typename B>
-        concept Is_Same_Unit_Category = Is_Unit<A> && Is_Unit<B> && std::same_as<typename A::category_type, typename B::category_type>;
-
-        template <typename To, typename From>
-        requires ( Is_Same_Unit_Category<To, From> ) 
-        [[nodiscard]] constexpr inline To Convert(const From& from) noexcept
-        {
-            using FromPeriod = typename From::period;
-            using ToPeriod   = typename To::period;
-
-            constexpr const double factor = static_cast<double>(FromPeriod::num) / FromPeriod::den * static_cast<double>(ToPeriod::den) / ToPeriod::num;
-
-            return To(static_cast<typename To::value_type>(from.Get() * factor));
-        }
     }
 }

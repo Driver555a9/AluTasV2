@@ -26,7 +26,7 @@ namespace CoreEngine
         void OnDrawBtDebug() noexcept;
         void SetDebugDrawer(btIDebugDraw* drawer) noexcept;
 
-        [[nodiscard]] const std::vector<Basic_Model*> GetRenderModelVector() const noexcept;
+        [[nodiscard]] const std::vector<const Basic_Model*> GetRenderModelVector() const noexcept;
         [[nodiscard]] const std::vector<Light>& GetLightVectorConstRef() const noexcept;
         [[nodiscard]] std::vector<glm::vec3> GetDebugLinesAllObjects() const noexcept;
         [[nodiscard]] std::vector<std::unique_ptr<Scene3D_SceneObject>>& GetSceneObjectsRef() noexcept;

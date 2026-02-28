@@ -15,12 +15,12 @@ namespace CoreEngine
         m_dynamics_world->setGravity(btVector3(0, -9.81f, 0));
     }
 
-    void PhysicsWorld::OnUpdate(const Units::MicroSecond delta_time)
+    void PhysicsWorld::OnUpdate(Units::MicroSecond delta_time)
     {
        OnUpdate(Units::Convert<Units::Second>(delta_time));
     }
 
-    void PhysicsWorld::OnUpdate(const Units::Second delta_time)
+    void PhysicsWorld::OnUpdate(Units::Second delta_time)
     {
         m_dynamics_world->stepSimulation(delta_time.Get(), 0);
     }

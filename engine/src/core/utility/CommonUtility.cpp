@@ -36,6 +36,20 @@ namespace CoreEngine::CommonUtility
         return content;
     }
 
+    void WriteStringToFile(const std::string& str, const char* filepath)
+    {
+        std::ofstream file(std::filesystem::path(filepath), std::ios::binary | std::ios::trunc);
+        if (!file) {
+            throw std::runtime_error("At CommonUtility::WriteStringToFile(): Failed to open file for writing");
+        }
+
+        file.write(str.data(), static_cast<std::streamsize>(str.size()));
+
+        if (!file) {
+            throw std::runtime_error("At CommonUtility::WriteStringToFile(): Failed to write to file");
+        }
+    }
+
     std::pair<double, double> GetMousePosition(GLFWwindow* window) noexcept
     {
         double x, y;

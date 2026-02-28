@@ -16,6 +16,7 @@ namespace AsphaltTas
 
         [[nodiscard]] size_t GetAmountRecordedFrames() noexcept;
         [[nodiscard]] Replay GetReplayCopy() noexcept;
+        [[nodiscard]] std::optional<Replay::Frame> GetLastFrame() noexcept;
 
         void ClearAllRecordedStates() noexcept;
 

@@ -14,7 +14,7 @@ namespace CoreEngine
     void Timer::Restart() noexcept
     {
         m_state = TimerState::RUNNING;
-        m_begin_time = GetTimeSinceEpoch<Units::MicroSecond>();
+        m_begin_time = GetMonotonicTime<Units::MicroSecond>();
         m_pause_time_counter = Units::MicroSecond(0);
     }
 
@@ -33,7 +33,7 @@ namespace CoreEngine
         }
 
         m_state = TimerState::RUNNING;
-        m_pause_time_counter += GetTimeSinceEpoch<Units::MicroSecond>() - m_time_last_pause;
+        m_pause_time_counter += GetMonotonicTime<Units::MicroSecond>() - m_time_last_pause;
     }
 
     void Timer::Pause() noexcept
@@ -43,7 +43,7 @@ namespace CoreEngine
             return;
         }
         m_state = TimerState::PAUSED;
-        m_time_last_pause = GetTimeSinceEpoch<Units::MicroSecond>();
+        m_time_last_pause = GetMonotonicTime<Units::MicroSecond>();
     }
 
     void Timer::Cancel() noexcept

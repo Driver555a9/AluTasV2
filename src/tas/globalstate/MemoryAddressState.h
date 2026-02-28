@@ -13,6 +13,7 @@ namespace AsphaltTas
     public:
         RacerStateAddresses() noexcept = delete;
         
+        [[deprecated("Prefer MemoryAddressUpdateService thread")]]
         static bool UpdateAddresses() noexcept;
         static void ManuallySetAddresses(uintptr_t base) noexcept;
 
@@ -38,7 +39,6 @@ namespace AsphaltTas
 
     private:
         static inline std::atomic<uintptr_t> s_base_address = INVALID_ADDRESS;
-        static inline std::atomic<bool> s_address_update_service_thread_is_running = false;
     };
 
     class CameraStateAddresses
@@ -46,6 +46,7 @@ namespace AsphaltTas
     public:
         CameraStateAddresses() noexcept = delete;
 
+        [[deprecated("Prefer MemoryAddressUpdateService thread")]]
         static bool UpdateAddresses() noexcept;
         static void ManuallySetAddresses(uintptr_t base) noexcept;
 
@@ -78,6 +79,30 @@ namespace AsphaltTas
 
     private:
         static inline std::atomic<uintptr_t> s_base_address = INVALID_ADDRESS;
-        static inline std::atomic<bool> s_address_update_service_thread_is_running = false;
+    };
+
+    
+    class RaceProgressStateAddresses
+    {
+    public:
+        RaceProgressStateAddresses() noexcept = delete;
+
+        [[deprecated("Prefer MemoryAddressUpdateService thread")]]
+        static bool UpdateAddresses() noexcept;
+
+        static void SetLapTimeAddress(uintptr_t lap_time) noexcept;
+        static void SetRaceProgressAddress(uintptr_t progress) noexcept;
+        static void SetCheckpointAddress(uintptr_t cp) noexcept; 
+        
+        [[nodiscard]] static uintptr_t GetLapTimeAddress() noexcept;
+        [[nodiscard]] static uintptr_t GetRaceProgressAddress() noexcept;
+        [[nodiscard]] static uintptr_t GetCheckpointAddress() noexcept;
+        
+        [[nodiscard]] static std::string ToString() noexcept;
+
+    private:
+        static inline std::atomic<uintptr_t> s_lap_time_address      = INVALID_ADDRESS;
+        static inline std::atomic<uintptr_t> s_race_progress_address = INVALID_ADDRESS;
+        static inline std::atomic<uintptr_t> s_checkpoint_address    = INVALID_ADDRESS;
     };
 }

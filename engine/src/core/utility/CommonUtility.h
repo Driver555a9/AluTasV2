@@ -14,7 +14,10 @@ namespace CoreEngine
 {
     namespace CommonUtility
     {
+        ///Throws runtime error
         [[nodiscard]] std::string ReadFileToString(const char* filepath);
+        ///Throws runtime error
+        void WriteStringToFile(const std::string& str, const char* filepath);
 
         [[nodiscard]] std::pair<double, double> GetMousePosition(GLFWwindow* window) noexcept;
 

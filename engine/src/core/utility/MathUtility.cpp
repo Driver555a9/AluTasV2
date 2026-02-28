@@ -48,7 +48,7 @@ namespace CoreEngine
             {
                 if (ray_origin_axis < box_min_axis || ray_origin_axis > box_max_axis)
                 {
-                    return Raytest3D_Result { false };
+                    return Raytest3D_Result { false, glm::vec3{0} };
                 }
             }
             else
@@ -63,13 +63,13 @@ namespace CoreEngine
                 t_max = std::min(t_max, t2);
 
                 if (t_min > t_max)
-                    return Raytest3D_Result { false };
+                    return Raytest3D_Result { false, glm::vec3{0} };
             }
         }
 
         const float t = (t_min >= 0.0f) ? t_min : t_max;
 
-        if (t < 0.0f) { return Raytest3D_Result{ false }; }
+        if (t < 0.0f) { return Raytest3D_Result{ false, glm::vec3{0} }; }
 
         const glm::vec3 hit_point = ray.m_origin + t * ray.m_direction_normalized;
 
@@ -93,18 +93,18 @@ namespace CoreEngine
 
         const float u = glm::dot(tvec, pvec) * inv_det;
         if (u < 0.0f || u > 1.0f)
-            return Raytest3D_Result{ false };
+            return Raytest3D_Result{ false, glm::vec3{0} };
 
         const glm::vec3 qvec = glm::cross(tvec, edge1);
         const float v = glm::dot(ray.m_direction_normalized, qvec) * inv_det;
 
         if (v < 0.0f || u + v > 1.0f)
-            return Raytest3D_Result{ false };
+            return Raytest3D_Result{ false, glm::vec3{0} };
 
         const float t = glm::dot(edge2, qvec) * inv_det;
 
         if (t < 1e-6f)
-            return Raytest3D_Result{ false };
+            return Raytest3D_Result{ false, glm::vec3{0} };
 
         const glm::vec3 hit_point = ray.m_origin + t * ray.m_direction_normalized;
 
@@ -116,12 +116,12 @@ namespace CoreEngine
         const float denom = glm::dot(plane.m_normal_normalized, ray.m_direction_normalized);
 
         if (std::abs(denom) < 1e-8f)
-            return Raytest3D_Result{ false };
+            return Raytest3D_Result{ false, glm::vec3{0} };
 
         const float t = glm::dot(plane.m_point - ray.m_origin, plane.m_normal_normalized) / denom;
 
         if (t < 1e-6f) 
-            return Raytest3D_Result{ false };
+            return Raytest3D_Result{ false, glm::vec3{0} };
 
         const glm::vec3 hit_point = ray.m_origin + t * ray.m_direction_normalized;
 

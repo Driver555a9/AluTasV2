@@ -49,6 +49,8 @@ namespace CoreEngine
         void SetRotation(const glm::quat& _rot)             noexcept;
         void SetScale(const glm::vec3& _scale)              noexcept;
 
+        [[nodiscard]] std::string ToString() const noexcept;
+
     protected:
         std::vector<Mesh> m_mesh_vector;
         glm::vec3 m_position {0.0f};

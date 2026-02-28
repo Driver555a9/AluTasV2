@@ -16,6 +16,7 @@ namespace CoreEngine
 
     int FramebufferResizeEvent::GetWidth()  const noexcept { return m_width; }
     int FramebufferResizeEvent::GetHeight() const noexcept { return m_height; }
+    float FramebufferResizeEvent::GetAspectRatio() const noexcept { return static_cast<float>(m_width) / static_cast<float>(m_height); }
 
     std::string FramebufferResizeEvent::ToString()   const noexcept { return std::format("WindowResizeEvent: {}, {}", m_width, m_height); }
 }

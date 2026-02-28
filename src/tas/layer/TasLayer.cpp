@@ -1,4 +1,4 @@
-#include "tas/layers/TasLayer.h"
+#include "tas/layer/TasLayer.h"
 
 #include "core/event/ApplicationStateEvents.h"
 #include "core/event/InputEvents.h"
@@ -25,9 +25,10 @@
 #include "tas/servicethreads/MouseInputService.h"
 #include "tas/servicethreads/ReplayRecorderService.h"
 
-#include "tas/layers/GuiStyle.h"
-#include "tas/layers/CameraToolLayer.h"
-#include "tas/layers/SpeedometerLayer.h"
+#include "tas/layer/GuiStyle.h"
+#include "tas/layer/CameraToolLayer.h"
+#include "tas/layer/SpeedometerLayer.h"
+#include "tas/layer/GhostToolLayer.h"
 
 //ImGUI
 #include "imgui/imgui.h"
@@ -45,7 +46,9 @@ namespace AsphaltTas
     TasLayer::TasLayer(CoreEngine::Window::Handle handle) noexcept : CoreEngine::Basic_Layer(handle)
     {
         GameStateWatchdogService::LaunchThread();
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
         MemoryAddressUpdateService::LaunchThread();
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
         ReadCurrentStateService::LaunchThread();
 
         //ReplayRecorder::LaunchRecordThread(CoreEngine::Units::Convert<CoreEngine::Units::MicroSecond>(CoreEngine::Units::MilliSecond(16)));
@@ -59,7 +62,7 @@ namespace AsphaltTas
     void TasLayer::OnEvent(CoreEngine::Basic_Event& e) noexcept
     {
         CoreEngine::EventDispatcher disp(e);
-        disp.Dispatch<CoreEngine::WindowCloseEvent>([](CoreEngine::WindowCloseEvent& e) -> bool {
+        disp.Dispatch<CoreEngine::WindowCloseEvent>([]([[maybe_unused]] CoreEngine::WindowCloseEvent& e) -> bool {
             try 
             {
                 MemoryRW::RestoreCameraUpdateCode(); ///Why is this needed? ~CameraToolLayer() should handle it! 
@@ -69,7 +72,7 @@ namespace AsphaltTas
         });
     }
 
-    void TasLayer::OnUpdate(CoreEngine::Units::MicroSecond dt) noexcept
+    void TasLayer::OnUpdate([[maybe_unused]] CoreEngine::Units::MicroSecond dt) noexcept
     {
 
     }
@@ -107,40 +110,22 @@ namespace AsphaltTas
         //////////////////////////////////////////////////////////
             if (ImGui::CollapsingHeader("Tools", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf))
             {
-                if (CameraToolLayer::InstanceExists())
+                const auto EnterOrExitTool = [](bool instance_exists, const char* label, void (*if_instance_exists)(), void (*if_instance_does_not_exist)() ) -> void 
                 {
-                    PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Button, GuiStyle::COLOR_RED);
-                    if (ImGui::Button("Exit Freeflight"))
+                    PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Button, instance_exists ? GuiStyle::COLOR_RED : GuiStyle::COLOR_GREEN);
+                    if (ImGui::Button((std::string(instance_exists ? "Exit " : "Enter ") + label).c_str()))
                     {
-                        CameraToolLayer::DeleteInstance();
+                        instance_exists ? if_instance_exists() : if_instance_does_not_exist();
                     }
-                }
-                else 
-                {
-                    PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Button, GuiStyle::COLOR_GREEN);
-                    if (ImGui::Button("Enter Freeflight"))
-                    {
-                        CameraToolLayer::CreateInstance();
-                    }
-                }
+                };
+
+                EnterOrExitTool(CameraToolLayer::InstanceExists(), "Camera Tool", &CameraToolLayer::DeleteInstance, &CameraToolLayer::CreateInstance);
 
                 ImGui::SameLine();
-                if (SpeedometerLayer::InstanceExists())
-                {
-                    PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Button, GuiStyle::COLOR_RED);
-                    if (ImGui::Button("Exit Speedometer"))
-                    {
-                        SpeedometerLayer::DeleteInstance();
-                    }
-                }
-                else 
-                {
-                    PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Button, GuiStyle::COLOR_GREEN);
-                    if (ImGui::Button("Enter Speedometer"))
-                    {
-                        SpeedometerLayer::CreateInstance();
-                    }
-                }
+                EnterOrExitTool(SpeedometerLayer::InstanceExists(), "Speedometer", &SpeedometerLayer::DeleteInstance, &SpeedometerLayer::CreateInstance);
+
+                ImGui::SameLine();
+                EnterOrExitTool(GhostToolLayer::InstanceExists(), "Ghost Tool", &GhostToolLayer::DeleteInstance, &GhostToolLayer::CreateInstance);
             }   
             
         //////////////////////////////////////////////////////////
@@ -169,18 +154,69 @@ namespace AsphaltTas
                     }
                 }
 
-                ImGui::TextUnformatted("Camera:");
-                PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, CameraStateAddresses::AddressesAreValid() ? GuiStyle::COLOR_GREEN : GuiStyle::COLOR_RED);
-                ImGui::TextUnformatted(CameraStateAddresses::ToString().c_str());
+                {
+                    ImGui::TextUnformatted("Camera:");
+                    PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, CameraStateAddresses::AddressesAreValid() ? GuiStyle::COLOR_GREEN : GuiStyle::COLOR_RED);
+                    ImGui::TextUnformatted(CameraStateAddresses::ToString().c_str());
+                }
 
-                ImGui::TextUnformatted("Racer:");
-                PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, RacerStateAddresses::AddressesAreValid() ? GuiStyle::COLOR_GREEN : GuiStyle::COLOR_RED);
-                ImGui::TextUnformatted(RacerStateAddresses::ToString().c_str());
+                {
+                    ImGui::TextUnformatted("Racer:");
+                    PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, RacerStateAddresses::AddressesAreValid() ? GuiStyle::COLOR_GREEN : GuiStyle::COLOR_RED);
+                    ImGui::TextUnformatted(RacerStateAddresses::ToString().c_str());
+                }
+
+                {
+                    ImGui::TextUnformatted("Race Progress: ");
+                    const auto DisplayAddress = [](uintptr_t (*func)(), const char* label) -> void {
+                        const uintptr_t addrr = func();
+                        PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, addrr != INVALID_ADDRESS ? GuiStyle::COLOR_GREEN : GuiStyle::COLOR_RED);
+                        if (addrr != INVALID_ADDRESS)
+                            ImGui::TextUnformatted(std::format("0x{:X} : {}", addrr, label).c_str());
+                        else  
+                            ImGui::TextUnformatted(std::format("Invalid : {}", label).c_str());
+                    };
+
+                    DisplayAddress(&RaceProgressStateAddresses::GetLapTimeAddress, "Lap Time");
+                    DisplayAddress(&RaceProgressStateAddresses::GetRaceProgressAddress, "Progress");
+                    DisplayAddress(&RaceProgressStateAddresses::GetCheckpointAddress, "Checkpoint");
+                }
+
+                try 
+                {
+                    ImGui::Text("Race Time: %.3f", CoreEngine::Units::Convert<CoreEngine::Units::Second>(ReadCurrentStateService::GetCurrentRaceProgressState()->m_lap_time).Get());
+                } catch (...) {
+                    ImGui::TextUnformatted("Race Time: -- Err --");
+                }
+                try 
+                {
+                    ImGui::Text("Race Progress: %.1f", ReadCurrentStateService::GetCurrentRaceProgressState()->m_race_progress_percentage);
+                } catch (...) {
+                    ImGui::TextUnformatted("Race Progress: -- Err --");
+                }
             }
             
             if (ImGui::CollapsingHeader("Tool Performance", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf))
             {
-                ImGui::Text("Tool FPS: %.0f", ImGui::GetIO().Framerate);
+                {
+                    const float fps = ImGui::GetIO().Framerate;
+
+                    float t = (fps - 60.0f) / (240.0f - 60.0f);
+                    t = std::clamp(t, 0.0f, 1.0f);
+
+                    ImVec4 color;
+                    if (t < 0.5f)
+                    {
+                        color = ImVec4(1.0f, t / 0.5f, 0.0f, 1.0f);
+                    }
+                    else
+                    {
+                        color = ImVec4(1.0f - ((t - 0.5f) / 0.5f), 1.0f, 0.0f, 1.0f);
+                    }
+
+                    PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, color);
+                    ImGui::Text("Tool FPS: %.0f", fps);
+                }
 
                 bool vsync_is_on = CoreEngine::Application::Get()->GetVsyncIsOn();
                 if (ImGui::Checkbox("VSync", &vsync_is_on))
@@ -205,7 +241,7 @@ namespace AsphaltTas
                     LogThreadStatus("Replay Recorder       : ", ReplayRecorderService::GetThreadIsRunning());
                 }
 
-                if (ImGui::CollapsingHeader("Frame Times", ImGuiTreeNodeFlags_DefaultOpen ))
+                if (ImGui::CollapsingHeader("Frame Times"))
                 {
                     const std::vector<CoreEngine::PerFrameScopeTimes::ScopeTimeData>& scope_times = CoreEngine::PerFrameScopeTimes::GetScopeTimeDataConstRef();
                     for (const CoreEngine::PerFrameScopeTimes::ScopeTimeData& data : scope_times)
@@ -218,60 +254,4 @@ namespace AsphaltTas
         }
         ImGui::End();
     }
-
-    void TasLayer::OnRenderGhostExperimental() noexcept
-    {
-        static CoreEngine::CameraReverseZ s_pseudo_game_camera (glm::vec3(0.0f), CoreEngine::Application::Get()->GetWindowPtr(m_handle)->GetAspectRatio(), 55.0f, 0.1f);
-        s_pseudo_game_camera.SetAspectRatio(CoreEngine::Application::Get()->GetWindowPtr(m_handle)->GetAspectRatio());
-
-        static CoreEngine::Scene3D s_scene {};
-        static CoreEngine::IndirectDraw3D_RenderPipeline s_render_pipeline {};
-
-        if (s_scene.GetSceneObjectsRef().empty())
-        {
-            CoreEngine::Scene3D_ObjectBuilder builder = s_scene.CreateObjectBuilder();
-            builder.RenderModel_SetFromPath("resources/obj/h2.glb", glm::vec3(1.0f));
-            builder.SetPhysicsObjectType(CoreEngine::PhysicsObjectType::NONE);
-            builder.SetName("Ghost");
-            s_scene.AddObjectFromBuilder(std::move(builder));
-
-            s_scene.EmplaceLightSource(glm::vec3(0), glm::vec3(1), 60.0f, CoreEngine::Light::LIGHT_MODE::DIRECT_LIGHT);
-
-            s_render_pipeline.SetSceneData(s_scene.GetRenderModelVector(), s_scene.GetLightVectorConstRef());
-        }
-
-        static CoreEngine::Timer timer;
-        
-        if (timer.GetElapsed<CoreEngine::Units::MilliSecond>() < CoreEngine::Units::MilliSecond(16)) 
-        {
-            s_render_pipeline.Render();
-            return;
-        }
-        timer.Restart();
-
-        std::vector<std::unique_ptr<CoreEngine::Scene3D_SceneObject>>& objects = s_scene.GetSceneObjectsRef();
-
-        CameraState camera_state_now;
-        RacerState racer_state;
-        
-        try {
-            camera_state_now = MemoryRW::ReadCameraState();
-            racer_state      = MemoryRW::ReadRacerState();
-        } catch (...) { s_render_pipeline.Render(); }
-
-        objects[0]->SetPosition(racer_state.GetExtractedPosition());
-        objects[0]->SetRotation(racer_state.GetExtractedRotation());
-
-        s_pseudo_game_camera.SetPosition(camera_state_now.m_position);
-        s_pseudo_game_camera.SetRotation(camera_state_now.m_rotation);
-        s_pseudo_game_camera.SetFovRad(camera_state_now.m_fov_radians);
-
-        s_render_pipeline.SetSceneData(s_scene.GetRenderModelVector(),
-         {CoreEngine::Light{racer_state.GetExtractedPosition(), glm::vec3(1), 350.0f, CoreEngine::Light::DIRECT_LIGHT}});
-
-        s_render_pipeline.SetCameraData(s_pseudo_game_camera.CalculateCameraMatrix(), s_pseudo_game_camera.GetPosition());
-
-        s_render_pipeline.Render();
-    }
-
 }

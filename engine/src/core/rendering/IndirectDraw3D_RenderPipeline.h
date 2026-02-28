@@ -24,9 +24,9 @@ namespace CoreEngine
         //---------  Public methods
         //////////////////////////////////////////////// 
         //Call this is models were added / deleted - Expensive and will rebuild entire data once
-        void SetSceneData(const std::vector<Basic_Model*>& model_vec, const std::vector<Light>& lights) noexcept;
+        void SetSceneData(const std::vector<const Basic_Model*>& model_vec, const std::vector<Light>& lights) noexcept;
         //Call if no models added / deleted, but positions may have changed. Will apply frustum culling
-        void UpdateModelTransforms(const std::vector<Basic_Model*>& model_vec, const glm::mat4& camera_matrix) noexcept;
+        void UpdateModelTransforms(const std::vector<const Basic_Model*>& model_vec, const glm::mat4& camera_matrix) noexcept;
         //Call if just new light sources were added
         void SetLightData(const std::vector<Light>& lights) noexcept;
         //Call if camera state changed

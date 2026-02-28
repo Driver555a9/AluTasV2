@@ -1,10 +1,12 @@
 #pragma once
 
 #include "tas/common/RacerState.h"
+#include "tas/common/RaceProgressState.h"
 
 #include "core/utility/Units.h"
 
 #include <vector>
+#include <optional>
 
 namespace AsphaltTas
 {
@@ -14,7 +16,7 @@ namespace AsphaltTas
         struct Frame
         {
             RacerState m_racer_state;
-            CoreEngine::Units::MicroSecond m_time_since_begin;
+            RaceProgressState m_race_progress_state;
         };
 
         template <typename... Args>
@@ -24,12 +26,22 @@ namespace AsphaltTas
             m_frames.emplace_back(std::forward<Args>(args)...);
         }
 
+        template <typename... Args>
+        requires std::is_constructible_v<std::vector<Frame>, Args...>
+        inline void SetFrameData(Args&&... args) noexcept
+        {
+            m_frames = std::vector<Frame>(std::forward<Args>(args)...);
+        }
+
+        const std::vector<Frame>& GetFrameVectorConstReference() const noexcept;
+
         void IncrementFrameIndex(size_t count = 1) noexcept;
-        void IncrementToFirstFrameAfterGivenTime(CoreEngine::Units::MicroSecond min_time) noexcept;
+        void GoToFirstFrameOverGivenLapTime(CoreEngine::Units::MicroSecond min_time) noexcept;
         void ResetFrameIndex() noexcept;
-        [[nodiscard]] Frame GetCurrentFrame() const noexcept;
-        [[nodiscard]] Frame GetLastFrame() const noexcept;
+        [[nodiscard]] std::optional<Frame> GetCurrentFrame() const noexcept;
+        [[nodiscard]] std::optional<Frame> GetLastFrame() const noexcept;
         [[nodiscard]] size_t GetAmountFrames() const noexcept;
+        [[nodiscard]] size_t GetCurrentIndex() const noexcept;
 
         void ClearAllFrameData() noexcept;
 

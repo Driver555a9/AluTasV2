@@ -15,14 +15,16 @@
 
 namespace CoreEngine
 {
-    PathModel::PathModel(const std::string& path, const glm::vec3& position, const glm::quat& rotation, const glm::vec3& natural_scale) noexcept 
+    PathModel::PathModel(const std::string& path, const glm::vec3& position, const glm::quat& rotation, const glm::vec3& natural_scale) 
     : m_file_path(path), m_natural_scale_factor(natural_scale)
     {
         Assimp::Importer importer;
         const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_SortByPType | aiProcess_FlipUVs | aiProcess_GenNormals | aiProcess_JoinIdenticalVertices | aiProcess_PreTransformVertices);
         
-        ENGINE_ASSERT (scene && !(scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) && scene->mRootNode 
-            && (std::string("At PathModel::PathModel(): Assimp error: ") + importer.GetErrorString()).c_str() );
+        if  (! scene || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) || !scene->mRootNode)
+        {
+            throw std::runtime_error("Failed to create Path Model fromn path: " + path);
+        }
 
         m_mesh_vector.reserve(scene->mNumMeshes);
 
@@ -97,15 +99,8 @@ namespace CoreEngine
         //////////////////////////////////////////////// 
         std::shared_ptr<MaterialPBR> material;
 
-        if (mesh->mMaterialIndex >= 0)
-        {
-            const aiMaterial* aiMat = scene->mMaterials[mesh->mMaterialIndex];
-            material = ExtractMaterial(model_file_path, aiMat, scene);
-        }
-        else
-        {
-            material = std::make_shared<MaterialPBR>();
-        }
+        const aiMaterial* aiMat = scene->mMaterials[mesh->mMaterialIndex];
+        material = ExtractMaterial(model_file_path, aiMat, scene);
 
         /////////////////////////////////////////////// 
         //--------- Load Material

@@ -1,4 +1,4 @@
-#include "tas/layers/SpeedometerLayer.h"
+#include "tas/layer/SpeedometerLayer.h"
 
 #include "core/application/Application.h"
 #include "core/utility/Assert.h"
@@ -6,7 +6,7 @@
 #include "core/event/EventDispatcher.h"
 #include "core/event/WindowEvents.h"
 
-#include "tas/layers/GuiStyle.h"
+#include "tas/layer/GuiStyle.h"
 
 #include "tas/common/RacerState.h"
 #include "tas/common/Utility.h"
@@ -39,13 +39,13 @@ namespace AsphaltTas
             return true;
         });
 
-        dispatcher.Dispatch<CoreEngine::MouseReleasedEvent>([this](CoreEngine::MouseReleasedEvent& e) -> bool {
+        dispatcher.Dispatch<CoreEngine::MouseReleasedEvent>([this]([[maybe_unused]] CoreEngine::MouseReleasedEvent& e) -> bool {
             m_left_mouse_pressed_after_unlock_disable_gui_input = false;
             return true;
         });
     }
 
-    void SpeedometerLayer::OnUpdate(CoreEngine::Units::MicroSecond dt) noexcept
+    void SpeedometerLayer::OnUpdate([[maybe_unused]] CoreEngine::Units::MicroSecond dt) noexcept
     {
 
     }
@@ -65,7 +65,7 @@ namespace AsphaltTas
         ImGuiWindowFlags flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse
                                | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus;
                                
-        PUSH_SCOPED_STYLE_COLOR(ImGuiCol_WindowBg, m_is_locked ? GuiStyle::COLOR_TRANSPARENT : GuiStyle::COLOR_BLACK);
+        PUSH_SCOPED_STYLE_COLOR(ImGuiCol_WindowBg, m_is_locked ? m_bg_color : GuiStyle::COLOR_BLACK);
 
         PUSH_SCOPED_STYLE_VAR(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
         PUSH_SCOPED_STYLE_VAR(ImGuiStyleVar_WindowBorderSize, 0.0f);
@@ -114,6 +114,8 @@ namespace AsphaltTas
                     
                     ImGui::SameLine();
                     ImGui::SliderFloat("Font Size", &m_font_size, 0.1f, 10.0f);
+
+                    ImGui::ColorPicker4("BG Color", &m_bg_color.x);
                 }
             }
         }
@@ -128,15 +130,16 @@ namespace AsphaltTas
 
         using Cdis = CoreEngine::Window::WindowCreationConfig::CallbackDisableFlags;
 
-        const CoreEngine::Window::WindowCreationConfig config 
+        constexpr CoreEngine::Window::WindowCreationConfig config 
         {
             .m_title                       = "Speedometer ",
-            .m_relative_size               = {500.0f / 1920.0f, 300.0f / 1080.0f},
+            .m_relative_size               = {500.0f / 1920.0f, 600.0f / 1080.0f},
             .m_callback_disable_flags      = static_cast<Cdis>(Cdis::KeyCallback | Cdis::MouseMovedCallback | Cdis::MouseScrollCallback),
             .m_imgui_flags                 = {},
             .m_MSAA_sample_count           = 0,
-            .m_is_windowed_fullscren       = false,
-            .m_has_transparent_framebuffer = true
+            .m_is_decorated                = true,
+            .m_has_transparent_framebuffer = true,
+            .m_is_clickthrough             = false
         };
         CoreEngine::Application::Get()->QueueCreateWindowAndPushLayer<SpeedometerLayer>(config);
     }

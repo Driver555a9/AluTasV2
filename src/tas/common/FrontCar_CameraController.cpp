@@ -9,7 +9,8 @@ namespace AsphaltTas
 
     }
 
-    void FrontCar_CameraControler::Update(CoreEngine::CameraReverseZ& camera, const CoreEngine::InputState& input_state, CoreEngine::Units::Second delta_time) noexcept
+    void FrontCar_CameraControler::Update(CoreEngine::CameraReverseZ& camera, [[maybe_unused]] const CoreEngine::InputState& input_state, 
+         [[maybe_unused]] CoreEngine::Units::Second delta_time) noexcept
     {
         const glm::vec3 car_pos = m_racer_state.GetExtractedPosition();
         const glm::quat car_rot = m_racer_state.GetExtractedRotation();

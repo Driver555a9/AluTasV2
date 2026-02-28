@@ -83,6 +83,53 @@ namespace AsphaltTas::MemoryUtility
         return opt_addr.value();
     }
 
+#ifdef _WIN32
+    libmem::Address AllocMemoryNearAddressOrThrow(const libmem::Process* process, libmem::Address desired_address, size_t size, uintptr_t max_distance)
+    {
+        constexpr uintptr_t STEP     = 0x10000;
+        constexpr uintptr_t MIN_ADDR = 0x10000;
+
+        HANDLE handle_process = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ, FALSE, process->pid);
+        if (! handle_process)
+            throw MemoryManipFailedException("MemoryUtility: Failed to OpenProcess for pid: " + std::to_string(process->pid));
+
+        uintptr_t base     = desired_address;
+        uintptr_t min_scan = (base > max_distance) ? base - max_distance : MIN_ADDR;
+        uintptr_t max_scan = base + max_distance;
+        min_scan &= ~0xFFFull;
+        max_scan &= ~0xFFFull;
+
+        for (uintptr_t delta = STEP; delta <= max_distance; delta += STEP)
+        {
+            uintptr_t candidate_lo = (delta <= base) ? base - delta : MIN_ADDR;
+            if (candidate_lo >= min_scan && candidate_lo <= max_scan)
+            {
+                LPVOID result = VirtualAllocEx(handle_process, reinterpret_cast<LPVOID>(candidate_lo), size, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+                if (result)
+                {
+                    CloseHandle(handle_process);
+                    return reinterpret_cast<libmem::Address>(result);
+                }
+            }
+
+            uintptr_t candidate_hi = base + delta;
+            if (candidate_hi >= min_scan && candidate_hi <= max_scan)
+            {
+                LPVOID result = VirtualAllocEx(handle_process, reinterpret_cast<LPVOID>(candidate_hi), size, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+                if (result)
+                {
+                    CloseHandle(handle_process);
+                    return reinterpret_cast<libmem::Address>(result);
+                }
+            }
+        }
+
+        CloseHandle(handle_process);
+        throw MemoryManipFailedException("MemoryUtility: Failed AllocMemoryNear. Base=" + std::to_string(base) + " size=" + std::to_string(size) +
+            " max_distance=" + std::to_string(max_distance));
+    }
+#endif
+
 //////////////////////////////////////////////////////////
 // Freeing
 //////////////////////////////////////////////////////////
@@ -95,9 +142,24 @@ namespace AsphaltTas::MemoryUtility
     bool TryFreeMemoryOrNothing(const libmem::Process* process, libmem::Address address, size_t size) noexcept
     {
         bool result = libmem::FreeMemory(process, address, size);
-        if (! result) ENGINE_DEBUG_PRINT("Warning: Failed to free memory at address: " << address << " with size: " << size);
+        if (! result) ENGINE_ERROR_PRINT("Warning: Failed to free memory at address: " << address << " with size: " << size);
         return result;
     }
+
+#ifdef _WIN32    
+    void FreeMemoryAllocatedNearAddressOrThrow(const libmem::Process* process, libmem::Address address, size_t size)
+    {
+        HANDLE handle_process = OpenProcess(PROCESS_VM_OPERATION, FALSE, process->pid);
+        if (handle_process)
+        {
+            VirtualFreeEx(handle_process, reinterpret_cast<LPVOID>(address), size, MEM_RELEASE);
+            CloseHandle(handle_process);
+        } else 
+        {
+            throw MemoryManipFailedException("MemoryUtility: Failed to free memory allocated near address, at address: " + std::to_string(address));
+        }
+    }
+#endif
     
 //////////////////////////////////////////////////////////
 // Reading
@@ -164,7 +226,7 @@ namespace AsphaltTas::MemoryUtility
 
         if (snapshot == INVALID_HANDLE_VALUE)
         {
-            ENGINE_DEBUG_PRINT("Failed to create thread snapshot");
+            ENGINE_ERROR_PRINT("Failed to create thread snapshot");
             return std::nullopt;
         }
 
@@ -174,7 +236,7 @@ namespace AsphaltTas::MemoryUtility
         if (! Thread32First(snapshot, &thread_entry))
         {
             CloseHandle(snapshot);
-            ENGINE_DEBUG_PRINT("Failed to enumerate threads");
+            ENGINE_ERROR_PRINT("Failed to enumerate threads");
             return std::nullopt;
         }
 
@@ -192,7 +254,7 @@ namespace AsphaltTas::MemoryUtility
                     else
                     {
                         CloseHandle(thread_handle);
-                        ENGINE_DEBUG_PRINT("Failed to suspend thread " << thread_entry.th32ThreadID);
+                        ENGINE_ERROR_PRINT("Failed to suspend thread " << thread_entry.th32ThreadID);
                     }
                 }
             }
@@ -202,7 +264,7 @@ namespace AsphaltTas::MemoryUtility
         
         if (suspended.m_thread_handles.empty())
         {
-            ENGINE_DEBUG_PRINT("No threads were suspended");
+            ENGINE_ERROR_PRINT("No threads were suspended");
             return std::nullopt;
         }
 
@@ -266,6 +328,30 @@ namespace AsphaltTas::MemoryUtility
             CloseHandle(hProc);
             callback();
         }).detach();
+    }
+
+    
+//////////////////////////////////////////////////////////
+// Fetch window position + width & height
+//////////////////////////////////////////////////////////
+    WindowInfo GetWindowInfoOrThrow(HWND hwnd)
+    {
+        RECT client;
+        if (!GetClientRect(hwnd, &client))
+            throw std::runtime_error("GetClientRect failed");
+
+        POINT tl { client.left, client.top };
+        POINT br { client.right, client.bottom };
+
+        if (!ClientToScreen(hwnd, &tl) || !ClientToScreen(hwnd, &br))
+            throw std::runtime_error("ClientToScreen failed");
+
+        return WindowInfo{
+            .m_x_position = tl.x,
+            .m_y_position = tl.y,
+            .m_width      = br.x - tl.x,
+            .m_height     = br.y - tl.y
+        };
     }
 
 #endif

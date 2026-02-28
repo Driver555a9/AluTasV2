@@ -2,7 +2,7 @@
 
 namespace CoreEngine
 {
-    SimpleSphere_radius1::SimpleSphere_radius1(const float radius, const glm::vec3& color, const glm::vec3& position, const glm::quat& m_rotation, const int subdivisions)
+    SimpleSphere_radius1::SimpleSphere_radius1(float radius, int subdivisions)
     : m_sphere_verts(SimpleCube_1x1x1::CUBE_VERTICES), m_sphere_indices(SimpleCube_1x1x1::CUBE_INDICES)
     {
         for (size_t s = 0; s < static_cast<size_t>(subdivisions); ++s)
@@ -60,7 +60,7 @@ namespace CoreEngine
 
     const SimpleSphere_radius1& SimpleSphere_radius1::GetInstance()
     {
-        static const SimpleSphere_radius1 sphere_instance(1.0f, glm::vec3(1.0f), glm::vec3(0.0f), glm::identity<glm::quat>(), 4);
+        static const SimpleSphere_radius1 sphere_instance(1.0f, 4);
         return sphere_instance;
     }
 }

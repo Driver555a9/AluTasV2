@@ -2,6 +2,8 @@
 
 #include <stdexcept>
 
+#include "core/utility/Units.h"
+
 #include "tas/common/RacerState.h"
 #include "tas/common/CameraState.h"
 
@@ -26,6 +28,8 @@ namespace AsphaltTas
         //Automatically swaps into XYZ convention
         [[nodiscard]] RacerState ReadRacerState(); 
         [[nodiscard]] CameraState ReadCameraState();
+        [[nodiscard]] CoreEngine::Units::MicroSecond ReadCurrentRaceTime();
+        [[nodiscard]] float ReadCurrentRaceProgress();
         
         //Automatically swaps back to XZY convention
         void WriteRacerState(const RacerState& state);

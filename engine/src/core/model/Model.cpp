@@ -1,7 +1,10 @@
 #include "core/model/Model.h"
 
+#include "core/utility/CommonUtility.h"
+
 //Standard imports
 #include <array>
+#include <sstream>
 
 namespace CoreEngine
 {
@@ -128,5 +131,15 @@ namespace CoreEngine
     void Basic_Model::SetScale(const glm::vec3& _scale) noexcept
     {
         m_scale = _scale;
+    }
+
+    std::string Basic_Model::ToString() const noexcept
+    {
+        std::ostringstream ost;
+        ost  << "Position: " << CommonUtility::GlmVec3ToString(m_position) 
+             << "\nRotation: " << CommonUtility::GlmQuatToString(m_rotation) 
+             << "\nScale: " << CommonUtility::GlmVec3ToString(m_scale)
+             << "\nHalf Extents: " <<  CommonUtility::GlmVec3ToString(m_aabb_half_extents);
+        return ost.str();
     }
 }

@@ -28,8 +28,8 @@ namespace CoreEngine
             explicit PhysicsWorld();
             virtual ~PhysicsWorld() = default;
 
-            virtual void OnUpdate(const Units::MicroSecond delta_time);
-            virtual void OnUpdate(const Units::Second delta_time);
+            virtual void OnUpdate(Units::MicroSecond delta_time);
+            virtual void OnUpdate(Units::Second delta_time);
 
             PhysicsWorld(PhysicsWorld&&)                 = default;
             PhysicsWorld& operator=(PhysicsWorld&&)      = default;

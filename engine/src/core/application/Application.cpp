@@ -121,7 +121,7 @@ namespace CoreEngine
                     const auto handle  = *rit;
                     if (handle == Window::Handle::INVALID)
                     {
-                        ENGINE_DEBUG_PRINT("Attempted to delete window with invalid handle: " << handle);
+                        ENGINE_ERROR_PRINT("Attempted to delete window with invalid handle: " << handle);
                         continue;
                     }
                     const size_t index = FindWindowLayerStackIndexFromWindowHandle(handle);
@@ -209,6 +209,7 @@ namespace CoreEngine
         {
             ENGINE_ASSERT(false && "At Application::Create() called multiple times. Only one Application instance is allowed.");
         }
+
         if (! glfwInit())
         {
             throw std::runtime_error("At Application::Create(): failed to initialize GLFW.");
@@ -226,9 +227,9 @@ namespace CoreEngine
 
         if (config.m_debug_launch_with_console)
         {
-            CoreEngine::DebugUtility::ForceInitConsole();
             CoreEngine::DebugUtility::PrintHardwareInfo();
             CoreEngine::DebugUtility::EnableDebugMessages();
+            CoreEngine::DebugUtility::ForceInitConsole();
         }
         else 
         {
@@ -250,14 +251,14 @@ namespace CoreEngine
     //////////////////////////////////////////////// 
     //--------- Glfw callbacks
     //////////////////////////////////////////////// 
-    void Application::KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+    void Application::KeyCallback(GLFWwindow* window, int key, [[maybe_unused]] int scancode, [[maybe_unused]] int action, [[maybe_unused]] int mods)
     {
         const Window::Handle handle = s_application_instance_ptr->FindWindowHandleFromGlfwWindow(window);
         if (action == GLFW_PRESS)        s_application_instance_ptr->RaiseEvent(handle, KeyPressedEvent  {key} );
         else if (action == GLFW_RELEASE) s_application_instance_ptr->RaiseEvent(handle, KeyReleasedEvent {key} );
     }
 
-    void Application::MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+    void Application::MouseButtonCallback(GLFWwindow* window, int button, int action, [[maybe_unused]] int mods)
     {
         const Window::Handle handle = s_application_instance_ptr->FindWindowHandleFromGlfwWindow(window);
         if (action == GLFW_PRESS)        s_application_instance_ptr->RaiseEvent(handle, MousePressedEvent  {button, CommonUtility::GetMousePosition(window)});

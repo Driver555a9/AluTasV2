@@ -1,4 +1,4 @@
-#include "tas/layers/CameraToolLayer.h"
+#include "tas/layer/CameraToolLayer.h"
 
 #include "core/event/ApplicationStateEvents.h"
 #include "core/event/InputEvents.h"
@@ -22,7 +22,7 @@
 #include "tas/servicethreads/MouseInputService.h"
 #include "tas/servicethreads/ReadCurrentStateService.h"
 
-#include "tas/layers/GuiStyle.h"
+#include "tas/layer/GuiStyle.h"
 
 //ImGUI
 #include "imgui/imgui.h"
@@ -75,7 +75,7 @@ namespace AsphaltTas
         catch (std::exception& e) 
         { 
             DeleteInstance();
-            ENGINE_DEBUG_PRINT("Failed to enter free flight: " << e.what()); 
+            ENGINE_ERROR_PRINT("Failed to enter free flight: " << e.what()); 
         }
     }
 
@@ -88,12 +88,12 @@ namespace AsphaltTas
         } 
         catch (std::exception& e) 
         { 
-            ENGINE_DEBUG_PRINT("Failed to restore original Camera Update Code: " << e.what()); 
+            ENGINE_ERROR_PRINT("Failed to restore original Camera Update Code: " << e.what()); 
         }
         MouseInputService::StopThread();
     } 
 
-    void CameraToolLayer::OnEvent(CoreEngine::Basic_Event& e) noexcept 
+    void CameraToolLayer::OnEvent([[maybe_unused]] CoreEngine::Basic_Event& e) noexcept 
     {
 
     }
@@ -121,36 +121,45 @@ namespace AsphaltTas
         if (s_current_controller_type == CameraControllerType::FREE_CAM)
         {
             s_free_cam_controller.Update(m_free_cam_pseudo_camera, input_state, CoreEngine::Units::Convert<CoreEngine::Units::Second>(dt));
-            out.m_position      = m_free_cam_pseudo_camera.GetPosition();
-            out.m_rotation      = m_free_cam_pseudo_camera.GetRotation();
-            out.m_fov_radians   = m_free_cam_pseudo_camera.GetFovRad();
+            out.m_position    = m_free_cam_pseudo_camera.GetPosition();
+            out.m_rotation    = m_free_cam_pseudo_camera.GetRotation();
+            out.m_fov_radians = m_free_cam_pseudo_camera.GetFovRad();
         }
         else if (s_current_controller_type == CameraControllerType::ORBITAL_CAM)
         {
-            std::optional<RacerState> car_state = ReadCurrentStateService::GetInterpolatedRacerState();
+            std::optional<RacerState> car_state = ReadCurrentStateService::GetCurrentRacerState();
 
             if (! car_state.has_value())
             {
-                ENGINE_DEBUG_PRINT("Exited ORBITAL Camera because of failure to obtain current Car State.");
+                ENGINE_ERROR_PRINT("Exited ORBITAL Camera because of failure to obtain current Car State.");
                 s_current_controller_type = CameraControllerType::FREE_CAM;
             }
             else 
             {
+                //Hack to get zoom
+                if (GetAsyncKeyState('E') & 0x8000)
+                {
+                    input_state.m_mouse_wheel_scroll_delta += 1.0f;
+                }
+                if (GetAsyncKeyState('Q') & 0x8000)
+                {
+                    input_state.m_mouse_wheel_scroll_delta -= 1.0f;
+                }
                 s_orbital_cam_controller.SetTarget(car_state->GetExtractedPosition());
                 s_orbital_cam_controller.Update(m_orbital_cam_pseudo_camera, input_state, CoreEngine::Units::Convert<CoreEngine::Units::Second>(dt));
             }
 
-            out.m_position      = m_orbital_cam_pseudo_camera.GetPosition();
-            out.m_rotation      = m_orbital_cam_pseudo_camera.GetRotation();
-            out.m_fov_radians   = m_orbital_cam_pseudo_camera.GetFovRad();
+            out.m_position    = m_orbital_cam_pseudo_camera.GetPosition();
+            out.m_rotation    = m_orbital_cam_pseudo_camera.GetRotation();
+            out.m_fov_radians = m_orbital_cam_pseudo_camera.GetFovRad();
         }
         else if (s_current_controller_type == CameraControllerType::FRONT_CAR)
         {
-            std::optional<RacerState> car_state = ReadCurrentStateService::GetInterpolatedRacerState();
+            std::optional<RacerState> car_state = ReadCurrentStateService::GetCurrentRacerState();
 
             if (! car_state.has_value())
             {
-                ENGINE_DEBUG_PRINT("Exited FRONT_CAR Camera because of failure to obtain current Car State.");
+                ENGINE_ERROR_PRINT("Exited FRONT_CAR Camera because of failure to obtain current Car State.");
                 s_current_controller_type = CameraControllerType::FREE_CAM;
             }
             else 
@@ -275,7 +284,7 @@ namespace AsphaltTas
 
                 if (ImGui::Button("Move to Car"))
                 {
-                    std::optional<RacerState> state = ReadCurrentStateService::GetInterpolatedRacerState();
+                    std::optional<RacerState> state = ReadCurrentStateService::GetCurrentRacerState();
                     m_free_cam_pseudo_camera.SetPosition(state->GetExtractedPosition());
                 }
 
@@ -384,8 +393,9 @@ namespace AsphaltTas
             .m_callback_disable_flags      = static_cast<Cdis>(Cdis::KeyCallback | Cdis::MouseButtonCallback | Cdis::MouseMovedCallback | Cdis::MouseScrollCallback),
             .m_imgui_flags                 = {},
             .m_MSAA_sample_count           = 0,
-            .m_is_windowed_fullscren       = false,
-            .m_has_transparent_framebuffer = false
+            .m_is_decorated                = true,
+            .m_has_transparent_framebuffer = false,
+            .m_is_clickthrough             = false
         };
         CoreEngine::Application::Get()->QueueCreateWindowAndPushLayer<CameraToolLayer>(config);
     }

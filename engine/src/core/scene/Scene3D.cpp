@@ -45,9 +45,9 @@ namespace CoreEngine
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //-------- Get scene / draw data
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-    const std::vector<Basic_Model*> Scene3D::GetRenderModelVector() const noexcept
+    const std::vector<const Basic_Model*> Scene3D::GetRenderModelVector() const noexcept
     {   
-        std::vector<Basic_Model*> models;
+        std::vector<const Basic_Model*> models;
         models.reserve(m_scene_objects.size());
 
         for (const std::unique_ptr<Scene3D_SceneObject>& scene_obj : m_scene_objects)

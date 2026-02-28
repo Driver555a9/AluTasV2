@@ -59,7 +59,8 @@ namespace CoreEngine
                 .m_metallic_roughness_tex_handle = BindlessHandleFromUint64(m_metallic_roughness_texture ? m_metallic_roughness_texture->GetBindlessHandle() : 0),
                 .m_normal_tex_handle             = BindlessHandleFromUint64(m_normal_texture ? m_normal_texture->GetBindlessHandle() : 0),
                 .m_occlusion_tex_handle          = BindlessHandleFromUint64(m_occlusion_texture ? m_occlusion_texture->GetBindlessHandle() : 0),
-                .m_emissive_tex_handle           = BindlessHandleFromUint64(m_emissive_texture ? m_emissive_texture->GetBindlessHandle() : 0)
+                .m_emissive_tex_handle           = BindlessHandleFromUint64(m_emissive_texture ? m_emissive_texture->GetBindlessHandle() : 0),
+                ._padding                        = {0.0f, 0.0f}
             };
         }
 

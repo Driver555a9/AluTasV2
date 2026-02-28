@@ -6,7 +6,7 @@ namespace CoreEngine
 {
     OrbitalCam_CameraController::OrbitalCam_CameraController() noexcept : Basic_CameraController(Basic_CameraController::Type::OrbitalCam) {}
 
-    void OrbitalCam_CameraController::Update(CameraReverseZ& camera, const InputState& input_state, Units::Second delta_time) noexcept
+    void OrbitalCam_CameraController::Update(CameraReverseZ& camera, const InputState& input_state, [[maybe_unused]] Units::Second delta_time) noexcept
     {
         ////////////////////////////////////////////////
         // -------- Mouse Zoom Input (wheel scroll)

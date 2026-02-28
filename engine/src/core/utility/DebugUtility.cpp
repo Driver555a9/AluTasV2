@@ -33,18 +33,22 @@ namespace CoreEngine::DebugUtility
         freopen_s(&fDummy, "CONOUT$", "w", stdout);
         freopen_s(&fDummy, "CONOUT$", "w", stderr);
 
-        HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+        HANDLE handles[2] = { GetStdHandle(STD_OUTPUT_HANDLE), GetStdHandle(STD_ERROR_HANDLE) };
 
-        DWORD mode = 0;
-        if (GetConsoleMode(hOut, &mode))
+        for (HANDLE h : handles)
         {
-            mode |= ENABLE_PROCESSED_OUTPUT | ENABLE_WRAP_AT_EOL_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-            SetConsoleMode(hOut, mode);
+            DWORD mode = 0;
+            if (h && GetConsoleMode(h, &mode))
+            {
+                mode |= ENABLE_PROCESSED_OUTPUT | ENABLE_WRAP_AT_EOL_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+                SetConsoleMode(h, mode);
+            }
         }
     #endif
     }
 
-    void GLAPIENTRY OpenGLDebugMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
+    void GLAPIENTRY OpenGLDebugMessageCallback([[maybe_unused]] GLenum source, [[maybe_unused]] GLenum type, GLuint id, 
+                                               GLenum severity, [[maybe_unused]] GLsizei length, const GLchar* message, [[maybe_unused]] const void* userParam)
     {
         if (severity != GL_DEBUG_SEVERITY_HIGH) return;
         std::cerr << ColorCodes::RED << "OpenGL Debug Message (" << id << "): " << ColorCodes::RESET << message << std::endl;
@@ -64,6 +68,7 @@ namespace CoreEngine::DebugUtility
 
     void PrintHardwareInfo() 
     {
+        std::cout << "Glfw Version: " << glfwGetVersionString() << std::endl;
         std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
         std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
         std::cout << "Vendor: " << glGetString(GL_VENDOR) << std::endl;

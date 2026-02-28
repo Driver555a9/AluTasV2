@@ -5,6 +5,10 @@
 #include "tas/globalstate/GameState.h"
 #include "tas/memory/MemoryUtility.h"
 
+#include "core/utility/Timer.h"
+
+#include <windows.h>
+
 #include <array>
 #include <cstring>
 #include <thread>
@@ -45,7 +49,7 @@ namespace AsphaltTas
         static libmem::Address  ALLOCATED_POINTER_ADDRESS = INVALID_ADDRESS;
     }
 
-    uintptr_t MemoryAddressFinder::FindRacerStateBaseAddress()
+    uintptr_t MemoryAddressFinder::FindRacerStateBaseAddress(CoreEngine::Units::MilliSecond max_wait_time)
     {
         std::scoped_lock lock(RacerCache::MUTEX);
         auto [process, module] = MemoryUtility::GetAsphaltProcessAndModuleOrThrow();
@@ -138,16 +142,15 @@ namespace AsphaltTas
             // Wait for capture
             ////////////////////////////////////////
             uintptr_t captured_value = 0;
-            constexpr int MAX_TRIES  = 500;
-            constexpr int MS_PER_TRY = 1;
+            CoreEngine::Units::MilliSecond deadline = CoreEngine::Timer::GetMonotonicTime<CoreEngine::Units::MilliSecond>() + max_wait_time;
 
-            for (int i = 0; i < MAX_TRIES; ++i) 
+            while (CoreEngine::Timer::GetMonotonicTime<CoreEngine::Units::MilliSecond>() < deadline)
             {
                 if (MemoryUtility::TryReadMemoryOrNothing(&process, RacerCache::ALLOCATED_POINTER_ADDRESS, reinterpret_cast<uint8_t*>(&captured_value), sizeof(captured_value))) 
                 {
                     if (captured_value != 0) break;
                 }
-                std::this_thread::sleep_for(std::chrono::milliseconds(MS_PER_TRY));
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
 
             ////////////////////////////////////////
@@ -187,13 +190,15 @@ namespace AsphaltTas
             const uintptr_t base_ptr_address = struct_ptr + offset;
             uintptr_t racer_base = 0;
 
-            for (int j = 0; j < MAX_TRIES; ++j) 
+            CoreEngine::Units::MilliSecond deadline_2 = CoreEngine::Timer::GetMonotonicTime<CoreEngine::Units::MilliSecond>() + max_wait_time;
+
+            while (CoreEngine::Timer::GetMonotonicTime<CoreEngine::Units::MilliSecond>() < deadline_2)
             {
                 if (MemoryUtility::TryReadMemoryOrNothing(&process, base_ptr_address, reinterpret_cast<uint8_t*>(&racer_base), sizeof(racer_base))) 
                 {
                     if (racer_base != 0) break;
                 }
-                std::this_thread::sleep_for(std::chrono::milliseconds(MS_PER_TRY));
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
 
             return racer_base;
@@ -237,7 +242,7 @@ namespace AsphaltTas
         static libmem::Address  ALLOCATED_POINTER_ADDRESS = INVALID_ADDRESS;
     }
     
-    uintptr_t MemoryAddressFinder::FindCameraStateAddresses()
+    uintptr_t MemoryAddressFinder::FindCameraStateAddresses(CoreEngine::Units::MilliSecond max_wait_time)
     {
         std::scoped_lock lock(CameraCache::MUTEX);
 
@@ -329,10 +334,10 @@ namespace AsphaltTas
             // Try capture value
             ////////////////////////////////////////
             uintptr_t captured_value = 0;
-            constexpr int MAX_TRIES  = 500;
-            constexpr int MS_PER_TRY = 1;
 
-            for (int i = 0; i < MAX_TRIES; ++i) 
+            CoreEngine::Units::MilliSecond deadline = CoreEngine::Timer::GetMonotonicTime<CoreEngine::Units::MilliSecond>() + max_wait_time;
+
+            while (CoreEngine::Timer::GetMonotonicTime<CoreEngine::Units::MilliSecond>() < deadline)
             {
                 if (MemoryUtility::TryReadMemoryOrNothing(&process, CameraCache::ALLOCATED_POINTER_ADDRESS, &captured_value, sizeof(captured_value))) 
                 {
@@ -341,7 +346,7 @@ namespace AsphaltTas
                         break;
                     }
                 }
-                std::this_thread::sleep_for(std::chrono::milliseconds(MS_PER_TRY));
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
 
             ////////////////////////////////////////
@@ -349,7 +354,7 @@ namespace AsphaltTas
             ////////////////////////////////////////
             if (! MemoryUtility::TryWriteMemoryOrNothing(&process, CameraCache::ORIGINAL_CODE_ADDRESS, CameraCache::ORIGINAL_CODE.data(), CameraCache::ORIGINAL_CODE_SIZE))
             {
-                ENGINE_DEBUG_PRINT("Warning: Failed to restore original code after timeout.");
+                ENGINE_ERROR_PRINT("Warning: Failed to restore original code after timeout.");
             }
             hook_installed = false;
 
@@ -364,7 +369,7 @@ namespace AsphaltTas
             {
                 if (! MemoryUtility::TryWriteMemoryOrNothing(&process, CameraCache::ORIGINAL_CODE_ADDRESS, CameraCache::ORIGINAL_CODE.data(), CameraCache::ORIGINAL_CODE_SIZE))
                 {
-                    ENGINE_DEBUG_PRINT("Warning: Failed to restore original code after timeout.");
+                    ENGINE_ERROR_PRINT("Warning: Failed to restore original code after timeout.");
                 }
             }
             
@@ -373,7 +378,7 @@ namespace AsphaltTas
     }
 
     [[deprecated("Use FinalCameraStateAddresses()")]]
-    uintptr_t MemoryAddressFinder::FindActionCameraBaseAddress()
+    uintptr_t MemoryAddressFinder::FindActionCameraBaseAddress(CoreEngine::Units::MilliSecond max_wait_time)
     {
         auto [process, module] = MemoryUtility::GetAsphaltProcessAndModuleOrThrow();
 
@@ -433,12 +438,15 @@ namespace AsphaltTas
             //////////////////////////////////////////////////////////
             // Try capture value
             //////////////////////////////////////////////////////////
-            for (int i = 0; i < 200; ++i) 
+            CoreEngine::Units::MilliSecond deadline  = CoreEngine::Timer::GetMonotonicTime<CoreEngine::Units::MilliSecond>() + max_wait_time;
+
+            while (CoreEngine::Timer::GetMonotonicTime<CoreEngine::Units::MilliSecond>() < deadline)
             {
                 if (MemoryUtility::TryReadMemoryOrNothing(&process, cam_ptr_addr, &captured_value, 8))
-                    if (captured_value != 0) break;
-                
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                    if (captured_value != 0)
+                        break;
+
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
         }
         catch (...) 
@@ -471,9 +479,329 @@ namespace AsphaltTas
         return captured_value;
     }
 
+    namespace LapTimeCache
+    {
+        static std::mutex MUTEX;
+
+        ////////////////////////////////////////
+        // Original code
+        ////////////////////////////////////////
+        static libmem::Address ORIGINAL_CODE_ADDRESS = INVALID_ADDRESS;  // AOB address (INJECT_TIMER, NOT +4)
+
+        // Steal all 3 instructions: add [rdi+10],rax (4) + mov rdx,[rdi+F8] (7) + mov rax,[rdx+08] (4) = 15
+        // 14-byte absolute jmp hook + 1 NOP fits exactly
+        constexpr static size_t                        ORIGINAL_CODE_SIZE = 15;
+        static std::array<uint8_t, ORIGINAL_CODE_SIZE> ORIGINAL_CODE;
+        static bool                                    ORIGINAL_CODE_CACHE_HAS_VALUE = false;
+
+        ////////////////////////////////////////
+        // Cave
+        ////////////////////////////////////////
+        constexpr size_t       ALLOCATED_CAVE_SIZE    = 0x1000;
+        static libmem::Address ALLOCATED_CAVE_ADDRESS = INVALID_ADDRESS;
+
+        ////////////////////////////////////////
+        // Found pointer storage
+        ////////////////////////////////////////
+        constexpr static size_t ALLOCATED_POINTER_SIZE    = sizeof(uintptr_t);
+        static libmem::Address  ALLOCATED_POINTER_ADDRESS = INVALID_ADDRESS;
+    }
+
+    uintptr_t MemoryAddressFinder::FindLapTimeAddress(CoreEngine::Units::MilliSecond max_wait_time)
+    {
+        std::scoped_lock lock(LapTimeCache::MUTEX);
+
+        auto [process, module] = MemoryUtility::GetAsphaltProcessAndModuleOrThrow();
+
+        ////////////////////////////////////////
+        // Find hook location & save original code
+        ////////////////////////////////////////
+        if (LapTimeCache::ORIGINAL_CODE_ADDRESS == INVALID_ADDRESS)
+        {
+            LapTimeCache::ORIGINAL_CODE_ADDRESS = MemoryUtility::AOBScanOrThrow(&process, "48 01 47 10 48 8B 97 F8 00 00 00 48 8B 42 08", module.base, module.size);
+        }
+
+        if (! LapTimeCache::ORIGINAL_CODE_CACHE_HAS_VALUE)
+        {
+            // Steal 15 bytes: add [rdi+10],rax (4) + mov rdx,[rdi+F8] (7) + mov rax,[rdx+08] (4)
+            MemoryUtility::ReadMemoryOrThrow(&process, LapTimeCache::ORIGINAL_CODE_ADDRESS, LapTimeCache::ORIGINAL_CODE.data(), LapTimeCache::ORIGINAL_CODE_SIZE);
+            LapTimeCache::ORIGINAL_CODE_CACHE_HAS_VALUE = true;
+        }
+
+        ////////////////////////////////////////
+        // Allocate cave and pointer
+        ////////////////////////////////////////
+        if (LapTimeCache::ALLOCATED_CAVE_ADDRESS == INVALID_ADDRESS)
+        {
+            LapTimeCache::ALLOCATED_CAVE_ADDRESS = MemoryUtility::AllocMemoryOrThrow(&process, LapTimeCache::ALLOCATED_CAVE_SIZE, libmem::Prot::XRW);
+        }
+
+        if (LapTimeCache::ALLOCATED_POINTER_ADDRESS == INVALID_ADDRESS)
+        {
+            LapTimeCache::ALLOCATED_POINTER_ADDRESS = MemoryUtility::AllocMemoryOrThrow(&process, LapTimeCache::ALLOCATED_POINTER_SIZE, libmem::Prot::RW);
+        }
+
+        ////////////////////////////////////////
+        // Clear previous
+        ////////////////////////////////////////
+        uintptr_t zero = 0;
+        MemoryUtility::WriteMemoryOrThrow(&process, LapTimeCache::ALLOCATED_POINTER_ADDRESS, &zero, sizeof(zero));
+
+        bool hook_installed {false};
+
+        try
+        {
+            ////////////////////////////////////////
+            // Build trampoline
+            //
+            // Layout (all offsets from cave base):
+            //   [0 ] add [rdi+10], rax          — 4 bytes  (stolen instr 1, execute first)
+            //   [4 ] mov [rip+disp32], rdi       — 7 bytes  (save rdi; RIP-after = cave+11)
+            //   [11] mov rdx,[rdi+000000F8]      — 7 bytes  (stolen instr 2)
+            //   [18] mov rax,[rdx+08]            — 4 bytes  (stolen instr 3)
+            //   [22] FF 25 00 00 00 00           — 6 bytes  (indirect jmp)
+            //   [28] <8-byte return address>     — 8 bytes
+            ////////////////////////////////////////
+            std::vector<uint8_t> trampoline_code;
+            trampoline_code.reserve(36);
+
+            // Execute stolen instruction 1: add [rdi+10], rax  (bytes 0..3)
+            trampoline_code.insert(trampoline_code.end(), {0x48, 0x01, 0x47, 0x10});
+
+            // mov [rip+disp32], rdi  (bytes 4..10); disp patched below, RIP-after = cave+11
+            trampoline_code.insert(trampoline_code.end(), {0x48, 0x89, 0x3D, 0x00, 0x00, 0x00, 0x00});
+
+            // Execute stolen instructions 2 & 3  (bytes 11..21)
+            trampoline_code.insert(trampoline_code.end(),
+                LapTimeCache::ORIGINAL_CODE.begin() + 4,   // skip the already-executed add
+                LapTimeCache::ORIGINAL_CODE.end());
+
+            // Absolute indirect jmp back  (bytes 22..35)
+            trampoline_code.insert(trampoline_code.end(), {0xFF, 0x25, 0x00, 0x00, 0x00, 0x00});
+            uint64_t ret_addr = static_cast<uint64_t>(LapTimeCache::ORIGINAL_CODE_ADDRESS + LapTimeCache::ORIGINAL_CODE_SIZE);
+            trampoline_code.insert(trampoline_code.end(),
+                reinterpret_cast<const uint8_t*>(&ret_addr),
+                reinterpret_cast<const uint8_t*>(&ret_addr) + 8);
+
+            // Patch RIP-relative disp for: mov [rip+disp], rdi
+            // Instruction is at cave+4, length 7, so RIP-after = cave+11
+            uint64_t rip_for_disp = static_cast<uint64_t>(LapTimeCache::ALLOCATED_CAVE_ADDRESS) + 11;
+            int64_t disp64 = static_cast<int64_t>(static_cast<uint64_t>(LapTimeCache::ALLOCATED_POINTER_ADDRESS) - rip_for_disp);
+            if (disp64 < INT32_MIN || disp64 > INT32_MAX)
+                throw MemoryUtility::MemoryManipFailedException("RIP-relative displacement too large for lap time rdi save.");
+
+            int32_t disp32 = static_cast<int32_t>(disp64);
+            std::memcpy(&trampoline_code[7], &disp32, sizeof(disp32));  // disp field is at offset 4+3=7
+
+            if (! MemoryUtility::TryWriteMemoryOrNothing(&process, LapTimeCache::ALLOCATED_CAVE_ADDRESS, trampoline_code.data(), trampoline_code.size()))
+                throw MemoryUtility::MemoryManipFailedException("Failed to write trampoline.");
+
+            ////////////////////////////////////////
+            // Install Hook — 14-byte absolute indirect jmp + 1 NOP (fits 15 stolen bytes)
+            ////////////////////////////////////////
+            std::vector<uint8_t> hook_bytes(LapTimeCache::ORIGINAL_CODE_SIZE, 0x90);
+            hook_bytes[0] = 0xFF;
+            hook_bytes[1] = 0x25;
+            hook_bytes[2] = 0x00;
+            hook_bytes[3] = 0x00;
+            hook_bytes[4] = 0x00;
+            hook_bytes[5] = 0x00;
+            std::memcpy(&hook_bytes[6], &LapTimeCache::ALLOCATED_CAVE_ADDRESS, 8);
+            // hook_bytes[14] = 0x90 (NOP, already set)
+
+            if (! MemoryUtility::TryWriteMemoryOrNothing(&process, LapTimeCache::ORIGINAL_CODE_ADDRESS, hook_bytes.data(), LapTimeCache::ORIGINAL_CODE_SIZE))
+                throw MemoryUtility::MemoryManipFailedException("Failed to install hook.");
+
+            hook_installed = true;
+
+            ////////////////////////////////////////
+            // Try capture value
+            ////////////////////////////////////////
+            uintptr_t captured_value = 0;
+
+            CoreEngine::Units::MilliSecond deadline = CoreEngine::Timer::GetMonotonicTime<CoreEngine::Units::MilliSecond>() + max_wait_time;
+            while (CoreEngine::Timer::GetMonotonicTime<CoreEngine::Units::MilliSecond>() < deadline)
+            {
+                if (MemoryUtility::TryReadMemoryOrNothing(&process, LapTimeCache::ALLOCATED_POINTER_ADDRESS, &captured_value, sizeof(captured_value)))
+                {
+                    if (captured_value != 0)
+                        break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+
+            ////////////////////////////////////////
+            // Restore code & cleanup
+            ////////////////////////////////////////
+            if (! MemoryUtility::TryWriteMemoryOrNothing(&process, LapTimeCache::ORIGINAL_CODE_ADDRESS, LapTimeCache::ORIGINAL_CODE.data(), LapTimeCache::ORIGINAL_CODE_SIZE))
+            {
+                ENGINE_ERROR_PRINT("Warning: Failed to restore original code after lap time capture.");
+            }
+            hook_installed = false;
+
+            if (captured_value == 0)
+                throw MemoryUtility::MemoryManipFailedException("Failed to capture lap time base pointer after waiting.");
+
+            return captured_value + 0x10;
+        }
+        catch (...)
+        {
+            if (hook_installed)
+            {
+                if (! MemoryUtility::TryWriteMemoryOrNothing(&process, LapTimeCache::ORIGINAL_CODE_ADDRESS, LapTimeCache::ORIGINAL_CODE.data(), LapTimeCache::ORIGINAL_CODE_SIZE))
+                {
+                    ENGINE_ERROR_PRINT("Warning: Failed to restore original code after lap time exception.");
+                }
+            }
+
+            throw;
+        }
+    }
+
+    namespace ProgressCache
+    {
+        static std::mutex MUTEX;
+
+        static libmem::Address ORIGINAL_CODE_ADDRESS = INVALID_ADDRESS;
+
+        constexpr static size_t                        ORIGINAL_CODE_SIZE = 6;
+        static std::array<uint8_t, ORIGINAL_CODE_SIZE> ORIGINAL_CODE;
+        static bool                                    ORIGINAL_CODE_CACHE_HAS_VALUE = false;
+
+        constexpr size_t       ALLOCATED_CAVE_SIZE    = 0x1000;
+        static libmem::Address ALLOCATED_CAVE_ADDRESS = INVALID_ADDRESS;
+
+        // Pointer storage lives inside the cave always within ±2 GB of the trampoline
+        constexpr static size_t POINTER_OFFSET_IN_CAVE = 0x100;
+    }
+
+    uintptr_t MemoryAddressFinder::FindRaceProgressAddress(CoreEngine::Units::MilliSecond max_wait_time)
+    {
+        std::scoped_lock lock(ProgressCache::MUTEX);
+
+        auto [process, module] = MemoryUtility::GetAsphaltProcessAndModuleOrThrow();
+
+        if (ProgressCache::ORIGINAL_CODE_ADDRESS == INVALID_ADDRESS)
+        {
+            ProgressCache::ORIGINAL_CODE_ADDRESS = MemoryUtility::AOBScanOrThrow(&process, "89 87 D8 01 00 00 48 83 C4 38", module.base, module.size);
+        }
+
+        if (! ProgressCache::ORIGINAL_CODE_CACHE_HAS_VALUE)
+        {
+            MemoryUtility::ReadMemoryOrThrow(&process, ProgressCache::ORIGINAL_CODE_ADDRESS, ProgressCache::ORIGINAL_CODE.data(), ProgressCache::ORIGINAL_CODE_SIZE);
+            ProgressCache::ORIGINAL_CODE_CACHE_HAS_VALUE = true;
+        }
+
+        if (ProgressCache::ALLOCATED_CAVE_ADDRESS == INVALID_ADDRESS)
+        {
+            ProgressCache::ALLOCATED_CAVE_ADDRESS = 
+            MemoryUtility::AllocMemoryNearAddressOrThrow(&process, static_cast<uintptr_t>(ProgressCache::ORIGINAL_CODE_ADDRESS), ProgressCache::ALLOCATED_CAVE_SIZE, 0x70000000);
+        }
+
+        libmem::Address pointerAddress = ProgressCache::ALLOCATED_CAVE_ADDRESS + ProgressCache::POINTER_OFFSET_IN_CAVE;
+
+        uintptr_t zero = 0;
+        MemoryUtility::WriteMemoryOrThrow(&process, pointerAddress, &zero, sizeof(zero));
+
+        bool hook_installed {false};
+
+        try
+        {
+            ////////////////////////////////////////
+            // Build trampoline
+            //
+            //   [0 ] mov [rdi+1D8],eax      —  6 bytes  (original instruction)
+            //   [6 ] mov [rip+disp32],rdi   —  7 bytes  (save rdi; RIP-after = cave+13)
+            //   [13] FF 25 00 00 00 00      —  6 bytes  (indirect absolute jmp back)
+            //   [19] <8-byte return addr>   —  8 bytes
+            ////////////////////////////////////////
+            std::vector<uint8_t> trampoline_code;
+            trampoline_code.reserve(27);
+
+            // Original instruction: mov [rdi+1D8],eax
+            trampoline_code.insert(trampoline_code.end(), {0x89, 0x87, 0xD8, 0x01, 0x00, 0x00});
+
+            // mov [rip+disp32],rdi — save rdi; disp patched below, RIP-after = cave+13
+            trampoline_code.insert(trampoline_code.end(), {0x48, 0x89, 0x3D, 0x00, 0x00, 0x00, 0x00});
+
+            // Absolute indirect jmp back
+            trampoline_code.insert(trampoline_code.end(), {0xFF, 0x25, 0x00, 0x00, 0x00, 0x00});
+            uint64_t ret_addr = static_cast<uint64_t>(ProgressCache::ORIGINAL_CODE_ADDRESS + ProgressCache::ORIGINAL_CODE_SIZE);
+            trampoline_code.insert(trampoline_code.end(),
+                reinterpret_cast<const uint8_t*>(&ret_addr),
+                reinterpret_cast<const uint8_t*>(&ret_addr) + 8);
+
+            // Patch disp: instruction at cave+6, length 7, RIP-after = cave+13
+            // target = cave+0x100 — same allocation, trivially fits
+            uint64_t rip_after = static_cast<uint64_t>(ProgressCache::ALLOCATED_CAVE_ADDRESS) + 13;
+            int64_t  disp64    = static_cast<int64_t>(static_cast<uint64_t>(pointerAddress) - rip_after);
+            if (disp64 < INT32_MIN || disp64 > INT32_MAX)
+                throw MemoryUtility::MemoryManipFailedException("Pointer offset within cave overflowed — should never happen.");
+
+            int32_t disp32 = static_cast<int32_t>(disp64);
+            std::memcpy(&trampoline_code[9], &disp32, sizeof(disp32)); 
+
+            if (! MemoryUtility::TryWriteMemoryOrNothing(&process, ProgressCache::ALLOCATED_CAVE_ADDRESS, trampoline_code.data(), trampoline_code.size()))
+                throw MemoryUtility::MemoryManipFailedException("Failed to write progress trampoline.");
+
+            ////////////////////////////////////////
+            // Install Hook — E9 rel32 (5 bytes) + NOP (1 byte)
+            ////////////////////////////////////////
+            std::vector<uint8_t> hook_bytes(ProgressCache::ORIGINAL_CODE_SIZE, 0x90);
+            hook_bytes[0] = 0xE9;
+
+            int64_t jmp_disp64 = static_cast<int64_t>(static_cast<uint64_t>(ProgressCache::ALLOCATED_CAVE_ADDRESS))
+                            - static_cast<int64_t>(static_cast<uint64_t>(ProgressCache::ORIGINAL_CODE_ADDRESS) + 5);
+            if (jmp_disp64 < INT32_MIN || jmp_disp64 > INT32_MAX)
+                throw MemoryUtility::MemoryManipFailedException("Cave outside E9 range — AllocMemoryNearAddress did not place it close enough.");
+
+            int32_t jmp_disp32 = static_cast<int32_t>(jmp_disp64);
+            std::memcpy(&hook_bytes[1], &jmp_disp32, sizeof(jmp_disp32));
+
+            if (! MemoryUtility::TryWriteMemoryOrNothing(&process, ProgressCache::ORIGINAL_CODE_ADDRESS, hook_bytes.data(), ProgressCache::ORIGINAL_CODE_SIZE))
+                throw MemoryUtility::MemoryManipFailedException("Failed to install progress hook.");
+
+            hook_installed = true;
+
+            ////////////////////////////////////////
+            // Try capture value
+            ////////////////////////////////////////
+            uintptr_t captured_value = 0;
+            CoreEngine::Units::MilliSecond deadline = CoreEngine::Timer::GetMonotonicTime<CoreEngine::Units::MilliSecond>() + max_wait_time;
+            while (CoreEngine::Timer::GetMonotonicTime<CoreEngine::Units::MilliSecond>() < deadline)
+            {
+                if (MemoryUtility::TryReadMemoryOrNothing(&process, pointerAddress, &captured_value, sizeof(captured_value)))
+                {
+                    if (captured_value != 0)
+                        break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+
+            if (! MemoryUtility::TryWriteMemoryOrNothing(&process, ProgressCache::ORIGINAL_CODE_ADDRESS, ProgressCache::ORIGINAL_CODE.data(), ProgressCache::ORIGINAL_CODE_SIZE))
+                throw MemoryUtility::MemoryManipFailedException("Failed to restore original progress code - hook bytes left in game.");
+
+            hook_installed = false;
+
+            if (captured_value == 0)
+                throw MemoryUtility::MemoryManipFailedException("Failed to capture progress address after waiting.");
+
+            return captured_value + 0x1D8;
+        }
+        catch (...)
+        {
+            if (hook_installed)
+            {
+                if (! MemoryUtility::TryWriteMemoryOrNothing(&process, ProgressCache::ORIGINAL_CODE_ADDRESS, ProgressCache::ORIGINAL_CODE.data(), ProgressCache::ORIGINAL_CODE_SIZE))
+                    ENGINE_ERROR_PRINT("Warning: Failed to restore original progress code after exception.");
+            }
+            throw;
+        }
+    }
+
     void MemoryAddressFinder::InvalidateCache() noexcept
     {
-        std::scoped_lock lock(RacerCache::MUTEX, CameraCache::MUTEX);
+        std::scoped_lock lock(RacerCache::MUTEX, CameraCache::MUTEX, LapTimeCache::MUTEX, ProgressCache::MUTEX);
         try 
         {
             const libmem::Process process = MemoryUtility::GetAsphaltProcessOrThrow();
@@ -491,22 +819,39 @@ namespace AsphaltTas
 
             FreeIfRequired(CameraCache::ALLOCATED_CAVE_ADDRESS,    CameraCache::ALLOCATED_CAVE_SIZE);
             FreeIfRequired(CameraCache::ALLOCATED_POINTER_ADDRESS, CameraCache::ALLOCATED_POINTER_SIZE);
+
+            FreeIfRequired(LapTimeCache::ALLOCATED_CAVE_ADDRESS,    LapTimeCache::ALLOCATED_CAVE_SIZE);
+            FreeIfRequired(LapTimeCache::ALLOCATED_POINTER_ADDRESS, LapTimeCache::ALLOCATED_POINTER_SIZE);
+
+            if (ProgressCache::ALLOCATED_CAVE_ADDRESS != INVALID_ADDRESS)
+            {
+                MemoryUtility::FreeMemoryAllocatedNearAddressOrThrow(&process, ProgressCache::ALLOCATED_CAVE_ADDRESS, ProgressCache::ALLOCATED_CAVE_SIZE);
+            }
         }  
         catch (const std::exception& e)
         {
-            ENGINE_DEBUG_PRINT("MemoryAddressFinder: Failed to free memory: " << e.what());
+            ENGINE_ERROR_PRINT("MemoryAddressFinder: Failed to free memory: " << e.what());
         }
 
-        RacerCache::ORIGINAL_CODE_ADDRESS              = INVALID_ADDRESS;
-        RacerCache::ORIGINAL_CODE_FOR_OFFSET_ADDRESS   = INVALID_ADDRESS;
-        RacerCache::ORIGINAL_CODE_CACHE_HAS_VALUE      = false;
-        RacerCache::ALLOCATED_CAVE_ADDRESS             = INVALID_ADDRESS;
-        RacerCache::ALLOCATED_POINTER_ADDRESS          = INVALID_ADDRESS;
+        RacerCache::ORIGINAL_CODE_ADDRESS            = INVALID_ADDRESS;
+        RacerCache::ORIGINAL_CODE_FOR_OFFSET_ADDRESS = INVALID_ADDRESS;
+        RacerCache::ORIGINAL_CODE_CACHE_HAS_VALUE    = false;
+        RacerCache::ALLOCATED_CAVE_ADDRESS           = INVALID_ADDRESS;
+        RacerCache::ALLOCATED_POINTER_ADDRESS        = INVALID_ADDRESS;
 
 
         CameraCache::ORIGINAL_CODE_ADDRESS         = INVALID_ADDRESS;
         CameraCache::ORIGINAL_CODE_CACHE_HAS_VALUE = false;
         CameraCache::ALLOCATED_CAVE_ADDRESS        = INVALID_ADDRESS;
         CameraCache::ALLOCATED_POINTER_ADDRESS     = INVALID_ADDRESS;
+
+        LapTimeCache::ORIGINAL_CODE_ADDRESS         = INVALID_ADDRESS;
+        LapTimeCache::ORIGINAL_CODE_CACHE_HAS_VALUE = false;
+        LapTimeCache::ALLOCATED_CAVE_ADDRESS        = INVALID_ADDRESS;
+        LapTimeCache::ALLOCATED_POINTER_ADDRESS     = INVALID_ADDRESS;
+
+        ProgressCache::ORIGINAL_CODE_ADDRESS         = INVALID_ADDRESS;
+        ProgressCache::ORIGINAL_CODE_CACHE_HAS_VALUE = false;
+        ProgressCache::ALLOCATED_CAVE_ADDRESS        = INVALID_ADDRESS;
     }
 }

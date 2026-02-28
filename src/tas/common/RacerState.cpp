@@ -5,7 +5,7 @@
 
 namespace AsphaltTas
 {
-    RacerState::RacerState(glm::mat4 trans, glm::vec3 velocity) noexcept : m_transform(trans), m_velocity(velocity) {}
+    RacerState::RacerState(const glm::mat4& trans, const glm::vec3& velocity) noexcept : m_transform(trans), m_velocity(velocity) {}
 
     glm::vec3 RacerState::GetVelocity() const noexcept 
     {
@@ -13,7 +13,7 @@ namespace AsphaltTas
         return m_velocity;
     }
 
-    void RacerState::SetVelocity(glm::vec3 velocity) noexcept 
+    void RacerState::SetVelocity(const glm::vec3& velocity) noexcept 
     {
         //MemoryRW already converts (X, Y, -Z) to (X, Z, Y)
         m_velocity = velocity;
@@ -27,7 +27,7 @@ namespace AsphaltTas
         return glm::vec3( m_transform[3][0], m_transform[3][2], -1.0f * m_transform[3][1] );
     }
 
-    void RacerState::SetPosition(glm::vec3 position) noexcept
+    void RacerState::SetPosition(const glm::vec3& position) noexcept
     {
         m_transform[3][0] = position.x;
         m_transform[3][2] = position.y;
@@ -39,14 +39,14 @@ namespace AsphaltTas
         ///////////////////////////////////////////
         // Convert to X, Z, Y convention & invert z for game +z convention
         //////////////////////////////////////////
-        auto ToGlmConvention = [](glm::vec3 v) -> glm::vec3
+        auto GameToGlm = [](glm::vec3 v) -> glm::vec3
         { 
-            return {v[0], v[2], -1.0f * v[1]};
+            return glm::vec3( v.x, v.z, -v.y );
         };
 
-        glm::vec3 right   = ToGlmConvention(glm::vec3(m_transform[0][0], m_transform[1][0], m_transform[2][0]));
-        glm::vec3 forward = ToGlmConvention(glm::vec3(m_transform[0][1], m_transform[1][1], m_transform[2][1]));
-        glm::vec3 up      = ToGlmConvention(glm::vec3(m_transform[0][2], m_transform[1][2], m_transform[2][2]));
+        glm::vec3 right   = GameToGlm(glm::vec3(m_transform[0][0], m_transform[1][0], m_transform[2][0]));
+        glm::vec3 forward = GameToGlm(glm::vec3(m_transform[0][1], m_transform[1][1], m_transform[2][1]));
+        glm::vec3 up      = GameToGlm(glm::vec3(m_transform[0][2], m_transform[1][2], m_transform[2][2]));
 
         forward = glm::normalize(forward);
         right   = glm::normalize(glm::cross(up, forward));
@@ -60,21 +60,26 @@ namespace AsphaltTas
         return glm::normalize(glm::quat_cast(basis));
     }
 
-    void RacerState::SetRotation(glm::quat rotation) noexcept
+    void RacerState::SetRotation(const glm::quat& rotation) noexcept
     {
-        ///////////////////////////////////////////
-        // Convert to X, Z, Y convention & invert z for game +z convention
-        //////////////////////////////////////////
-        auto ToGameConvetion = [](glm::vec3 v) -> glm::vec3
+        auto GlmToGame = [](glm::vec3 v) -> glm::vec3
         {
-            return glm::vec3(v[0], v[2], -1.0f * v[1]);
+            return glm::vec3(v.x, -v.z, v.y);
         };
 
         glm::mat3 basis = glm::mat3_cast(rotation);
 
-        m_transform[0] = { ToGameConvetion(basis[0]), m_transform[0][3] };
-        m_transform[1] = { ToGameConvetion(basis[2]), m_transform[1][3] };
-        m_transform[2] = { ToGameConvetion(basis[1]), m_transform[2][3] };
+        glm::vec3 right   = GlmToGame(basis[0]);
+        glm::vec3 up      = GlmToGame(basis[1]);
+        glm::vec3 forward = GlmToGame(basis[2]);
+
+        forward = glm::normalize(forward);
+        right   = glm::normalize(glm::cross(up, forward));
+        up      = glm::cross(forward, right);
+
+        m_transform[0][0] = right.x;   m_transform[1][0] = right.y;   m_transform[2][0] = right.z;
+        m_transform[0][1] = forward.x; m_transform[1][1] = forward.y; m_transform[2][1] = forward.z;
+        m_transform[0][2] = up.x;      m_transform[1][2] = up.y;      m_transform[2][2] = up.z;
     }
 
     glm::mat4 RacerState::GetGameConventionTransformMatrix() const noexcept
@@ -82,7 +87,7 @@ namespace AsphaltTas
         return m_transform;
     }
 
-    void RacerState::SetGameConventionTransformMatrix(glm::mat4 trans) noexcept
+    void RacerState::SetGameConventionTransformMatrix(const glm::mat4& trans) noexcept
     {
         m_transform = trans;
     }

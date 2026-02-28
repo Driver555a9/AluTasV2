@@ -25,8 +25,6 @@ namespace CoreEngine
         //////////////////////////////////////////////// 
         //--------- Setup config
         //////////////////////////////////////////////// 
-        using WinCallbackDisableFlags = Window::WindowCreationConfig::CallbackDisableFlags;
-
         struct ApplicationConfig
         {
             bool                    m_enable_vsync                     {false};

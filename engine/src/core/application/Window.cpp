@@ -33,27 +33,36 @@ namespace CoreEngine
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
         glfwWindowHint(GLFW_SAMPLES, std::max<int>(8, config.m_MSAA_sample_count));
-        glfwWindowHint(GLFW_DECORATED, ! config.m_is_windowed_fullscren);
         glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, config.m_has_transparent_framebuffer);
+        glfwWindowHint(GLFW_FLOATING, config.m_is_clickthrough);
+        glfwWindowHint(GLFW_MOUSE_PASSTHROUGH, config.m_is_clickthrough);
+        glfwWindowHint(GLFW_FOCUS_ON_SHOW, ! config.m_is_clickthrough);
+        glfwWindowHint(GLFW_FOCUSED, ! config.m_is_clickthrough);
 
         GLFWmonitor* monitor = glfwGetPrimaryMonitor();
         const GLFWvidmode* mode = glfwGetVideoMode(monitor);
 
-        if (config.m_is_windowed_fullscren)
-        {
-            m_window_ptr = glfwCreateWindow(mode->width, mode->height, config.m_title.c_str(), nullptr, nullptr);
-        }
-        else 
-        {
-            const int window_width  = static_cast<int>(mode->width  * config.m_relative_size.first);
-            const int window_height = static_cast<int>(mode->height * config.m_relative_size.second);
+        const int window_width  = static_cast<int>(mode->width  * config.m_relative_size.first);
+        const int window_height = static_cast<int>(mode->height * config.m_relative_size.second);
 
-            m_window_ptr = glfwCreateWindow(window_width, window_height, config.m_title.c_str(), nullptr, nullptr);
+        m_window_ptr = glfwCreateWindow(window_width, window_height, config.m_title, nullptr, nullptr);
 
-            glfwSetWindowPos(m_window_ptr, (mode->width - window_width) / 2, (mode->height - window_height) / 2);
-        }
+        glfwSetWindowPos(m_window_ptr, (mode->width - window_width) / 2, (mode->height - window_height) / 2);
 
         ENGINE_ASSERT (m_window_ptr && "Failed to create window");
+
+    #ifdef _WIN32
+        if (! config.m_is_decorated)
+        {
+            HWND hwnd = glfwGetWin32Window(m_window_ptr);
+
+            LONG style_ws = GetWindowLongPtr(hwnd, GWL_STYLE);
+            style_ws &= ~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU);
+            SetWindowLongPtr(hwnd, GWL_STYLE, style_ws);
+
+            SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+        }
+    #endif
 
         if ( (config.m_callback_disable_flags & WindowCreationConfig::CallbackDisableFlags::KeyCallback) == WindowCreationConfig::CallbackDisableFlags::NONE)
         {
@@ -84,7 +93,12 @@ namespace CoreEngine
     ///////////////////////////////
         glfwMakeContextCurrent(m_window_ptr);
 
-        glClearColor(0.f, 0.f, 0.f, 1.f);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+
+        if (config.m_has_transparent_framebuffer)
+        {
+            glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        }
         
         glEnable(GL_DEPTH_TEST);
 
@@ -258,9 +272,11 @@ namespace CoreEngine
         return true;
     }
 
+    
     ///////////////////////////////
     // Private
     ///////////////////////////////
+
     void Window::DestroyContexts() noexcept
     {
         glfwMakeContextCurrent(m_window_ptr);

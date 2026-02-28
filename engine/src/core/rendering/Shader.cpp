@@ -10,7 +10,7 @@
 
 namespace CoreEngine
 {
-    Shader::Shader(const char* vertex, const char* fragment, const ProvidedPointers meaning)
+    Shader::Shader(const char* vertex, const char* fragment, const ProvidedPointers meaning) noexcept
     {
         const char* vertex_source_code;
         const char* frag_source_code;
@@ -51,30 +51,47 @@ namespace CoreEngine
         glDeleteShader(fragment_shader);
     }
 
-    Shader::~Shader()
+    Shader::~Shader() noexcept
     {
         Delete();
     }
 
-    void Shader::Activate()
+    Shader::Shader(Shader&& other) noexcept : ID(other.ID) 
+    {
+        other.ID = 0;
+    }
+
+    Shader& Shader::operator=(Shader&& other) noexcept
+    {
+        if (this != &other) 
+        {
+            Delete();
+            ID       = other.ID;
+            other.ID = 0;
+        }
+        return *this;
+    }
+
+    void Shader::Activate() noexcept
     {
         glUseProgram(this->ID);
     }
 
-    void Shader::Deactivate()
+    void Shader::Deactivate() noexcept
     {
         glUseProgram(0);
     }
 
-    void Shader::Delete()
+    void Shader::Delete() noexcept
     {
         if(ID)
         {
             glDeleteProgram(this->ID);
+            ID = 0;
         }
     }
 
-    void Shader::PrintCompilationErrors(unsigned int shader, bool is_program)
+    void Shader::PrintCompilationErrors(unsigned int shader, bool is_program) noexcept
     {
         GLint hasCompiled;
         char infoLog[1024];
@@ -98,7 +115,7 @@ namespace CoreEngine
         }
     }
 
-    GLuint Shader::GetID() const
+    GLuint Shader::GetID() const noexcept
     {
         return ID;
     }

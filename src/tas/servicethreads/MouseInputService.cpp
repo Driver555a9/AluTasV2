@@ -30,6 +30,7 @@ namespace
         g_thread_is_running.store(true, std::memory_order::release);
         std::thread([]() 
         {
+            ENGINE_INFO_LOG("Mouse Input Service Thread launched.");
             auto GetPos = []() -> glm::ivec2 {
                 POINT p;
                 GetCursorPos(&p);
@@ -62,6 +63,7 @@ namespace
                 }
                 std::this_thread::sleep_for(std::chrono::microseconds(1));
             }
+            ENGINE_INFO_LOG("Mouse Input Service Thread stopped.");
         }).detach();
         
         std::scoped_lock lock(g_delta_movement_mutex);

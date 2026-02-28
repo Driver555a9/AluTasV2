@@ -70,7 +70,7 @@ namespace CoreEngine
     struct SimpleSphere_radius1
     {
         private:
-            SimpleSphere_radius1(const float radius, const glm::vec3& color, const glm::vec3& position, const glm::quat& m_rotation, const int subdivisions);
+            SimpleSphere_radius1(float radius, int subdivisions);
 
         public:
             std::vector<Vertex> m_sphere_verts;

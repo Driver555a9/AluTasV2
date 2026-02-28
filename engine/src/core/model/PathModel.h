@@ -7,7 +7,8 @@ namespace CoreEngine
     class PathModel : public Basic_Model
     {
     public:
-        explicit PathModel(const std::string& path, const glm::vec3& position, const glm::quat& rotation, const glm::vec3& natural_scale) noexcept;
+        //Throws std::runtime_error
+        explicit PathModel(const std::string& path, const glm::vec3& position, const glm::quat& rotation, const glm::vec3& natural_scale);
         
         /////////////////////////////////////////////// 
         //--------- Basic Model Abstract methods

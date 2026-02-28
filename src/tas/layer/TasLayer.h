@@ -1,11 +1,7 @@
 #pragma once
 
 #include "core/layer/Layer.h"
-#include "core/scene/FreeCam_CameraController.h"
-#include "core/utility/Timer.h"
-
-#include "core/scene/Scene3D.h"
-#include "core/rendering/IndirectDraw3D_RenderPipeline.h"
+#include "core/utility/Units.h"
 
 #include "imgui/imgui.h"
 
@@ -23,6 +19,5 @@ namespace AsphaltTas
         virtual void OnImGuiRender() noexcept override;
 
     private:
-        void OnRenderGhostExperimental() noexcept;
     };
 }

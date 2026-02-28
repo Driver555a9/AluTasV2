@@ -4,15 +4,17 @@
 #include <sstream>
 #include <iomanip>
 
+#include "core/utility/Units.h" 
+
 namespace AsphaltTas
 {
     namespace Utility
     {
-        [[nodiscard]] constexpr inline std::string TimeToFormatedString(size_t time) noexcept
+        [[nodiscard]] constexpr inline std::string TimeToFormatedString(CoreEngine::Units::MilliSecond time) noexcept
         {
-            size_t time_difference = time;
+            std::int64_t time_difference = time.Get();
 
-            int minutes = time / 60'000;
+            int minutes = time_difference / 60'000;
             time_difference -= minutes * 60'000;
             int seconds = time_difference / 1'000;
             time_difference -= seconds * 1'000;

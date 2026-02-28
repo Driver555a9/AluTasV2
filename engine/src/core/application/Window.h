@@ -28,13 +28,14 @@ namespace CoreEngine
                 WindowCloseCallback         = 1 << 5
             };
 
-            std::string             m_title;
+            const char*             m_title;
             std::pair<float, float> m_relative_size {1.0f, 1.0f};
             CallbackDisableFlags    m_callback_disable_flags {CallbackDisableFlags::NONE};
             ImGuiWindowFlags        m_imgui_flags{};
             std::uint8_t            m_MSAA_sample_count {0};
-            bool                    m_is_windowed_fullscren = false;
+            bool                    m_is_decorated                = true;
             bool                    m_has_transparent_framebuffer = false;
+            bool                    m_is_clickthrough             = false;
         };
 
         struct Handle 
@@ -88,7 +89,7 @@ namespace CoreEngine
         void DestroyContexts() noexcept;
 
         //Hack since ImGui_ImplOpenGL3_Shutdown is a bitch
-        static inline int s_window_counter = 0;
+        static inline std::uint32_t s_window_counter = 0;
         
         Handle          m_handle {};
         GLFWwindow*     m_window_ptr      = nullptr;

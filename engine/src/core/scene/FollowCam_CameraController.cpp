@@ -6,7 +6,7 @@ namespace CoreEngine
 {
     FollowCam_CameraController::FollowCam_CameraController() noexcept : Basic_CameraController(Basic_CameraController::Type::FollowCam) {}
 
-    void FollowCam_CameraController::Update(CameraReverseZ& camera, const InputState& input_state, Units::Second dt) noexcept
+    void FollowCam_CameraController::Update(CameraReverseZ& camera, const InputState& input_state, [[maybe_unused]] Units::Second dt) noexcept
     {
         ////////////////////////////////////////////////
         // -------- Mouse Zoom Input (wheel scroll)
