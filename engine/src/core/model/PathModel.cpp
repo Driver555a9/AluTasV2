@@ -23,7 +23,7 @@ namespace CoreEngine
         
         if  (! scene || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) || !scene->mRootNode)
         {
-            throw std::runtime_error("Failed to create Path Model fromn path: " + path);
+            throw std::runtime_error("Failed to create Path Model from path: " + path);
         }
 
         m_mesh_vector.reserve(scene->mNumMeshes);

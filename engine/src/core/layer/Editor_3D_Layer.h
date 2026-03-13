@@ -225,7 +225,7 @@ namespace CoreEngine
         static constexpr const ImVec4 COLOR_ORANGE       {1.0f, 0.518f, 0.0f, 1.0f};
         static constexpr const ImVec4 COLOR_TRANSPARENT  {0, 0, 0, 0};
 
-        static constexpr const ImVec4 COLOR_BACKGROUND   {0.1f, 0.1f, 0.1f, 1.0f};
+        static constexpr const ImVec4 COLOR_BACKGROUND   {0.02f, 0.02f, 0.02f, 1.0f};
         static constexpr const ImVec4 COLOR_BORDER       {0.5f, 0.5f, 0.5f, 0.8f};
         static constexpr const ImVec4 COLOR_TEXT         {1, 1, 1, 1};
 
@@ -234,37 +234,37 @@ namespace CoreEngine
         static constexpr const ImVec4 COLOR_Z_AXYS      { COLOR_GREEN };
     };
 
-    constexpr Editor_3D_Layer::ObjectCreationFlag operator|(const Editor_3D_Layer::ObjectCreationFlag lhs, const Editor_3D_Layer::ObjectCreationFlag rhs) noexcept
+    constexpr Editor_3D_Layer::ObjectCreationFlag operator|(Editor_3D_Layer::ObjectCreationFlag lhs, Editor_3D_Layer::ObjectCreationFlag rhs) noexcept
     {
-        return static_cast<Editor_3D_Layer::ObjectCreationFlag>(static_cast<const std::uint32_t>(lhs) | static_cast<const std::uint32_t>(rhs));
+        return static_cast<Editor_3D_Layer::ObjectCreationFlag>(static_cast<std::uint32_t>(lhs) | static_cast<std::uint32_t>(rhs));
     }
 
-    constexpr Editor_3D_Layer::ObjectCreationFlag operator&(const Editor_3D_Layer::ObjectCreationFlag lhs, const Editor_3D_Layer::ObjectCreationFlag rhs) noexcept
+    constexpr Editor_3D_Layer::ObjectCreationFlag operator&(Editor_3D_Layer::ObjectCreationFlag lhs, Editor_3D_Layer::ObjectCreationFlag rhs) noexcept
     {
         return static_cast<Editor_3D_Layer::ObjectCreationFlag>(static_cast<std::uint32_t>(lhs) & static_cast<std::uint32_t>(rhs));
     }
 
-    constexpr Editor_3D_Layer::ObjectCreationFlag operator~(const Editor_3D_Layer::ObjectCreationFlag flag) noexcept
+    constexpr Editor_3D_Layer::ObjectCreationFlag operator~(Editor_3D_Layer::ObjectCreationFlag flag) noexcept
     {
-        return static_cast<Editor_3D_Layer::ObjectCreationFlag>(~static_cast<const std::uint32_t>(flag));
+        return static_cast<Editor_3D_Layer::ObjectCreationFlag>(~static_cast<std::uint32_t>(flag));
     }
 
-    constexpr Editor_3D_Layer::ObjectCreationFlag& operator|=(Editor_3D_Layer::ObjectCreationFlag& lhs, const Editor_3D_Layer::ObjectCreationFlag rhs) noexcept
+    constexpr Editor_3D_Layer::ObjectCreationFlag& operator|=(Editor_3D_Layer::ObjectCreationFlag& lhs, Editor_3D_Layer::ObjectCreationFlag rhs) noexcept
     {
         return lhs = lhs | rhs;
     }
 
-    constexpr Editor_3D_Layer::ObjectCreationFlag& operator&=(Editor_3D_Layer::ObjectCreationFlag& lhs, const Editor_3D_Layer::ObjectCreationFlag rhs) noexcept
+    constexpr Editor_3D_Layer::ObjectCreationFlag& operator&=(Editor_3D_Layer::ObjectCreationFlag& lhs, Editor_3D_Layer::ObjectCreationFlag rhs) noexcept
     {
         return lhs = lhs & rhs;
     }
 
-    [[nodiscard]] constexpr bool ObjectCreation_HasFlag(const Editor_3D_Layer::ObjectCreationFlag value, Editor_3D_Layer::ObjectCreationFlag&& flag) noexcept
+    [[nodiscard]] constexpr bool ObjectCreation_HasFlag(Editor_3D_Layer::ObjectCreationFlag value, Editor_3D_Layer::ObjectCreationFlag flag) noexcept
     {
         return (value & flag) != Editor_3D_Layer::ObjectCreationFlag::NONE;
     }
 
-    constexpr void ObjectCreation_RemoveFlag(Editor_3D_Layer::ObjectCreationFlag& value, Editor_3D_Layer::ObjectCreationFlag&& flag) noexcept 
+    constexpr void ObjectCreation_RemoveFlag(Editor_3D_Layer::ObjectCreationFlag& value, Editor_3D_Layer::ObjectCreationFlag flag) noexcept 
     {
         value &= ~flag;
     }

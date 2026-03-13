@@ -9,7 +9,7 @@
 namespace CoreEngine
 {
     IndirectDraw3D_RenderPipeline::IndirectDraw3D_RenderPipeline() noexcept
-    :   m_shader_program(s_VERTEX_SHADER_CODE, s_FRAGMENT_SHADER_CODE, Shader::ProvidedPointers::ARE_SOURCE_CODE),
+    :   m_shader_program(s_VERTEX_SHADER_CODE, s_FRAGMENT_SHADER_CODE, nullptr, Shader::ProvidedPointers::ARE_SOURCE_CODE),
         m_ssbo_sizes_ubo(nullptr, sizeof(SSBO_SizesData), UBO_BINDING::IndirectDraw3D_SSBO_SIZES),
         m_camera_ubo(nullptr, sizeof(CameraRenderData), UBO_BINDING::IndirectDraw3D_CAMERA)
     {   
@@ -256,5 +256,15 @@ namespace CoreEngine
         m_camera_render_data.camMatrix = cam_matrix;
         m_camera_render_data.camPos    = cam_pos;
         m_camera_ubo.SetSubData(&m_camera_render_data, sizeof(CameraRenderData), 0);
+    }
+
+    Shader& IndirectDraw3D_RenderPipeline::GetShaderProgramReference() noexcept
+    {
+        return m_shader_program;
+    }
+
+    void IndirectDraw3D_RenderPipeline::RestoreShaderToDefault() noexcept
+    {
+        m_shader_program = Shader(s_VERTEX_SHADER_CODE, s_FRAGMENT_SHADER_CODE, nullptr, Shader::ProvidedPointers::ARE_SOURCE_CODE);
     }
 }

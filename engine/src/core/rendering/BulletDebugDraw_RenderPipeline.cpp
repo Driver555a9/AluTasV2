@@ -22,20 +22,21 @@ namespace CoreEngine
         m_debug_mode = debug_mode;
     }
 
-    void BulletDebugDraw_RenderPipeline::drawContactPoint(const btVector3& PointOnB, const btVector3& normalOnB, btScalar distance, int lifeTime, const btVector3& color) noexcept
+    void BulletDebugDraw_RenderPipeline::drawContactPoint(const btVector3& PointOnB, [[maybe_unused]] const btVector3& normalOnB, 
+        [[maybe_unused]] btScalar distance, [[maybe_unused]] int lifeTime, const btVector3& color) noexcept
     {
         m_draw_points_pipeline.EmplaceBackPoint(PhysicsUtility::BtVector3ToGlm(PointOnB), PhysicsUtility::BtVector3ToGlm(color));
     }
 
     void BulletDebugDraw_RenderPipeline::SetCameraMatrix(const glm::mat4& cam_matrix) noexcept
     {
-        m_draw_lines_pipeline.SetCameraMatrix(cam_matrix);
+        m_draw_lines_pipeline.SetCameraData(cam_matrix);
         m_draw_points_pipeline.SetCameraMatrix(cam_matrix);
     }
 
     void BulletDebugDraw_RenderPipeline::SetCameraMatrixAndFrustumCull(const glm::mat4& view_projection) noexcept
     {
-        m_draw_lines_pipeline.SetCameraMatrixAndFrustumCull(view_projection);
+        m_draw_lines_pipeline.SetCameraDataAndFrustumCull(view_projection);
         m_draw_points_pipeline.SetCameraMatrix(view_projection);
     }
 
@@ -60,7 +61,7 @@ namespace CoreEngine
     //////////////////////////////////////////////// 
     //---------  Not implemented
     ////////////////////////////////////////////////
-    void BulletDebugDraw_RenderPipeline::reportErrorWarning(const char* warning_str) noexcept {}
-    void BulletDebugDraw_RenderPipeline::draw3dText(const btVector3& location, const char* textString) noexcept{}
+    void BulletDebugDraw_RenderPipeline::reportErrorWarning([[maybe_unused]] const char* warning_str) noexcept {}
+    void BulletDebugDraw_RenderPipeline::draw3dText([[maybe_unused]] const btVector3& location, [[maybe_unused]] const char* textString) noexcept{}
 
 }

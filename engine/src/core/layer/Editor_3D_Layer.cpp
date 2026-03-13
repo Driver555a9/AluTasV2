@@ -220,7 +220,7 @@ namespace CoreEngine
         {
             const glm::vec3 color (1.0f, 0.0f, 0.0f);
             m_draw_lines_pipeline.SetLineData(m_selected_object_state.m_object_ptr->CalculateAABBDebugLines(), color);
-            m_draw_lines_pipeline.SetCameraMatrixAndFrustumCull(cam_matrix);
+            m_draw_lines_pipeline.SetCameraDataAndFrustumCull(cam_matrix);
             m_draw_lines_pipeline.Render();
             m_draw_lines_pipeline.ClearAllLines();
         } 
@@ -595,8 +595,18 @@ namespace CoreEngine
             int flags = m_bt_debug_draw_pipeline.getDebugMode();
             bool wire_frames = flags & btIDebugDraw::DBG_DrawWireframe;
             ImGui::Checkbox("Draw Wire Frames", &wire_frames);
-            if (wire_frames) m_bt_debug_draw_pipeline.setDebugMode(flags |= btIDebugDraw::DBG_DrawWireframe);
-            else m_bt_debug_draw_pipeline.setDebugMode(flags &= ~btIDebugDraw::DBG_DrawWireframe);
+            if (wire_frames)
+            {
+                flags |= btIDebugDraw::DBG_DrawWireframe;
+                flags &= ~btIDebugDraw::DBG_DrawNormals;
+                m_bt_debug_draw_pipeline.setDebugMode(flags);
+            }
+            else
+            {
+                flags &= ~btIDebugDraw::DBG_DrawWireframe;
+                flags |= btIDebugDraw::DBG_DrawNormals;
+                m_bt_debug_draw_pipeline.setDebugMode(flags);
+            }
 
             bool vsync_now = Application::Get()->GetVsyncIsOn();
             if (ImGui::Checkbox("Toggle Vsync", &vsync_now))
@@ -962,7 +972,7 @@ namespace CoreEngine
                 ImGui::Indent();
 
                 //--------- Position move
-                const float delta_time_secs = Application::Get()->GetLastFrameTime().Get();
+                const float delta_time_secs = Application::Get()->GetLastFrameTime().ConvertTo<CoreEngine::Units::Second>().Get();
                 const float MOVE_SPEED = 0.5 * m_selected_object_state.m_object_ptr->GetWorldSpaceMaxBoundingSphereRadius();
 
                 ImGui::TextUnformatted("Position");

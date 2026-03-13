@@ -21,218 +21,221 @@ namespace CoreEngine
 
     class VBO
     {
-        private:
-            GLuint m_ID;
-            void Delete();
+    public:
+        explicit VBO(const std::vector<Vertex>& vertices) noexcept;
+        explicit VBO(const std::vector<GLfloat>& vertex_positions) noexcept;
+        explicit VBO(const void* data, const GLuint size_of_data) noexcept;
 
-        public:
-            explicit VBO(const std::vector<Vertex>& vertices);
-            explicit VBO(const std::vector<GLfloat>& vertex_positions);
+        VBO() noexcept;
+        ~VBO() noexcept;
 
-            explicit VBO(void* data, const GLuint size_of_data);
+        void SetNewData(const std::vector<Vertex>& vertices) noexcept;
+        void SetNewData(const std::vector<GLfloat>& vertex_positions) noexcept;
+        void SetNewData(const void* data, const GLuint size_of_data) noexcept;
 
-            template <std::size_t N>
-            explicit VBO(const std::array<GLfloat, N>& vertex_positions)
-            {
-                glGenBuffers(1, &m_ID);
-                SetNewData(vertex_positions);
-            }
+        void ShrinkToFit() noexcept;
 
-            VBO();
-            ~VBO();
+        void Bind() noexcept;
+        void Unbind() noexcept;
 
-//------------------------- Copy/Move behaviour
-            VBO(const VBO&)            = delete;
-            VBO& operator=(const VBO&) = delete;
+        [[nodiscard]] GLuint GetID() const noexcept;
+                    
+        ///////////////////////////////////
+        /// Copy/Move behaviour
+        ///////////////////////////////////
+        VBO(const VBO&)            = delete;
+        VBO& operator=(const VBO&) = delete;
 
-            VBO(VBO&&)                 = delete;
-            VBO& operator=(VBO&&)      = delete;
-//-------------------------
-            template <std::size_t N>
-            inline void SetNewData(const std::array<GLfloat, N>& vertex_positions)
-            {
-                Bind();
-                glBufferData(GL_ARRAY_BUFFER, vertex_positions.size() * sizeof(GLfloat), vertex_positions.data(), GL_STATIC_DRAW);
-                Unbind();
-            }
+        VBO(VBO&&)                 = delete;
+        VBO& operator=(VBO&&)      = delete;
 
-            void SetNewData(const std::vector<Vertex>& vertices);
-            void SetNewData(const std::vector<GLfloat>& vertex_positions);
-
-            void SetNewData(const void* data, const GLuint size_of_data);
-
-            void Bind();
-            void Unbind();
-
-            [[nodiscard]] GLuint GetID() const;
+    private:
+        GLuint m_ID;
+        size_t m_capacity = 0;
+        size_t m_size = 0;
+        void Delete() noexcept;
     };
 
     class VAO
     {
-        private:
-            GLuint m_ID;
-            void Delete();
+    public:
+        VAO();
+        ~VAO();
 
-        public:
-            VAO();
-            ~VAO();
+        /// @brief Link attributes to VAO
+        /// @param VBO The VBO to Bind()
+        /// @param layout The layout/number to access the attribute in glsl Shader
+        /// @param numComponents The amount of components that will be stored there
+        /// @param type The GL_{Type} that will be stored there
+        /// @param stride Amount of values that are stored before next instance of this attribute. Call sizeof(Vertex)
+        /// @param offset The numComponents of attributes that are before this one
+        void LinkAttribute(VBO& VBO, GLuint layout, GLuint numComponents, GLenum type, GLsizeiptr stride, void* offset);
 
-//------------------------- Copy/Move behaviour
-            VAO(const VAO&)            = delete;
-            VAO& operator=(const VAO&) = delete;
+        /// @brief Binds this VAO
+        void Bind();
+
+        /// @brief Unbinds this VAO
+        void Unbind();
+
+        [[nodiscard]] GLuint GetID() const;
+
             
-            explicit VAO(VAO&&)        = delete;
-            VAO& operator=(VAO&&)      = delete;
-//-------------------------
+        ///////////////////////////////////
+        /// Copy/Move behaviour
+        ///////////////////////////////////
+        VAO(const VAO&)            = delete;
+        VAO& operator=(const VAO&) = delete;
+        
+        explicit VAO(VAO&&)        = delete;
+        VAO& operator=(VAO&&)      = delete;
 
-            /// @brief Link attributes to VAO
-            /// @param VBO The VBO to Bind()
-            /// @param layout The layout/number to access the attribute in glsl Shader
-            /// @param numComponents The amount of components that will be stored there
-            /// @param type The GL_{Type} that will be stored there
-            /// @param stride Amount of values that are stored before next instance of this attribute. Call sizeof(Vertex)
-            /// @param offset The numComponents of attributes that are before this one
-            void LinkAttribute(VBO& VBO, GLuint layout, GLuint numComponents, GLenum type, GLsizeiptr stride, void* offset);
-
-            /// @brief Binds this VAO
-            void Bind();
-
-            /// @brief Unbinds this VAO
-            void Unbind();
-
-            [[nodiscard]] GLuint GetID() const;
+    private:
+        GLuint m_ID;
+        void Delete();
     };
 
     class EBO 
     {
-        private:
-            GLuint m_ID;
-            void Delete();
+    public:
+        explicit EBO(const std::vector<GLuint>& indices) noexcept;
 
-        public:
-            explicit EBO(const std::vector<GLuint>& indices);
+        EBO() noexcept;
+        ~EBO() noexcept;
 
-            EBO();
-            ~EBO();
+        /// @brief Set new data to the EBO & override previous
+        /// You need not call Bind() and Unbind() explicitly
+        /// @param indices New indices data to be stored
+        void SetNewData(const std::vector<GLuint>& indices) noexcept;
+        void ShrinkToFit() noexcept;
 
-//------------------------- Copy/Move behaviour
-            EBO(const EBO&)            = delete;
-            EBO& operator=(const EBO&) = delete;
-            
-            EBO(EBO&&)                 = delete;
-            EBO& operator=(EBO&&)      = delete;
-//-------------------------            
+        /// @brief Bind this EBO
+        void Bind() noexcept;
 
-            /// @brief Set new data to the EBO & override previous
-            /// You need not call Bind() and Unbind() explicitly
-            /// @param indices New indices data to be stored
-            void SetNewData(const std::vector<GLuint>& indices);
+        /// @brief Unbind Element Buffer Object
+        void Unbind() noexcept;
 
-            /// @brief Bind this EBO
-            void Bind();
+        [[nodiscard]] GLuint GetID() const noexcept;
 
-            /// @brief Unbind Element Buffer Object
-            void Unbind();
+        ///////////////////////////////////
+        /// Copy/Move behaviour
+        ///////////////////////////////////
+        EBO(const EBO&)            = delete;
+        EBO& operator=(const EBO&) = delete;
+        
+        EBO(EBO&&)                 = delete;
+        EBO& operator=(EBO&&)      = delete;         
 
-            [[nodiscard]] GLuint GetID() const;
+    private:
+        GLuint m_ID;
+        size_t m_capacity = 0;
+        size_t m_size = 0;
+        void Delete() noexcept;
+
     };
 
     class UBO 
     {
-        private:
-            GLuint m_ID;
-            GLuint m_binding_point;
-            void Delete();
+    public:
+        UBO();
+        explicit UBO(const void* data, const GLuint size, const GLuint binding);
+        ~UBO();
 
-        public:
-            UBO();
-            explicit UBO(const void* data, const GLuint size, const GLuint binding);
-            ~UBO();
+        void SetNewData(const void* data, const GLuint size, const GLuint binding);
+        void SetSubData(const void* data, const GLuint size, const GLintptr offset);
+    
+        void Bind();
+        void BindBase();
+    
+        void Unbind();
 
-//------------------------- Copy/Move behaviour
-            UBO(const UBO&)            = delete;
-            UBO& operator=(const UBO&) = delete;
-            
-            UBO(UBO&&)                 = delete;
-            UBO& operator=(UBO&&)      = delete;
-//-------------------------
+        [[nodiscard]] GLuint GetID() const;
+        [[nodiscard]] GLuint GetBindingPoint() const;
 
-            void SetNewData(const void* data, const GLuint size, const GLuint binding);
-
-            void SetSubData(const void* data, const GLuint size, const GLintptr offset);
         
-            void Bind();
-            void BindBase();
+        ///////////////////////////////////
+        /// Copy/Move behaviour
+        ///////////////////////////////////
+        UBO(const UBO&)            = delete;
+        UBO& operator=(const UBO&) = delete;
         
-            void Unbind();
+        UBO(UBO&&)                 = delete;
+        UBO& operator=(UBO&&)      = delete;
 
-            [[nodiscard]] GLuint GetID() const;
-
-            [[nodiscard]] GLuint GetBindingPoint() const;
+    private:
+        GLuint m_ID;
+        GLuint m_binding_point;
+        void Delete();
     };
 
     class SSBO
     {
-        private:
-            GLuint m_ID;
-            GLuint m_binding_point;
-            void Delete();
+    public:
+        explicit SSBO(const void* data, const GLuint size, const GLuint bindingPoint) noexcept; 
+        SSBO() noexcept;
+        ~SSBO() noexcept;
 
-        public:
+        void Bind() noexcept;
+        void BindBase() noexcept;
+        void Unbind() noexcept;
 
-            explicit SSBO(const void* data, const GLuint size, const GLuint bindingPoint);
-            SSBO();
-            ~SSBO();
+        void SetNewData(const void* data, const GLuint size, const GLuint bindingPoint) noexcept;
+        void SetSubData(const void* data, const GLuint size, const GLuint offset) noexcept;
+        void ShrinkToFit() noexcept;
 
-//------------------------- Copy/Move behaviour
-            SSBO(const SSBO&)            = delete;
-            SSBO& operator=(const SSBO&) = delete;
-            
-            SSBO(SSBO&&)                 = delete;
-            SSBO& operator=(SSBO&&)      = delete;
-//------------------------- 
+        [[nodiscard]] GLuint GetID() const noexcept;
 
-            void Bind();
-            void BindBase();
-            void Unbind();
+        [[nodiscard]] GLuint GetBindingPoint() const noexcept;
 
-            void SetNewData(const void* data, const GLuint size, const GLuint bindingPoint);
-            void SetSubData(const void* data, const GLuint size, const GLuint offset);
+        ///////////////////////////////////
+        /// Copy/Move behaviour
+        ///////////////////////////////////
+        SSBO(const SSBO&)            = delete;
+        SSBO& operator=(const SSBO&) = delete;
+        
+        SSBO(SSBO&&)                 = delete;
+        SSBO& operator=(SSBO&&)      = delete;
 
-            [[nodiscard]] GLuint GetID() const;
+    private:
+        GLuint m_ID = 0;
+        GLuint m_binding_point = 0;
 
-            [[nodiscard]] GLuint GetBindingPoint() const;
+        size_t m_capacity = 0;
+        size_t m_size = 0;
+        void Delete() noexcept;
     };
 
     class IndirectBuffer
     {
-        private:
-            GLuint m_ID;
-            void Delete();
+    public:
+        /// @details MAKE SURE to SetNewData() before usage
+        IndirectBuffer() noexcept;
+        explicit IndirectBuffer(const void* data, const GLsizeiptr size) noexcept;
+        ~IndirectBuffer() noexcept;
 
-        public:
-            /// @details MAKE SURE to SetNewData() before usage
-            IndirectBuffer();
-            explicit IndirectBuffer(const void* data, const GLsizeiptr size);
-            ~IndirectBuffer();
+        /// Deletes buffer per regrow (for compatibility reasons), improve this as soon as possible
+        void SetNewData(const void* data, const GLsizeiptr size) noexcept;
+        void SetSubData(const void* data, const GLsizeiptr size, const GLuint offset) noexcept;
+        void ShrinkToFit() noexcept;
 
-//------------------------- Copy/Move behaviour
-            IndirectBuffer(const IndirectBuffer&)              = delete;
-            IndirectBuffer& operator=(const IndirectBuffer&)   = delete;
-            
-            IndirectBuffer(IndirectBuffer&& other)             = delete;
-            IndirectBuffer& operator=(IndirectBuffer&& other)  = delete;
-//-------------------------
+        void Bind() noexcept;
 
-            void SetNewData(const void* data, const GLsizeiptr size);
-            void SetSubData(const void* data, const GLsizeiptr size, const GLuint offset);
+        void Unbind() noexcept;
 
-            /// @brief Bind as an GL_DRAW_INDIRECT_BUFFER
-            void Bind();
+        [[nodiscard]] GLuint GetID() const noexcept;
 
-            /// @brief Bind GL_DRAW_INDIRECT_BUFFER to 0
-            void Unbind();
+        ////////////////////////////
+        /// Copy/Move behaviour
+        ////////////////////////////
+        IndirectBuffer(const IndirectBuffer&)              = delete;
+        IndirectBuffer& operator=(const IndirectBuffer&)   = delete;
+        
+        IndirectBuffer(IndirectBuffer&& other)             = delete;
+        IndirectBuffer& operator=(IndirectBuffer&& other)  = delete;
 
-            [[nodiscard]] GLuint GetID() const;
+    private:
+        GLuint m_ID;
+        size_t m_capacity = 0;
+        size_t m_size = 0;
+        void Delete() noexcept;
     };
 }

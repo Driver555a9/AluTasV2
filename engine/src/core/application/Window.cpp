@@ -34,20 +34,20 @@ namespace CoreEngine
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
         glfwWindowHint(GLFW_SAMPLES, std::max<int>(8, config.m_MSAA_sample_count));
         glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, config.m_has_transparent_framebuffer);
-        glfwWindowHint(GLFW_FLOATING, config.m_is_clickthrough);
-        glfwWindowHint(GLFW_MOUSE_PASSTHROUGH, config.m_is_clickthrough);
-        glfwWindowHint(GLFW_FOCUS_ON_SHOW, ! config.m_is_clickthrough);
-        glfwWindowHint(GLFW_FOCUSED, ! config.m_is_clickthrough);
+        glfwWindowHint(GLFW_DECORATED, config.m_is_decorated);
 
         GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
 
-        const int window_width  = static_cast<int>(mode->width  * config.m_relative_size.first);
-        const int window_height = static_cast<int>(mode->height * config.m_relative_size.second);
+        int wx, wy, ww, wh;
+        glfwGetMonitorWorkarea(monitor, &wx, &wy, &ww, &wh);
+
+        const int avoid_fullscreen = config.m_has_transparent_framebuffer ? 1 : 0;
+        const int window_width  = static_cast<int>(ww * config.m_relative_size.first)  + avoid_fullscreen;
+        const int window_height = static_cast<int>(wh * config.m_relative_size.second) + avoid_fullscreen;
 
         m_window_ptr = glfwCreateWindow(window_width, window_height, config.m_title, nullptr, nullptr);
 
-        glfwSetWindowPos(m_window_ptr, (mode->width - window_width) / 2, (mode->height - window_height) / 2);
+        glfwSetWindowPos(m_window_ptr, wx + (ww - window_width) / 2, wy + (wh - window_height) / 2);
 
         ENGINE_ASSERT (m_window_ptr && "Failed to create window");
 
@@ -137,7 +137,7 @@ namespace CoreEngine
             style.Colors[ImGuiCol_WindowBg].w = 1.0f;
         }
 
-        const float scale = std::min(mode->width / 1920.0f, mode->height / 1080.0f);
+        const float scale = std::min(ww / 1920.0f, wh / 1080.0f);
 
         ImGuiStyle& style = ImGui::GetStyle();
         style.ScaleAllSizes(scale);

@@ -48,7 +48,8 @@ namespace CoreEngine
 
         void QueueDeleteWindowLayerStack(Window::Handle group_handle) noexcept;
 
-        [[nodiscard]] Window* GetWindowPtr(Window::Handle group_handle) noexcept;
+        /// Throws runtime error if window ptr not found
+        [[nodiscard]] Window* GetWindowPtr(Window::Handle group_handle);
 
         [[nodiscard]] size_t GetAmountWindows() const noexcept;
 
@@ -108,8 +109,10 @@ namespace CoreEngine
         static void WindowCloseCallback(GLFWwindow* window);
 
     private:
-        [[nodiscard]] Window::Handle FindWindowHandleFromGlfwWindow(GLFWwindow* window) const noexcept;
-        [[nodiscard]] size_t FindWindowLayerStackIndexFromWindowHandle(Window::Handle handle) const noexcept;
+        // Throws runtime err if not found
+        [[nodiscard]] Window::Handle FindWindowHandleFromGlfwWindow(GLFWwindow* window) const;
+        // Throws runtime err if not found
+        [[nodiscard]] size_t FindWindowLayerStackIndexFromWindowHandle(Window::Handle handle) const;
         //////////////////////////////////////////////// 
         //--------- Member variables
         //////////////////////////////////////////////// 

@@ -161,7 +161,7 @@ namespace CoreEngine
         return false;
     }
 
-    bool Freecam_3D_Layer::OnApplicationShutdown(ApplicationShutdownEvent& e) noexcept
+    bool Freecam_3D_Layer::OnApplicationShutdown([[maybe_unused]] ApplicationShutdownEvent& e) noexcept
     {
         return false;
     }

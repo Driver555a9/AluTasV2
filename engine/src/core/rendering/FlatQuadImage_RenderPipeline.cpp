@@ -3,7 +3,7 @@
 namespace CoreEngine
 {
     FlatQuadImage_RenderPipeline::FlatQuadImage_RenderPipeline(const char* texture_path, const std::array<GLfloat, 24>& custom_quad) noexcept
-        : m_shader_program(s_VERTEX_SHADER_CODE, s_FRAGMENT_SHADER_CODE, Shader::ProvidedPointers::ARE_SOURCE_CODE), m_vbo(custom_quad)
+    : m_shader_program(s_VERTEX_SHADER_CODE, s_FRAGMENT_SHADER_CODE, nullptr, Shader::ProvidedPointers::ARE_SOURCE_CODE), m_vbo(custom_quad.begin(), custom_quad.size() * sizeof(GLfloat))
     {
         m_vao.LinkAttribute(m_vbo, 0, 2, GL_FLOAT, 4 * sizeof(GLfloat), (void*) 0);
         m_vao.LinkAttribute(m_vbo, 1, 2, GL_FLOAT, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat))); 
@@ -18,7 +18,7 @@ namespace CoreEngine
 
     void FlatQuadImage_RenderPipeline::SetQuad(const std::array<GLfloat, 24>& custom_quad) noexcept
     {
-        m_vbo.SetNewData(custom_quad);
+        m_vbo.SetNewData(custom_quad.begin(), custom_quad.size() * sizeof(GLfloat));
     }
 
     void FlatQuadImage_RenderPipeline::Render() noexcept

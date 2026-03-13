@@ -61,7 +61,7 @@ namespace CoreEngine
             requires Units::Is_Time_Unit<T>
             [[nodiscard]] inline bool AtLeastElapsed(T minimum) const noexcept
             {
-                return minimum < GetElapsed<T>();
+                return GetElapsed<T>() >= minimum;
             }
 
             template <typename T> 

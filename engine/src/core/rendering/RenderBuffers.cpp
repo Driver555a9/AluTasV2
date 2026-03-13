@@ -1,68 +1,96 @@
 #include "core/rendering/RenderBuffers.h"
 
+#include "core/utility/Assert.h"
+
 namespace CoreEngine
 {
     //------------------------------- VBO
-    VBO::VBO(const std::vector<Vertex>& vertices)
+    VBO::VBO(const std::vector<Vertex>& vertices) noexcept
     {
         glGenBuffers(1, &m_ID);
         SetNewData(vertices);
     }
 
-    VBO::VBO(const std::vector<GLfloat>& vertex_positions)
+    VBO::VBO(const std::vector<GLfloat>& vertex_positions) noexcept
     {
         glGenBuffers(1, &m_ID);
         SetNewData(vertex_positions);
     }
 
-    VBO::VBO(void* data, const GLuint size_of_data)
+    VBO::VBO(const void* data, const GLuint size_of_data) noexcept
     {
         glGenBuffers(1, &m_ID);
         SetNewData(data, size_of_data);
     }
 
-    VBO::VBO()
+    VBO::VBO() noexcept
     {
         glGenBuffers(1, &m_ID);
     }
-
-    VBO::~VBO()
+ 
+    VBO::~VBO() noexcept
     {
         Delete();
     }
 
-    void VBO::SetNewData(const std::vector<Vertex>& vertices)
+    void VBO::SetNewData(const std::vector<Vertex>& vertices) noexcept
     {
+        SetNewData(vertices.data(), vertices.size() * sizeof(Vertex));
+    }
+
+    void VBO::SetNewData(const std::vector<GLfloat>& vertex_positions) noexcept
+    {
+        SetNewData(vertex_positions.data(), vertex_positions.size() * sizeof(GLfloat));
+    }
+
+    void VBO::SetNewData(const void* data, const GLuint size_of_data) noexcept
+    {
+        m_size = size_of_data;
+
         Bind();
-        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), vertices.data(), GL_DYNAMIC_DRAW);
+        if (m_size > m_capacity)
+        {
+            m_capacity = m_size * 1.5f;
+
+            glBufferData(GL_ARRAY_BUFFER, m_capacity, nullptr, GL_DYNAMIC_DRAW);
+        }
+
+        glBufferSubData(GL_ARRAY_BUFFER, 0, m_size, data);
         Unbind();
     }
 
-    void VBO::SetNewData(const std::vector<GLfloat>& vertex_positions)
+    void VBO::ShrinkToFit() noexcept
     {
-        Bind();
-        glBufferData(GL_ARRAY_BUFFER, vertex_positions.size() * sizeof(GLfloat), vertex_positions.data(), GL_DYNAMIC_DRAW);
-        Unbind();
+        if (m_size == m_capacity)
+            return;
+
+        GLuint newID;
+        glGenBuffers(1, &newID);
+
+        glBindBuffer(GL_ARRAY_BUFFER, newID);
+        glBufferData(GL_ARRAY_BUFFER, m_size, nullptr, GL_DYNAMIC_DRAW);
+
+        glBindBuffer(GL_COPY_READ_BUFFER, m_ID);
+        glBindBuffer(GL_COPY_WRITE_BUFFER, newID);
+        glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, m_size);
+
+        glDeleteBuffers(1, &m_ID);
+
+        m_ID       = newID;
+        m_capacity = m_size;
     }
 
-    void VBO::SetNewData(const void* data, const GLuint size_of_data)
-    {
-        Bind();
-        glBufferData(GL_ARRAY_BUFFER, size_of_data, data, GL_DYNAMIC_DRAW);
-        Unbind();
-    }
-
-    void VBO::Bind()
+    void VBO::Bind() noexcept
     {
         glBindBuffer(GL_ARRAY_BUFFER, m_ID);
     }
 
-    void VBO::Unbind()
+    void VBO::Unbind() noexcept
     {
         glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
 
-    void VBO::Delete()
+    void VBO::Delete() noexcept
     {
         if(m_ID)
         {
@@ -70,7 +98,7 @@ namespace CoreEngine
         }
     }
 
-    GLuint VBO::GetID() const
+    GLuint VBO::GetID() const noexcept
     {
         return m_ID;
     }
@@ -122,48 +150,79 @@ namespace CoreEngine
 
 
     //------------------------------- EBO
-    EBO::EBO(const std::vector<GLuint>& indices)
+    EBO::EBO(const std::vector<GLuint>& indices) noexcept
     {
         glGenBuffers(1, &m_ID);
         SetNewData(indices);
     }
 
-    EBO::EBO()
+    EBO::EBO() noexcept
     {
         glGenBuffers(1, &m_ID);
     }
 
-    EBO::~EBO()
+    EBO::~EBO() noexcept
     {
         Delete();
     }
 
-    void EBO::SetNewData(const std::vector<GLuint>& indices)
+    void EBO::SetNewData(const std::vector<GLuint>& indices) noexcept
     {
+        m_size = indices.size() * sizeof(GLuint);
+
         Bind();
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
+
+        if (m_size > m_capacity)
+        {
+            m_capacity = static_cast<size_t>(m_size * 1.5f);
+
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_capacity, nullptr, GL_DYNAMIC_DRAW);
+        }
+        
+        glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, m_size, indices.data());
         Unbind();
     }
 
-    void EBO::Bind()
+    void EBO::ShrinkToFit() noexcept
+    {
+        if (m_size == m_capacity)
+            return;
+
+        GLuint newID;
+        glGenBuffers(1, &newID);
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, newID);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_size, nullptr, GL_DYNAMIC_DRAW);
+
+        glBindBuffer(GL_COPY_READ_BUFFER, m_ID);
+        glBindBuffer(GL_COPY_WRITE_BUFFER, newID);
+        glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, m_size);
+
+        glDeleteBuffers(1, &m_ID);
+
+        m_ID       = newID;
+        m_capacity = m_size;
+    }
+
+    void EBO::Bind() noexcept
     {
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ID);
     }
 
-    void EBO::Unbind()
+    void EBO::Unbind() noexcept
     {
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     }
 
-    void EBO::Delete()
+    void EBO::Delete() noexcept
     {
         if(m_ID)
         {
-        glDeleteBuffers(1, &m_ID);
+            glDeleteBuffers(1, &m_ID);
         }
     }
 
-    GLuint EBO::GetID() const
+    GLuint EBO::GetID() const noexcept
     {
         return m_ID;
     }
@@ -231,54 +290,88 @@ namespace CoreEngine
     }
 
     //------------------------------- SSBO
-    SSBO::SSBO()
+    SSBO::SSBO() noexcept
     {
         glGenBuffers(1, &m_ID);
     }
 
-    SSBO::SSBO(const void* data, const GLuint size, const GLuint bindingPoint)
+    SSBO::SSBO(const void* data, const GLuint size, const GLuint bindingPoint) noexcept
     {
         glGenBuffers(1, &m_ID);
         SetNewData(data, size, bindingPoint);
     }
 
-    SSBO::~SSBO()
+    SSBO::~SSBO() noexcept
     {
         Delete();
     }
 
-    void SSBO::SetNewData(const void* data, const GLuint size, const GLuint _bindingPoint) 
+    void SSBO::SetNewData(const void* data, GLuint size, GLuint bindingPoint)
     {
-        m_binding_point = _bindingPoint;
+        m_binding_point = bindingPoint;
+        m_size = size;
+
         Bind();
-        glBufferData(GL_SHADER_STORAGE_BUFFER, size, data, GL_DYNAMIC_DRAW);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, _bindingPoint, m_ID);
+        if (size > m_capacity)
+        {
+            m_capacity = size * 1.5f;
+
+            glBufferData(GL_SHADER_STORAGE_BUFFER, m_capacity, nullptr, GL_DYNAMIC_DRAW);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, m_binding_point, m_ID);
+        }
+
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, size, data);
         Unbind();
     }
 
-    void SSBO::SetSubData(const void* data, const GLuint size, const GLuint offset)
+    void SSBO::SetSubData(const void* data, const GLuint size, const GLuint offset) noexcept
     {
+        ENGINE_ASSERT(size + offset <= m_capacity && "SSBO::SetSubData(): Data is not in bounds.");
+        m_size = std::max<size_t>(m_size, offset + size);
         Bind();
         glBufferSubData(GL_SHADER_STORAGE_BUFFER, offset, size, data);
         Unbind();
     }
 
-    void SSBO::Bind() 
+    void SSBO::ShrinkToFit()
+    {
+        if (m_size == m_capacity)
+            return; 
+
+        GLuint newID;
+        glGenBuffers(1, &newID);
+
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, newID);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, m_size, nullptr, GL_DYNAMIC_DRAW);
+
+        glBindBuffer(GL_COPY_READ_BUFFER, m_ID);
+        glBindBuffer(GL_COPY_WRITE_BUFFER, newID);
+        glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, m_size);
+
+        glDeleteBuffers(1, &m_ID);
+
+        m_ID = newID;
+        m_capacity = m_size;
+
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, m_binding_point, m_ID);
+    }
+
+    void SSBO::Bind() noexcept 
     {
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_ID);
     }
 
-    void SSBO::BindBase()
+    void SSBO::BindBase() noexcept
     {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, m_binding_point, m_ID);
     }
 
-    void SSBO::Unbind() 
+    void SSBO::Unbind() noexcept
     {
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
-    void SSBO::Delete() 
+    void SSBO::Delete() noexcept
     {
         if(m_ID)
         {
@@ -286,60 +379,94 @@ namespace CoreEngine
         }
     }
 
-    GLuint SSBO::GetID() const
+    GLuint SSBO::GetID() const noexcept
     {
         return m_ID;
     }
 
-    GLuint SSBO::GetBindingPoint() const
+    GLuint SSBO::GetBindingPoint() const noexcept
     {
         return m_binding_point;
     }
 
     //------------------------------- Indirect Buffer
-    IndirectBuffer::IndirectBuffer(const void* data, const GLsizeiptr size)
+    IndirectBuffer::IndirectBuffer(const void* data, const GLsizeiptr size) noexcept
     {
         glGenBuffers(1, &m_ID);
         SetNewData(data, size);
     }
 
-    IndirectBuffer::IndirectBuffer()
+    IndirectBuffer::IndirectBuffer() noexcept
     {
         glGenBuffers(1, &m_ID);
     }
 
-    IndirectBuffer::~IndirectBuffer()
+    IndirectBuffer::~IndirectBuffer() noexcept
     {
         Delete();
     }
 
-    void IndirectBuffer::SetNewData(const void* data, const GLsizeiptr size)
+    void IndirectBuffer::SetNewData(const void* data, const GLsizeiptr size) noexcept
     { 
-        Delete();
-        glGenBuffers(1, &m_ID);
+        m_size = size;
+
         Bind();
-        glBufferData(GL_DRAW_INDIRECT_BUFFER, size, data, GL_DYNAMIC_DRAW);
+        if (size > m_capacity)
+        {
+            m_capacity = size * 1.5f;
+
+            Delete();
+            glGenBuffers(1, &m_ID);
+            Bind();
+            glBufferData(GL_DRAW_INDIRECT_BUFFER, size, nullptr, GL_DYNAMIC_DRAW);
+        }
+
+        glBufferSubData(GL_DRAW_INDIRECT_BUFFER, 0, size, data);
         Unbind();
     }
 
-    void IndirectBuffer::SetSubData(const void* data, const GLsizeiptr size, const GLuint offset)
+    void IndirectBuffer::SetSubData(const void* data, const GLsizeiptr size, const GLuint offset) noexcept
     {
+        ENGINE_ASSERT(size + offset <= m_capacity && "IndirectBuffer::SetSubData(): Data is not in bounds.");
+        m_size = std::max<size_t>(m_size, offset + size);
         Bind();
         glBufferSubData(GL_DRAW_INDIRECT_BUFFER, offset, size, data);
         Unbind();
     }   
 
-    void IndirectBuffer::Bind()
+    void IndirectBuffer::ShrinkToFit() noexcept
+    {
+        ENGINE_ASSERT(m_size <= m_capacity && "At IndirectBuffer::ShrinkToFit(): Size must not be greater than capacity");
+        if (m_size == m_capacity)
+            return; 
+
+        GLuint newID;
+        glGenBuffers(1, &newID);
+
+        glBindBuffer(GL_DRAW_INDIRECT_BUFFER, newID);
+        glBufferData(GL_DRAW_INDIRECT_BUFFER, m_size, nullptr, GL_DYNAMIC_DRAW);
+
+        glBindBuffer(GL_COPY_READ_BUFFER, m_ID);
+        glBindBuffer(GL_COPY_WRITE_BUFFER, newID);
+        glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, m_size);
+
+        glDeleteBuffers(1, &m_ID);
+
+        m_ID = newID;
+        m_capacity = m_size;
+    }
+
+    void IndirectBuffer::Bind() noexcept
     {
         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_ID);
     }
 
-    void IndirectBuffer::Unbind()
+    void IndirectBuffer::Unbind() noexcept
     {
         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
     }
 
-    void IndirectBuffer::Delete()
+    void IndirectBuffer::Delete() noexcept
     {
         if(m_ID)
         {
@@ -347,7 +474,7 @@ namespace CoreEngine
         }
     }
 
-    GLuint IndirectBuffer::GetID() const
+    GLuint IndirectBuffer::GetID() const noexcept
     {
         return m_ID;
     }

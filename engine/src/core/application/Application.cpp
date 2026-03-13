@@ -115,26 +115,31 @@ namespace CoreEngine
             //--------- Deleting windows
             //////////////////////////////////////////////// 
             {
-                ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME("Add Layers() ");
-                for (auto rit = m_window_layer_stacks_to_delete_next_frame.rbegin(); rit != m_window_layer_stacks_to_delete_next_frame.rend(); ++rit)
+                ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME("Manage Window");
+                while (! m_window_layer_stacks_to_delete_next_frame.empty())
                 {
-                    const auto handle  = *rit;
-                    if (handle == Window::Handle::INVALID)
-                    {
-                        ENGINE_ERROR_PRINT("Attempted to delete window with invalid handle: " << handle);
-                        continue;
-                    }
-                    const size_t index = FindWindowLayerStackIndexFromWindowHandle(handle);
+                    const Window::Handle handle = m_window_layer_stacks_to_delete_next_frame.back();
+                    m_window_layer_stacks_to_delete_next_frame.pop_back();
 
-                    m_window_layer_stacks.erase(m_window_layer_stacks.begin() + index);
+                    try
+                    {
+                        const size_t index = FindWindowLayerStackIndexFromWindowHandle(handle);
+                        m_window_layer_stacks.erase(m_window_layer_stacks.begin() + index);
+                    }
+                    catch (const std::exception&)
+                    {
+                        ENGINE_ERROR_PRINT("Failed to delete window with handle: " << handle);
+                    }
                 }
-                m_window_layer_stacks_to_delete_next_frame.clear();
 
                 //////////////////////////////////////////////// 
                 //--------- Adding windows
                 //////////////////////////////////////////////// 
-                for (std::pair<Window::WindowCreationConfig, std::vector<Application::LayerFactory>>& request : m_window_creations_to_add_next_frame)
+                while (! m_window_creations_to_add_next_frame.empty())
                 {
+                    std::pair<Window::WindowCreationConfig, std::vector<Application::LayerFactory>> request = m_window_creations_to_add_next_frame.back();
+                    m_window_creations_to_add_next_frame.pop_back();
+
                     m_window_layer_stacks.emplace_back(std::make_unique<WindowLayerStack>(std::make_unique<Window>(request.first)));
                     Window::Handle new_handle = m_window_layer_stacks.back()->m_window_ptr->GetHandle();
                     WindowLayerStack* new_wls = m_window_layer_stacks.back().get();
@@ -142,8 +147,11 @@ namespace CoreEngine
                     glfwMakeContextCurrent(new_wls->m_window_ptr->GetGLFWwindow());
                     glfwSwapInterval(m_vsync_is_on);
 
-                    for (LayerFactory& factory : request.second)
+                    while (! request.second.empty())
                     {
+                        LayerFactory factory = request.second.back();
+                        request.second.pop_back();
+                        
                         std::unique_ptr<Basic_Layer> layer = factory(new_handle);
                         new_wls->m_layer_stack.push_back(std::move(layer));
                     }
@@ -165,10 +173,16 @@ namespace CoreEngine
 
     void Application::QueueDeleteWindowLayerStack(Window::Handle group_handle) noexcept
     {
+        if (group_handle == Window::Handle::INVALID)
+        {
+            ENGINE_ERROR_PRINT("Attempted to queue invalid window deletion");
+            return;
+        }
+
         m_window_layer_stacks_to_delete_next_frame.push_back(group_handle);
     }
 
-    Window* Application::GetWindowPtr(Window::Handle group_handle) noexcept
+    Window* Application::GetWindowPtr(Window::Handle group_handle) 
     {
         return m_window_layer_stacks[FindWindowLayerStackIndexFromWindowHandle(group_handle)]->m_window_ptr.get();
     }
@@ -302,24 +316,23 @@ namespace CoreEngine
     //////////////////////////////////////////////// 
     //--------- Private methods
     //////////////////////////////////////////////// 
-    Window::Handle Application::FindWindowHandleFromGlfwWindow(GLFWwindow* window) const noexcept
+    Window::Handle Application::FindWindowHandleFromGlfwWindow(GLFWwindow* window) const
     {
         for (size_t index{}; index < m_window_layer_stacks.size(); ++index)
         {
             if (m_window_layer_stacks[index]->m_window_ptr->GetGLFWwindow() == window)
                 return m_window_layer_stacks[index]->m_window_ptr->GetHandle();
         }
-        ENGINE_ASSERT(false && "Failed to fetch Window Handle from glfw window*: GLFWwindow not part of window layer stack.");
+        throw std::runtime_error("Failed to fetch Window Handle from glfw window*: GLFWwindow not part of window layer stack.");
     }
 
-    size_t Application::FindWindowLayerStackIndexFromWindowHandle(Window::Handle handle) const noexcept
+    size_t Application::FindWindowLayerStackIndexFromWindowHandle(Window::Handle handle) const
     {
         for (size_t index{}; index < m_window_layer_stacks.size(); ++index)
         {
             if (m_window_layer_stacks[index]->m_window_ptr->GetHandle() == handle)
                 return index;
         }
-
-        ENGINE_ASSERT(false && "Failed to find window layer stack index from Handle: GLFWwindow not part of window layer stack.");
+        throw std::runtime_error("Failed to find window layer stack index from Handle: GLFWwindow not part of window layer stack.");
     }
 }

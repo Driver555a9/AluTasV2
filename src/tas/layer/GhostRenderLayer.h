@@ -62,6 +62,8 @@ namespace AsphaltTas
 
         static inline std::unique_ptr<CoreEngine::Basic_Model> s_ghost_model = std::make_unique<CoreEngine::BoxModel>(glm::vec3(1.0f), glm::vec3{}, glm::quat{}, glm::vec3(1.0f));
         static inline std::optional<Replay> s_replay_to_race_against = std::nullopt;
+        ///@todo Improve this; Unsatisfied with hacky implementation;
+        static inline std::optional<std::vector<CoreEngine::DrawLines3D_RenderPipeline::LineVertex>> s_replay_ghost_racing_line = std::nullopt;
         static inline bool s_race_against_replay = false;
 
         DrawGhost_RenderPipeline m_render_pipeline{};

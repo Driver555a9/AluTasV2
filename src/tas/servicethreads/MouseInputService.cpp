@@ -55,7 +55,7 @@ namespace
                     g_delta_mouse_movement += (pos_now - last_pos);
                     last_pos = pos_now;
                 }
-                if ((reset_cursor_timer.GetElapsed<CoreEngine::Units::MicroSecond>() > interval_reset)  && g_always_recenter_cursor.load(std::memory_order::relaxed))
+                if ((reset_cursor_timer.AtLeastElapsed(interval_reset)) && GetAlwaysRecenterCursor())
                 {
                     SetCursorPos(100, 100);
                     last_pos = {100, 100};

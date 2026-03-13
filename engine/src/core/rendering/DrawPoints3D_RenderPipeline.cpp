@@ -3,7 +3,7 @@
 namespace CoreEngine
 {
     DrawPoints3D_RenderPipeline::DrawPoints3D_RenderPipeline() noexcept
-    : m_shader_program(s_VERTEX_SHADER_CODE, s_FRAGMENT_SHADER_CODE, Shader::ProvidedPointers::ARE_SOURCE_CODE) 
+    : m_shader_program(s_VERTEX_SHADER_CODE, s_FRAGMENT_SHADER_CODE, nullptr, Shader::ProvidedPointers::ARE_SOURCE_CODE) 
     {
         m_vao.LinkAttribute(m_vbo, 0, 3, GL_FLOAT, sizeof(PointVertex), (void*)0);
         m_vao.LinkAttribute(m_vbo, 1, 3, GL_FLOAT, sizeof(PointVertex), (void*)sizeof(glm::vec3));

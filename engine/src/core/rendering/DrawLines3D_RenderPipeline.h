@@ -29,10 +29,14 @@ namespace CoreEngine
             m_line_vertices.emplace_back(std::forward<Args>(args)...);
         }
 
-        void SetCameraMatrix(const glm::mat4& matrix) noexcept;
+        void SetCameraData(const glm::mat4& matrix) noexcept;
+        void SetCameraDataAndFrustumCull(const glm::mat4& view_projection) noexcept;
         void SetLineData(const std::vector<glm::vec3>& line_vertex_positions, const glm::vec3& line_color) noexcept;
-        void SetLineData(std::vector<LineVertex>&& line_vertices) noexcept;
-        void SetCameraMatrixAndFrustumCull(const glm::mat4& view_projection) noexcept;
+        void SetLineData(std::vector<LineVertex> line_vertices) noexcept;
+
+        void SetLineThicknessFactor(float thickness) noexcept;
+        [[nodiscard]] float GetLineThicknessFactor() const noexcept;
+
         void ClearAllLines() noexcept;
 
         void Render() noexcept;
@@ -53,6 +57,7 @@ namespace CoreEngine
         #ifdef __INTELLISENSE__
             static constexpr char s_VERTEX_SHADER_CODE[]   = {};
             static constexpr char s_FRAGMENT_SHADER_CODE[] = {};
+            static constexpr char s_GEOMETRY_SHADER_CODE[] = {};
         #else 
             static constexpr char s_VERTEX_SHADER_CODE[]   = { 
                 #embed "shaders/shader_DrawLines3D.vert" suffix(, '\0') 
@@ -60,6 +65,10 @@ namespace CoreEngine
             
             static constexpr char s_FRAGMENT_SHADER_CODE[] = { 
                 #embed "shaders/shader_DrawLines3D.frag" suffix(, '\0') 
+            };
+
+            static constexpr char s_GEOMETRY_SHADER_CODE[] = { 
+                #embed "shaders/shader_DrawLines3D.geom" suffix(, '\0') 
             };
         #endif
 
@@ -70,7 +79,10 @@ namespace CoreEngine
 
         GLint m_uniform_cam_matrix  = -1;
 
+        std::vector<LineVertex> m_culled_draw_vertices;
         std::vector<LineVertex> m_line_vertices;
+
+        float m_line_thickness_factor  = 1.0f;
 
         //////////////////////////////////////////////// 
         //---------  

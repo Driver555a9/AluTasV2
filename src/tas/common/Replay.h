@@ -47,6 +47,7 @@ namespace AsphaltTas
 
     private:
         std::vector<Frame> m_frames;
+        
         size_t m_current_frame_index{0};
     };
 }

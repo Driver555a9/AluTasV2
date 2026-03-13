@@ -13,7 +13,8 @@ namespace CoreEngine
             ARE_SOURCE_CODE  = 1
         };
 
-        explicit Shader(const char* vertex, const char* fragment, const ProvidedPointers meaning) noexcept;
+        /// Vertex and Fragment must NOT be nullptr; geometry may be nullptr if not needed
+        explicit Shader(const char* vertex, const char* fragment, const char* geometry, const ProvidedPointers meaning) noexcept;
         ~Shader() noexcept;
 
         Shader(Shader&&) noexcept;
@@ -34,9 +35,9 @@ namespace CoreEngine
         Shader& operator=(const Shader&) = delete;
         
     private:
-        GLuint ID {0};
+        GLuint m_ID {0};
 
-        void PrintCompilationErrors(unsigned int shader, bool is_program) noexcept;
+        void PrintCompilationErrors(GLuint shader, bool is_program) noexcept;
         void Delete() noexcept;
     };
 }

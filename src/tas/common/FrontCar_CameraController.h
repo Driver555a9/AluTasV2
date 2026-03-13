@@ -18,16 +18,16 @@ namespace AsphaltTas
 
         void SetRacerState(RacerState state) noexcept;
 
-        [[nodiscard]] float GetOffsetForward() noexcept;
+        [[nodiscard]] float GetOffsetForward() const noexcept;
         void SetOffsetForward(float offset) noexcept;
 
-        [[nodiscard]] float GetOffsetUp() noexcept;
+        [[nodiscard]] float GetOffsetUp() const noexcept;
         void SetOffsetUp(float offset) noexcept;
 
-        [[nodiscard]] float GetOffsetRight() noexcept;
+        [[nodiscard]] float GetOffsetRight() const noexcept;
         void SetOffsetRight(float offset) noexcept;
 
-        [[nodiscard]] bool GetLookBackwards() noexcept;
+        [[nodiscard]] bool GetLookBackwards() const noexcept;
         void SetLookBackwards(bool look_backwards) noexcept;
         
     private:

@@ -33,6 +33,9 @@ namespace CoreEngine
         void SetCameraData(const glm::mat4& cam_matrix, const glm::vec3& cam_pos) noexcept;
         void Render() noexcept;
 
+        [[nodiscard]] Shader& GetShaderProgramReference() noexcept;
+        void RestoreShaderToDefault() noexcept;
+
         //////////////////////////////////////////////// 
         //---------  Copy / Move policy
         //////////////////////////////////////////////// 

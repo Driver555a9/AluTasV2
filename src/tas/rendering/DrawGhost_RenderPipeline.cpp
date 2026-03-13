@@ -5,44 +5,49 @@
 
 namespace AsphaltTas
 {
-    DrawGhost_RenderPipeline::DrawGhost_RenderPipeline() noexcept : CoreEngine::IndirectDraw3D_RenderPipeline()
+    DrawGhost_RenderPipeline::DrawGhost_RenderPipeline() noexcept
     {
-
+        m_draw_line_pipeline.SetLineThicknessFactor(10.0f);
     }
 
     void DrawGhost_RenderPipeline::SetGhostData(const CoreEngine::Basic_Model* model) noexcept
     {
         CoreEngine::Light light {model->GetPosition(), glm::vec3(0.9f, 0.9f, 1.0f), 500.0f, CoreEngine::Light::LIGHT_MODE::DIRECT_LIGHT};
-        IndirectDraw3D_RenderPipeline::SetSceneData({ model }, {light});
+        m_indirect_pipeline.SetSceneData({ model }, {light});
     }
 
     void DrawGhost_RenderPipeline::SetCameraData(const glm::mat4& cam_matrix, const glm::vec3& cam_pos) noexcept
     {
-        IndirectDraw3D_RenderPipeline::SetCameraData(cam_matrix, cam_pos);
+        m_indirect_pipeline.SetCameraData(cam_matrix, cam_pos);
+        m_draw_line_pipeline.SetCameraData(cam_matrix);
     }
 
-    glm::vec4 DrawGhost_RenderPipeline::GetColor() const noexcept
+    void DrawGhost_RenderPipeline::SetRacingLineData(std::vector<CoreEngine::DrawLines3D_RenderPipeline::LineVertex> line_vertices) noexcept
     {
-        return m_color;
+        m_draw_line_pipeline.SetLineData(std::move(line_vertices));
     }
 
-    void DrawGhost_RenderPipeline::SetColor(const glm::vec4& color) noexcept
+    glm::vec4 DrawGhost_RenderPipeline::GetGhostColor() const noexcept
+    {
+        return m_ghost_color;
+    }
+
+    void DrawGhost_RenderPipeline::SetGhostColor(const glm::vec4& color) noexcept
     {
         //May be called from a different context; therefore assign collor when context is assured to be right.
-        m_color = color;
+        m_ghost_color   = color;
         m_color_changed = true;
     }
 
-    
-    bool DrawGhost_RenderPipeline::GetIsUsingCustomColorShader() noexcept
+    bool DrawGhost_RenderPipeline::GetIsUsingCustomGhostColorShader() noexcept
     {
-        return m_use_custom_color_shader;
+        return m_use_custom_ghost_color_shader;
     }
     
-    void DrawGhost_RenderPipeline::SetUseCustomColorShader(bool on) noexcept
+    void DrawGhost_RenderPipeline::SetUseCustomGhostColorShader(bool on) noexcept
     {
         m_use_custom_color_shader_changed = true;
-        m_use_custom_color_shader = on;
+        m_use_custom_ghost_color_shader = on;
     }
 
     //////////////////////////////////////
@@ -52,27 +57,29 @@ namespace AsphaltTas
     {
         if (m_use_custom_color_shader_changed)
         {
-            if (m_use_custom_color_shader)
+            if (m_use_custom_ghost_color_shader)
             {
-                m_shader_program = CoreEngine::Shader(s_GHOST_VERTEX_SHADER_CODE, s_GHOST_FRAGMENT_SHADER_CODE, CoreEngine::Shader::ProvidedPointers::ARE_SOURCE_CODE);
+                m_indirect_pipeline.GetShaderProgramReference() = CoreEngine::Shader(s_GHOST_VERTEX_SHADER_CODE, s_GHOST_FRAGMENT_SHADER_CODE, nullptr, 
+                                                                  CoreEngine::Shader::ProvidedPointers::ARE_SOURCE_CODE);
                 m_color_changed = true;
             }
-            else 
+            else  
             {
-                using ID3D = IndirectDraw3D_RenderPipeline;
-                m_shader_program = CoreEngine::Shader(ID3D::s_VERTEX_SHADER_CODE, ID3D::s_FRAGMENT_SHADER_CODE, CoreEngine::Shader::ProvidedPointers::ARE_SOURCE_CODE);
+                m_indirect_pipeline.RestoreShaderToDefault(); 
             }
             m_use_custom_color_shader_changed = false;
         }
 
-        if (m_color_changed && m_use_custom_color_shader)
+        if (m_color_changed && m_use_custom_ghost_color_shader)
         {
-            const GLint location = glGetUniformLocation(m_shader_program.GetID(), "ghost_color_uniform");
-            glProgramUniform4f(m_shader_program.GetID(), location, m_color.r, m_color.g, m_color.b, m_color.w);
+            const GLuint id = m_indirect_pipeline.GetShaderProgramReference().GetID();
+            const GLint location = glGetUniformLocation(id, "ghost_color_uniform");
+            glProgramUniform4f(id, location, m_ghost_color.r, m_ghost_color.g, m_ghost_color.b, m_ghost_color.w);
             m_color_changed = false;
         }
 
-        IndirectDraw3D_RenderPipeline::Render();
+        m_indirect_pipeline.Render();
+        m_draw_line_pipeline.Render();
     }
 
 }

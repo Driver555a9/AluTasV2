@@ -90,7 +90,7 @@ namespace
                     }
                     
                 }
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                std::this_thread::sleep_for(std::chrono::microseconds(100));
             } 
             std::scoped_lock lock (g_racer_state_mutex, g_camera_state_mutex, g_race_progress_mutex);
             g_latest_racer_state  = std::nullopt;

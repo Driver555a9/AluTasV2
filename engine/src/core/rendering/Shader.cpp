@@ -10,45 +10,81 @@
 
 namespace CoreEngine
 {
-    Shader::Shader(const char* vertex, const char* fragment, const ProvidedPointers meaning) noexcept
+    Shader::Shader(const char* vertex, const char* fragment, const char* geometry, const ProvidedPointers meaning) noexcept
     {
-        const char* vertex_source_code;
-        const char* frag_source_code;
+        ENGINE_ASSERT(vertex && fragment && "Vertex and fragment shader must not be nullptr; geometry shader may be nullptr.");
+        std::string vertex_code_str;
+        std::string frag_code_str;
+        std::string geometry_code_str;
+
+        const char* vertex_source_code   = nullptr;
+        const char* frag_source_code     = nullptr;
+        const char* geometry_source_code = nullptr;
+
         if (meaning == Shader::ProvidedPointers::ARE_FILE_PATHS)
         {
-            vertex_source_code = CommonUtility::ReadFileToString(vertex).c_str();
-            frag_source_code   = CommonUtility::ReadFileToString(fragment).c_str();
+            try
+            {
+                vertex_code_str    = CommonUtility::ReadFileToString(vertex);
+                vertex_source_code = vertex_code_str.c_str();
+
+                frag_code_str     = CommonUtility::ReadFileToString(fragment); 
+                frag_source_code  = frag_code_str.c_str();
+
+                if (geometry)
+                {
+                    geometry_code_str    = CommonUtility::ReadFileToString(geometry);
+                    geometry_source_code = geometry_code_str.c_str();
+                }
+            }
+            catch (const std::exception& e)
+            {
+                ENGINE_ERROR_PRINT("Failed to create shader: " << e.what());
+            }
         }
-        else if (meaning == Shader::ProvidedPointers::ARE_SOURCE_CODE)
+        else
         {
-            vertex_source_code = vertex;
-            frag_source_code   = fragment;
+            vertex_source_code   = vertex;
+            frag_source_code     = fragment;
+            geometry_source_code = geometry;
         }
-        else 
+
+        GLuint vs = glCreateShader(GL_VERTEX_SHADER);
+        glShaderSource(vs, 1, &vertex_source_code, nullptr);
+        glCompileShader(vs);
+        PrintCompilationErrors(vs, false);
+
+        GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
+        glShaderSource(fs, 1, &frag_source_code, nullptr);
+        glCompileShader(fs);
+        PrintCompilationErrors(fs, false);
+
+        GLuint gs = 0;
+        if (geometry_source_code)
         {
-            ENGINE_ASSERT(false && ("At Shader::Shader() \"PointerMeaning\" is not recognizable: " + std::to_string(static_cast<int>(meaning))).c_str());
+            gs = glCreateShader(GL_GEOMETRY_SHADER);
+            glShaderSource(gs, 1, &geometry_source_code, nullptr);
+            glCompileShader(gs);
+            PrintCompilationErrors(gs, false);
+            glAttachShader(m_ID, gs);
         }
 
-        constexpr const bool IS_PROGRAM_LINK_ERR = true;
+        m_ID = glCreateProgram();
+        glAttachShader(m_ID, vs);
+        glAttachShader(m_ID, fs);
+        if (geometry_source_code) 
+        {
+            glAttachShader(m_ID, gs);
+        }
+        glLinkProgram(m_ID);
+        PrintCompilationErrors(m_ID, true);
 
-        GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(vertex_shader, 1, &vertex_source_code, NULL);
-        glCompileShader(vertex_shader);
-        PrintCompilationErrors(vertex_shader, !IS_PROGRAM_LINK_ERR);
-
-        GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(fragment_shader, 1, &frag_source_code, NULL);
-        glCompileShader(fragment_shader);
-        PrintCompilationErrors(fragment_shader, !IS_PROGRAM_LINK_ERR);
-
-        this->ID = glCreateProgram();
-        glAttachShader(this->ID, vertex_shader);
-        glAttachShader(this->ID, fragment_shader);
-        glLinkProgram(this->ID);
-        PrintCompilationErrors(ID, IS_PROGRAM_LINK_ERR);
-
-        glDeleteShader(vertex_shader);
-        glDeleteShader(fragment_shader);
+        glDeleteShader(vs);
+        glDeleteShader(fs);
+        if (geometry_source_code) 
+        {
+            glDeleteShader(gs);
+        }
     }
 
     Shader::~Shader() noexcept
@@ -56,9 +92,9 @@ namespace CoreEngine
         Delete();
     }
 
-    Shader::Shader(Shader&& other) noexcept : ID(other.ID) 
+    Shader::Shader(Shader&& other) noexcept : m_ID(other.m_ID) 
     {
-        other.ID = 0;
+        other.m_ID = 0;
     }
 
     Shader& Shader::operator=(Shader&& other) noexcept
@@ -66,15 +102,15 @@ namespace CoreEngine
         if (this != &other) 
         {
             Delete();
-            ID       = other.ID;
-            other.ID = 0;
+            m_ID       = other.m_ID;
+            other.m_ID = 0;
         }
         return *this;
     }
 
     void Shader::Activate() noexcept
     {
-        glUseProgram(this->ID);
+        glUseProgram(this->m_ID);
     }
 
     void Shader::Deactivate() noexcept
@@ -84,14 +120,14 @@ namespace CoreEngine
 
     void Shader::Delete() noexcept
     {
-        if(ID)
+        if(m_ID)
         {
-            glDeleteProgram(this->ID);
-            ID = 0;
+            glDeleteProgram(this->m_ID);
+            m_ID = 0;
         }
     }
 
-    void Shader::PrintCompilationErrors(unsigned int shader, bool is_program) noexcept
+    void Shader::PrintCompilationErrors(GLuint shader, bool is_program) noexcept
     {
         GLint hasCompiled;
         char infoLog[1024];
@@ -117,6 +153,6 @@ namespace CoreEngine
 
     GLuint Shader::GetID() const noexcept
     {
-        return ID;
+        return m_ID;
     }
 }

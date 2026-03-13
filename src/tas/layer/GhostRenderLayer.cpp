@@ -61,7 +61,7 @@ namespace
 
         m_render_pipeline.SetGhostData(s_ghost_model.get());
         SetUseCustomColorShader(s_use_custom_color_shader);
-        m_render_pipeline.SetColor(s_ghost_color);
+        m_render_pipeline.SetGhostColor(s_ghost_color);
 
     #ifdef _WIN32
         HWND hwnd = glfwGetWin32Window(CoreEngine::Application::Get()->GetWindowPtr(m_handle)->GetGLFWwindow());
@@ -154,10 +154,16 @@ namespace
             m_camera.SetFovRad(camera_state_now.m_fov_radians);
 
             m_render_pipeline.SetGhostData(s_ghost_model.get());
+            if (s_replay_ghost_racing_line.has_value())
+            {
+                m_render_pipeline.SetRacingLineData(s_replay_ghost_racing_line.value());
+            } else { ENGINE_ERROR_PRINT("[Debug] Failed to push racing line data to line rendering pipeline, because optional is empty."); }
+            
             m_render_pipeline.SetCameraData(m_camera.CalculateCameraMatrix(), m_camera.GetPosition());
             m_render_pipeline.Render();
 
-        } catch (...) 
+        } 
+        catch (...) 
         {
             m_render_pipeline.Render();
         }
@@ -210,7 +216,7 @@ namespace
         s_ghost_color = color;
         if (InstanceExists())
         {
-            s_instance->m_render_pipeline.SetColor(color);
+            s_instance->m_render_pipeline.SetGhostColor(color);
         }
     }
 
@@ -224,13 +230,60 @@ namespace
         s_use_custom_color_shader = on;
         if (InstanceExists())
         {
-            s_instance->m_render_pipeline.SetUseCustomColorShader(on);
+            s_instance->m_render_pipeline.SetUseCustomGhostColorShader(on);
         }
     }
 
     void GhostRenderLayer::SetCurrentReplay(const std::optional<Replay>& replay) noexcept
     {
         s_replay_to_race_against = replay;
+
+        s_replay_ghost_racing_line = [&replay]() -> std::optional<std::vector<CoreEngine::DrawLines3D_RenderPipeline::LineVertex>> {
+            if (!replay.has_value())
+                return std::nullopt;
+
+            const std::vector<Replay::Frame>& frames = replay->GetFrameVectorConstReference();
+            std::vector<CoreEngine::DrawLines3D_RenderPipeline::LineVertex> out;
+            out.reserve(frames.size() * 2);
+
+            auto HSVtoRGB = [](float h, float s, float v) -> glm::vec3 {
+                h = fmod(h, 360.0f);
+                float c = v * s;
+                float x = c * (1 - fabs(fmod(h / 60.0f, 2) - 1));
+                float m = v - c;
+                glm::vec3 rgb;
+                if (h < 60)       rgb = {c, x, 0};
+                else if (h < 120) rgb = {x, c, 0};
+                else if (h < 180) rgb = {0, c, x};
+                else if (h < 240) rgb = {0, x, c};
+                else if (h < 300) rgb = {x, 0, c};
+                else              rgb = {c, 0, x};
+                return rgb + glm::vec3(m);
+            };
+
+            float rainbow_length = 60.0f;
+            float distance_accum = 0.0f;
+
+            for (size_t i = 0; i < frames.size() - 1; ++i)
+            {
+                glm::vec3 p0 = frames[i].m_racer_state.GetExtractedPosition();
+                glm::vec3 p1 = frames[i + 1].m_racer_state.GetExtractedPosition();
+
+                float segment_length = glm::length(p1 - p0);
+                distance_accum += segment_length;
+
+                float hue0 = fmod(distance_accum / rainbow_length * 360.0f, 360.0f);
+                float hue1 = fmod((distance_accum + segment_length) / rainbow_length * 360.0f, 360.0f);
+
+                glm::vec3 color0 = HSVtoRGB(hue0, 1.0f, 1.0f);
+                glm::vec3 color1 = HSVtoRGB(hue1, 1.0f, 1.0f);
+
+                out.emplace_back(p0, color0);
+                out.emplace_back(p1, color1);
+            }
+
+            return out;
+        }();
     }
 
     const std::optional<Replay>& GhostRenderLayer::GetCurrentReplayConstRef() noexcept

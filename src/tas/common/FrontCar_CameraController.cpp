@@ -31,7 +31,7 @@ namespace AsphaltTas
         m_racer_state = state;
     }
 
-    float FrontCar_CameraControler::GetOffsetForward() noexcept
+    float FrontCar_CameraControler::GetOffsetForward() const noexcept
     {
         return m_offset.z;
     }
@@ -41,7 +41,7 @@ namespace AsphaltTas
         m_offset.z = offset;
     }
 
-    float FrontCar_CameraControler::GetOffsetUp() noexcept
+    float FrontCar_CameraControler::GetOffsetUp() const noexcept
     {
         return m_offset.y;
     }
@@ -51,7 +51,7 @@ namespace AsphaltTas
         m_offset.y = offset;
     }
 
-    float FrontCar_CameraControler::GetOffsetRight() noexcept
+    float FrontCar_CameraControler::GetOffsetRight() const noexcept
     {
         return m_offset.x;
     }
@@ -61,7 +61,7 @@ namespace AsphaltTas
         m_offset.x = -1.0f * offset;
     }   
 
-    bool FrontCar_CameraControler::GetLookBackwards() noexcept
+    bool FrontCar_CameraControler::GetLookBackwards() const noexcept
     {
         return m_look_backwards;
     }
