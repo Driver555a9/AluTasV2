@@ -63,6 +63,7 @@ namespace
         SetUseCustomColorShader(s_use_custom_color_shader);
         m_render_pipeline.SetGhostColor(s_ghost_color);
 
+        glfwSetWindowAttrib(CoreEngine::Application::Get()->GetWindowPtr(m_handle)->GetGLFWwindow(), GLFW_FLOATING, true);
     #ifdef _WIN32
         HWND hwnd = glfwGetWin32Window(CoreEngine::Application::Get()->GetWindowPtr(m_handle)->GetGLFWwindow());
         g_original_proc = (WNDPROC)GetWindowLongPtr(hwnd, GWLP_WNDPROC);

@@ -104,22 +104,28 @@ namespace AsphaltTas::MemoryUtility
             uintptr_t candidate_lo = (delta <= base) ? base - delta : MIN_ADDR;
             if (candidate_lo >= min_scan && candidate_lo <= max_scan)
             {
-                LPVOID result = VirtualAllocEx(handle_process, reinterpret_cast<LPVOID>(candidate_lo), size, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
-                if (result)
+                if (! MemoryPageIsGuarded(process, candidate_lo))
                 {
-                    CloseHandle(handle_process);
-                    return reinterpret_cast<libmem::Address>(result);
+                    LPVOID result = VirtualAllocEx(handle_process, reinterpret_cast<LPVOID>(candidate_lo), size, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+                    if (result)
+                    {
+                        CloseHandle(handle_process);
+                        return reinterpret_cast<libmem::Address>(result);
+                    }
                 }
             }
 
             uintptr_t candidate_hi = base + delta;
             if (candidate_hi >= min_scan && candidate_hi <= max_scan)
             {
-                LPVOID result = VirtualAllocEx(handle_process, reinterpret_cast<LPVOID>(candidate_hi), size, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
-                if (result)
+                if (! MemoryPageIsGuarded(process, candidate_lo))
                 {
-                    CloseHandle(handle_process);
-                    return reinterpret_cast<libmem::Address>(result);
+                    LPVOID result = VirtualAllocEx(handle_process, reinterpret_cast<LPVOID>(candidate_hi), size, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+                    if (result)
+                    {
+                        CloseHandle(handle_process);
+                        return reinterpret_cast<libmem::Address>(result);
+                    }
                 }
             }
         }
@@ -135,12 +141,14 @@ namespace AsphaltTas::MemoryUtility
 //////////////////////////////////////////////////////////
     void FreeMemoryOrThrow(const libmem::Process* process, libmem::Address address, size_t size)
     {
+        if (MemoryPageIsGuarded(process, address)) throw std::runtime_error("Error: Guarded memory shall not be modified.");
         if (! TryFreeMemoryOrNothing(process, address, size))
             throw std::runtime_error("Failed to free memory.");
     }
 
     bool TryFreeMemoryOrNothing(const libmem::Process* process, libmem::Address address, size_t size) noexcept
     {
+        try { if (MemoryPageIsGuarded(process, address)) { return false; } } catch (...) {}
         bool result = libmem::FreeMemory(process, address, size);
         if (! result) ENGINE_ERROR_PRINT("Warning: Failed to free memory at address: " << address << " with size: " << size);
         return result;
@@ -149,6 +157,7 @@ namespace AsphaltTas::MemoryUtility
 #ifdef _WIN32    
     void FreeMemoryAllocatedNearAddressOrThrow(const libmem::Process* process, libmem::Address address, size_t size)
     {
+        if (MemoryPageIsGuarded(process, address)) throw std::runtime_error("Error: Guarded memory shall not be modified.");
         HANDLE handle_process = OpenProcess(PROCESS_VM_OPERATION, FALSE, process->pid);
         if (handle_process)
         {
@@ -166,17 +175,20 @@ namespace AsphaltTas::MemoryUtility
 //////////////////////////////////////////////////////////
     void ReadMemoryOrThrow(const libmem::Process* process, libmem::Address address, void* begin, size_t size)
     {
+        if (MemoryPageIsGuarded(process, address)) throw std::runtime_error("Error: Guarded memory shall not be modified.");
         if (! TryReadMemoryOrNothing(process, address, reinterpret_cast<uint8_t*>(begin), size))
             throw MemoryManipFailedException("MemoryUtility: Failed to read memory.");
     }
 
     bool TryReadMemoryOrNothing(const libmem::Process* process, libmem::Address address, void* begin, size_t size) noexcept
     {
+        try { if (MemoryPageIsGuarded(process, address)) { return false; } } catch (...) {}
         return libmem::ReadMemory(process, address, reinterpret_cast<uint8_t*>(begin), size) == size;
     }
 
     void ReadFloatOrThrow(const libmem::Process* process, libmem::Address address, float& out)
     {
+        if (MemoryPageIsGuarded(process, address)) throw std::runtime_error("Error: Guarded memory shall not be modified.");
         ReadMemoryOrThrow(process, address, reinterpret_cast<uint8_t*>(&out), sizeof(decltype(out)));
     }
 
@@ -185,24 +197,50 @@ namespace AsphaltTas::MemoryUtility
 //////////////////////////////////////////////////////////
     void WriteMemoryOrThrow(const libmem::Process* process,  libmem::Address address, void* begin, size_t size)
     {
+        if (MemoryPageIsGuarded(process, address)) throw std::runtime_error("Error: Guarded memory shall not be modified.");
         if (libmem::WriteMemory(process, address, reinterpret_cast<uint8_t*>(begin), size) != size)
             throw MemoryManipFailedException("MemoryUtility: Failed to write memory.");
     }
 
     bool TryWriteMemoryOrNothing(const libmem::Process* process,  libmem::Address address, void* begin, size_t size) noexcept
     {
+        try { if (MemoryPageIsGuarded(process, address)) { return false; } } catch (...) {}
         return libmem::WriteMemory(process, address, reinterpret_cast<uint8_t*>(begin), size) == size;
     }
 
     void WriteFloatOrThrow(const libmem::Process* process, libmem::Address address, float data)
     {
+        if (MemoryPageIsGuarded(process, address)) throw std::runtime_error("Error: Guarded memory shall not be modified.");
         WriteMemoryOrThrow(process, address, &data, sizeof(decltype(data)));
+    }
+
+#ifdef WIN32
+//////////////////////////////////////////////////////////
+// Check if Guarded region
+//////////////////////////////////////////////////////////
+    bool MemoryPageIsGuarded(const libmem::Process* process, libmem::Address address)
+    {
+        MEMORY_BASIC_INFORMATION mbi{};
+        HANDLE handle_process = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, process->pid);
+        if (! handle_process)
+            throw MemoryManipFailedException("MemoryUtility: Failed to open process for Page Guard check");
+
+        if (VirtualQueryEx(handle_process, reinterpret_cast<LPCVOID>(address), &mbi, sizeof(mbi)) != sizeof(mbi))
+        {
+            CloseHandle(handle_process);
+            throw MemoryManipFailedException("MemoryUtility: Failed to query Page state");
+        }
+        const bool is_guarded = static_cast<bool>(mbi.Protect & PAGE_GUARD);
+
+        if (is_guarded) {  ENGINE_INFO_LOG("Guarded memory at address: " << address); }
+
+        CloseHandle(handle_process);
+        return is_guarded;
     }
 
 //////////////////////////////////////////////////////////
 // Suspend / Pause process
 //////////////////////////////////////////////////////////
-#ifdef WIN32
     SuspendedProcess::~SuspendedProcess() noexcept
     {
         Resume();
