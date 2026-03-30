@@ -66,12 +66,100 @@ namespace AsphaltTas::MemoryUtility
 //////////////////////////////////////////////////////////
 // Pattern searching
 //////////////////////////////////////////////////////////
-    libmem::Address AOBScanOrThrow(const libmem::Process* process, const char* pattern, libmem::Address begin, size_t size)
+#ifdef _WIN32
+    libmem::Address AOBScanOrThrow(const libmem::Process* process, const char* pattern, libmem::Address start_address, size_t size)
     {
-        std::optional<libmem::Address> opt_addr = libmem::SigScan(process, pattern, begin, size);
-        if (! opt_addr) throw MemoryManipFailedException("MemoryUtility: Failed to find aob pattern.");
-        return opt_addr.value();
+        if (!process || process->pid == 0) 
+        {
+            throw MemoryManipFailedException("Invalid process");
+        }
+
+        HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, process->pid);
+
+        if (!hProcess) 
+        {
+            throw MemoryManipFailedException("Failed to open process for region enumeration");
+        }
+
+        std::optional<libmem::Address> found = std::nullopt;
+
+        constexpr auto IsPageSafeToRead = [](const MEMORY_BASIC_INFORMATION& mbi) -> bool
+        {
+            if (mbi.State != MEM_COMMIT) 
+                return false;
+
+            if (mbi.Protect & (PAGE_GUARD | PAGE_NOACCESS)) 
+                return false;
+
+            if ((mbi.Protect & (PAGE_READONLY | PAGE_READWRITE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE)) == 0)
+                return false;
+
+            return true;
+        };
+
+        libmem::Address current = start_address;
+        const libmem::Address max_address = start_address + size;
+        while (current < max_address) 
+        {
+            MEMORY_BASIC_INFORMATION mbi{};
+            SIZE_T bytes = VirtualQueryEx(hProcess, reinterpret_cast<LPCVOID>(current), &mbi, sizeof(mbi));
+
+            if (bytes != sizeof(mbi))
+            {
+                ENGINE_ERROR_PRINT("VirtualQueryEx failure.");
+                break;
+            }
+
+            libmem::Address next = current + mbi.RegionSize;
+
+            if (IsPageSafeToRead(mbi)) 
+            {
+                libmem::Address region_base = reinterpret_cast<libmem::Address>(mbi.BaseAddress);
+                size_t          region_size = mbi.RegionSize;
+
+                if (region_base < start_address) 
+                {
+                    region_size -= (start_address - region_base);
+                    region_base  = start_address;
+                }
+
+                if (region_base + region_size > max_address) 
+                {
+                    region_size = max_address - region_base;
+                }
+
+                if (region_size == 0) 
+                {
+                    current = next;
+                    continue;
+                }
+
+                found = libmem::SigScan(process, pattern, region_base, region_size);
+                if (found) 
+                {
+                    break;
+                }
+            }
+            else 
+            {
+                // ENGINE_INFO_LOG("Skipped guarded page with base address: " << mbi.BaseAddress << " region size: " << mbi.RegionSize);
+            }
+
+            current = next;
+
+            if (current == 0 || current < start_address) break;
+        }
+
+        CloseHandle(hProcess);
+
+        if (!found) 
+        {
+            throw MemoryManipFailedException("MemoryUtility: Failed to find AOB pattern in safe regions.");
+        }
+
+        return found.value();
     }
+#endif
 
 //////////////////////////////////////////////////////////
 // Allocating
@@ -141,14 +229,14 @@ namespace AsphaltTas::MemoryUtility
 //////////////////////////////////////////////////////////
     void FreeMemoryOrThrow(const libmem::Process* process, libmem::Address address, size_t size)
     {
-        if (MemoryPageIsGuarded(process, address)) throw std::runtime_error("Error: Guarded memory shall not be modified.");
+        (void)MemoryPageIsGuarded(process, address); // Only give print log
         if (! TryFreeMemoryOrNothing(process, address, size))
             throw std::runtime_error("Failed to free memory.");
     }
 
     bool TryFreeMemoryOrNothing(const libmem::Process* process, libmem::Address address, size_t size) noexcept
     {
-        try { if (MemoryPageIsGuarded(process, address)) { return false; } } catch (...) {}
+        try { (void)MemoryPageIsGuarded(process, address); } catch (...) {} //Only give print log
         bool result = libmem::FreeMemory(process, address, size);
         if (! result) ENGINE_ERROR_PRINT("Warning: Failed to free memory at address: " << address << " with size: " << size);
         return result;
@@ -157,7 +245,7 @@ namespace AsphaltTas::MemoryUtility
 #ifdef _WIN32    
     void FreeMemoryAllocatedNearAddressOrThrow(const libmem::Process* process, libmem::Address address, size_t size)
     {
-        if (MemoryPageIsGuarded(process, address)) throw std::runtime_error("Error: Guarded memory shall not be modified.");
+        (void)MemoryPageIsGuarded(process, address); // Only give print log
         HANDLE handle_process = OpenProcess(PROCESS_VM_OPERATION, FALSE, process->pid);
         if (handle_process)
         {

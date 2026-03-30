@@ -179,8 +179,8 @@ namespace AsphaltTas
         static std::array<uint8_t, 5> ORIGINAL_POSITION_XZ;  // movsd [rcx+38],xmm0
         static std::array<uint8_t, 3> ORIGINAL_POSITION_Y;   // mov [rcx+40],eax
 
-        static libmem::Address POSITION_XY_ADDRESS = INVALID_ADDRESS;
-        static libmem::Address POSITION_Z_ADDRESS  = INVALID_ADDRESS;
+        static libmem::Address POSITION_XZ_ADDRESS = INVALID_ADDRESS;
+        static libmem::Address POSITION_Y_ADDRESS  = INVALID_ADDRESS;
 
         static libmem::Address POSITION_BASE_ADDRESS_CACHE = INVALID_ADDRESS;
 
@@ -227,19 +227,26 @@ namespace AsphaltTas
             {
                 if (CamCache::POSITION_BASE_ADDRESS_CACHE == INVALID_ADDRESS)
                 {
-                    CamCache::POSITION_BASE_ADDRESS_CACHE = 
-                    MemoryUtility::AOBScanOrThrow(&process, "F2 0F 10 02 F2 0F 11 41 38 8B 42 08 89 41 40 C6 41 58 01", module.base, module.size);
+                    CamCache::POSITION_BASE_ADDRESS_CACHE = MemoryUtility::AOBScanOrThrow(&process, 
+                        "F2 0F 10 02 "
+                        "F2 0F 11 41 ?? "
+                        "8B 42 08 "
+                        "89 41 ?? "
+                        "C6 41 58 01",
+                        module.base, module.size);
                 }
+
                 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                // Offsets from pattern start:
-                // +0:  F2 0F 10 02        (movsd xmm0,[rdx])       - 4 bytes
-                // +4:  F2 0F 11 41 38     (movsd [rcx+38],xmm0)    - 5 bytes - NOP THIS (X, Z)
-                // +9:  8B 42 08           (mov eax,[rdx+08])       - 3 bytes
-                // +12: 89 41 40           (mov [rcx+40],eax)       - 3 bytes - NOP THIS (Y)
-                // +15: C6 41 58 01        (mov byte ptr [rcx+58],01)
+                // Pattern start:
+                // +0 : F2 0F 10 02           (movsd xmm0,[rdx])              - 4 bytes
+                // +4 : F2 0F 11 41 ??        (movsd [rcx+????????],xmm0)     - 5 bytes - NOP THIS (X, Z)
+                // +9 : 8B 42 08              (mov eax,[rdx+08])              - 3 bytes
+                // +12: 89 41 ??              (mov [rcx+????????],eax)        - 3 bytes - NOP THIS (Y)
+                // +15: C6 41 58 01           (mov byte ptr [rcx+58],01)
                 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                CamCache::POSITION_XY_ADDRESS = CamCache::POSITION_BASE_ADDRESS_CACHE + 4;   // movsd [rcx+38]
-                CamCache::POSITION_Z_ADDRESS  = CamCache::POSITION_BASE_ADDRESS_CACHE + 12;  // mov   [rcx+40]
+
+                CamCache::POSITION_XZ_ADDRESS = CamCache::POSITION_BASE_ADDRESS_CACHE + 4;   // movsd [rcx+????????],xmm0
+                CamCache::POSITION_Y_ADDRESS  = CamCache::POSITION_BASE_ADDRESS_CACHE + 12;  // mov   [rcx+????????],eax
             }
 
         //////////////////////////////////////////////////////////
@@ -275,26 +282,43 @@ namespace AsphaltTas
                 if (CamCache::FOV_BASE_ADDRESS_CACHE == INVALID_ADDRESS)
                 {
                     CamCache::FOV_BASE_ADDRESS_CACHE = MemoryUtility::AOBScanOrThrow(&process, 
-                        "0F 2E 81 28 01 00 00 ?? ?? 39 81 2C 01 00 00 ?? ?? F3 0F 11 81 28 01 00 00 89 81 2C 01 00 00", module.base, module.size);
+                        "0F 2E 82 ?? ?? ?? ?? "
+                        "75 08 "
+                        "39 8A ?? ?? ?? ?? "
+                        "74 16 "
+                        "89 8A ?? ?? ?? ?? "
+                        "48 8B CA "
+                        "F3 0F 11 82 ?? ?? ?? ?? "
+                        "E8 ?? ?? ?? ?? "
+                        "83 7F 20 00 "
+                        "B8 28 00 00 00 "
+                        "B9 30 00 00 00 "
+                        "0F 45 C1",
+                        module.base, module.size);
                 }
 
                 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                // +0 : 0F 2E 81 28 01 00 00      (ucomiss xmm0,[rcx+00000128])
-                // +7 : 75 08                     (jne Asphalt9_Steam_x64_rtl.exe+66A56C)
-                // +9 : 39 81 2C 01 00 00         ([rcx+0000012C],eax)
-                // +15: 74 13                     (je Asphalt9_Steam_x64_rtl.exe+66A57F)
-                // +17: F3 0F 11 81 28 01 00 00   (movss [rcx+00000128],xmm0)              - 8 bytes - NOP this
+                // Pattern start (extended for maximum uniqueness):
+                // +0  : 0F 2E 82 ?? ?? ?? ??      ucomiss xmm0,[rdx+????????]
+                // +7  : 75 08                     jne ...
+                // +9  : 39 8A ?? ?? ?? ??         cmp [rdx+????????],ecx
+                // +15 : 74 16                     je ...
+                // +17 : 89 8A ?? ?? ?? ??         mov [rdx+????????],ecx
+                // +23 : 48 8B CA                  mov rcx,rdx
+                // +26 : F3 0F 11 82 ?? ?? ?? ??   movss [rdx+00000128],xmm0 - NOP this (8 bytes)
+                // +34 : E8 ?? ?? ?? ??            call ...
+                // +39 : 83 7F 20 00               cmp dword ptr [rdi+20],00
                 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-                CamCache::FOV_ADDRESS = CamCache::FOV_BASE_ADDRESS_CACHE + 17; //movss [rcx+00000128],xmm0
+                CamCache::FOV_ADDRESS = CamCache::FOV_BASE_ADDRESS_CACHE + 26;
             }
 
         //////////////////////////////////////////////////////////
         // Save original instructions
         //////////////////////////////////////////////////////////
             // Position
-            MemoryUtility::ReadMemoryOrThrow(&process, CamCache::POSITION_XY_ADDRESS, CamCache::ORIGINAL_POSITION_XZ.data(), CamCache::ORIGINAL_POSITION_XZ.size());
-            MemoryUtility::ReadMemoryOrThrow(&process, CamCache::POSITION_Z_ADDRESS,  CamCache::ORIGINAL_POSITION_Y.data(),  CamCache::ORIGINAL_POSITION_Y.size());
+            MemoryUtility::ReadMemoryOrThrow(&process, CamCache::POSITION_XZ_ADDRESS, CamCache::ORIGINAL_POSITION_XZ.data(), CamCache::ORIGINAL_POSITION_XZ.size());
+            MemoryUtility::ReadMemoryOrThrow(&process, CamCache::POSITION_Y_ADDRESS,  CamCache::ORIGINAL_POSITION_Y.data(),  CamCache::ORIGINAL_POSITION_Y.size());
 
             // ROtation
             MemoryUtility::ReadMemoryOrThrow(&process, CamCache::ROTATION_X_ADDRESS,  CamCache::ORIGINAL_ROTATION_X.data(),  CamCache::ORIGINAL_ROTATION_X.size());
@@ -313,10 +337,10 @@ namespace AsphaltTas
             std::array<uint8_t, 3> nops_3 = {0x90, 0x90, 0x90};
 
             // Position
-            if (!MemoryUtility::TryWriteMemoryOrNothing(&process, CamCache::POSITION_XY_ADDRESS, nops_5.data(), nops_5.size()))
+            if (!MemoryUtility::TryWriteMemoryOrNothing(&process, CamCache::POSITION_XZ_ADDRESS, nops_5.data(), nops_5.size()))
                 throw MemoryUtility::MemoryManipFailedException("Failed to NOP position XZ update.");
             
-            if (!MemoryUtility::TryWriteMemoryOrNothing(&process, CamCache::POSITION_Z_ADDRESS, nops_3.data(), nops_3.size()))
+            if (!MemoryUtility::TryWriteMemoryOrNothing(&process, CamCache::POSITION_Y_ADDRESS, nops_3.data(), nops_3.size()))
                 throw MemoryUtility::MemoryManipFailedException("Failed to NOP position Y update.");
             
             // Rotation
@@ -341,10 +365,10 @@ namespace AsphaltTas
         catch(...)
         {
             // Try restore position
-            if (CamCache::POSITION_XY_ADDRESS != 0)
-                MemoryUtility::TryWriteMemoryOrNothing(&process, CamCache::POSITION_XY_ADDRESS, CamCache::ORIGINAL_POSITION_XZ.data(), CamCache::ORIGINAL_POSITION_XZ.size());
-            if (CamCache::POSITION_Z_ADDRESS != 0)
-                MemoryUtility::TryWriteMemoryOrNothing(&process,CamCache:: POSITION_Z_ADDRESS, CamCache::ORIGINAL_POSITION_Y.data(), CamCache::ORIGINAL_POSITION_Y.size());
+            if (CamCache::POSITION_XZ_ADDRESS != 0)
+                MemoryUtility::TryWriteMemoryOrNothing(&process, CamCache::POSITION_XZ_ADDRESS, CamCache::ORIGINAL_POSITION_XZ.data(), CamCache::ORIGINAL_POSITION_XZ.size());
+            if (CamCache::POSITION_Y_ADDRESS != 0)
+                MemoryUtility::TryWriteMemoryOrNothing(&process,CamCache:: POSITION_Y_ADDRESS, CamCache::ORIGINAL_POSITION_Y.data(), CamCache::ORIGINAL_POSITION_Y.size());
 
             // Try restore rotation
             if (CamCache::ROTATION_X_ADDRESS != 0)
@@ -371,8 +395,8 @@ namespace AsphaltTas
         const libmem::Process process = MemoryUtility::GetAsphaltProcessOrThrow();
 
         // Restore position
-        MemoryUtility::TryWriteMemoryOrNothing(&process, CamCache::POSITION_XY_ADDRESS, CamCache::ORIGINAL_POSITION_XZ.data(), CamCache::ORIGINAL_POSITION_XZ.size());
-        MemoryUtility::TryWriteMemoryOrNothing(&process, CamCache::POSITION_Z_ADDRESS,  CamCache::ORIGINAL_POSITION_Y.data(),  CamCache::ORIGINAL_POSITION_Y.size() );
+        MemoryUtility::TryWriteMemoryOrNothing(&process, CamCache::POSITION_XZ_ADDRESS, CamCache::ORIGINAL_POSITION_XZ.data(), CamCache::ORIGINAL_POSITION_XZ.size());
+        MemoryUtility::TryWriteMemoryOrNothing(&process, CamCache::POSITION_Y_ADDRESS,  CamCache::ORIGINAL_POSITION_Y.data(),  CamCache::ORIGINAL_POSITION_Y.size() );
 
         // Restore rotation
         MemoryUtility::TryWriteMemoryOrNothing(&process, CamCache::ROTATION_X_ADDRESS,  CamCache::ORIGINAL_ROTATION_X.data(),  CamCache::ORIGINAL_ROTATION_X.size() );
@@ -400,8 +424,8 @@ namespace AsphaltTas
         //////////////////////////////////////////////////////////
         // Position
         //////////////////////////////////////////////////////////
-        CamCache::POSITION_XY_ADDRESS = INVALID_ADDRESS;
-        CamCache::POSITION_Z_ADDRESS  = INVALID_ADDRESS;
+        CamCache::POSITION_XZ_ADDRESS = INVALID_ADDRESS;
+        CamCache::POSITION_Y_ADDRESS  = INVALID_ADDRESS;
         CamCache::POSITION_BASE_ADDRESS_CACHE = INVALID_ADDRESS;
 
         //////////////////////////////////////////////////////////

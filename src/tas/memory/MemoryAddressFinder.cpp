@@ -253,12 +253,13 @@ namespace AsphaltTas
         ////////////////////////////////////////
         if (CameraCache::ORIGINAL_CODE_ADDRESS == INVALID_ADDRESS)
         {
-            CameraCache::ORIGINAL_CODE_ADDRESS = MemoryUtility::AOBScanOrThrow(&process, "F3 0F 10 08 F3 0F 10 50 04 F3 0F 5C 57 78", module.base, module.size);
+            //?? = 56 as of 30.3.2026 - however, this is vulnerable to change, therefore best to leave ??
+            CameraCache::ORIGINAL_CODE_ADDRESS = MemoryUtility::AOBScanOrThrow(&process, "F3 0F 10 08 F3 0F 10 50 04 F3 0F 5C ?? 78", module.base, module.size);
         }
 
         if (! CameraCache::ORIGINAL_CODE_CACHE_HAS_VALUE )
         {
-            // Steal 14 bytes: movss xmm1,[rax] (4) + movss xmm2,[rax+04] (5) + subss xmm2,[rdi+78] (5)
+            // Steal 14 bytes: movss xmm1,[rax] (4) + movss xmm2,[rax+04] (5) + subss xmm2,[rsi+78] (5)
             MemoryUtility::ReadMemoryOrThrow(&process, CameraCache::ORIGINAL_CODE_ADDRESS, CameraCache::ORIGINAL_CODE.data(), CameraCache::ORIGINAL_CODE_SIZE);
             CameraCache::ORIGINAL_CODE_CACHE_HAS_VALUE = true;
         }
