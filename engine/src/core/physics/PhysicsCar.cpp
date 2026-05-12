@@ -2,9 +2,9 @@
 
 #include "core/physics/OwnedCompoundShape.h"
 #include "core/physics/PhysicsCarVehicleRaycaster.h"
-
-//std
 #include "core/utility/Assert.h"
+
+#include <algorithm>
 
 namespace CoreEngine
 {

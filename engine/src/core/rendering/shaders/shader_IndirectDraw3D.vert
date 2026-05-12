@@ -1,3 +1,5 @@
+R"glsl(
+    
 #version 460 core
 
 /////////////////////////////////////////////// 
@@ -45,3 +47,5 @@ void main()
     tex_uv                 = aTexUV;
     gl_Position            = cam_matrix * vec4(vertex_world_pos, 1.0);
 }
+
+)glsl"

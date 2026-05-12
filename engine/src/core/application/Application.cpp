@@ -229,13 +229,18 @@ namespace CoreEngine
             throw std::runtime_error("At Application::Create(): failed to initialize GLFW.");
         }
         
-        glfwWindowHint(GLFW_VISIBLE, false);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+
         GLFWwindow* dummy = glfwCreateWindow(1, 1, "", nullptr, nullptr);
-        glfwWindowHint(GLFW_VISIBLE, true);
-        ENGINE_ASSERT(dummy && "Failed to create dummy GLFW window for GLAD");
+        if (!dummy) throw std::runtime_error("Failed to create dummy window");
 
         glfwMakeContextCurrent(dummy);
-        ENGINE_ASSERT(gladLoadGL(glfwGetProcAddress) && "Failed to load GL");
+
+        if (!gladLoadGL(glfwGetProcAddress))
+            throw std::runtime_error("gladLoadGL failed");
 
         glfwSwapInterval(config.m_enable_vsync);
 

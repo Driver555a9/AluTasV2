@@ -7,11 +7,9 @@
 
 //Standard includes
 #include <filesystem>
-#include <iostream>
 
 //own
 #include "core/utility/Assert.h"
-#include "core/utility/CommonUtility.h"
 
 namespace CoreEngine
 {

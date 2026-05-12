@@ -1,3 +1,5 @@
+R"glsl(
+
 #version 460 core
 #extension GL_ARB_bindless_texture : require
 
@@ -10,3 +12,5 @@ void main()
 {
     FragColor = texture(tex_bindless_handle, texCoord);
 }
+
+)glsl"

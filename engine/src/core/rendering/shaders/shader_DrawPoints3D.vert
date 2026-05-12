@@ -1,3 +1,5 @@
+R"glsl(
+    
 #version 460 core
 
 layout(location = 0) in vec3 in_position;
@@ -13,3 +15,5 @@ void main()
     gl_PointSize = 10.0;
     vertex_color = in_color;
 }
+
+)glsl"

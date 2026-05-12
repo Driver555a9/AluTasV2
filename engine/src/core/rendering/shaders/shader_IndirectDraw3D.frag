@@ -1,3 +1,5 @@
+R"glsl(
+
 #version 460 core
 #extension GL_ARB_bindless_texture : require
 //#extension GL_ARB_gpu_shader_int64 : require
@@ -172,3 +174,5 @@ void main()
 
     FragColor = vec4(finalColor, baseCol.a);
 }
+
+)glsl"

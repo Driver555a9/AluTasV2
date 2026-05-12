@@ -1,3 +1,5 @@
+R"glsl(
+
 #version 460 core
 
 layout(location = 0) in vec3 in_position;
@@ -12,3 +14,5 @@ void main()
     gl_Position  = camera_matrix_uniform * vec4(in_position, 1.0);
     vertex_color = in_color;
 }
+
+)glsl"

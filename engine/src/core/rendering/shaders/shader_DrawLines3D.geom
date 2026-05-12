@@ -1,3 +1,5 @@
+R"glsl(
+
 #version 460 core
 
 layout(lines) in;
@@ -27,3 +29,5 @@ void main()
 
     EndPrimitive();
 }
+
+)glsl"

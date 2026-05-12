@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <cstdint>
+#include <algorithm>
 
 #include "core/utility/Units.h"
 #include "core/utility/ScopedTimer.h"

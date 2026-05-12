@@ -7,6 +7,7 @@
 
 //std
 #include <iostream>
+#include <algorithm>
 
 #ifdef _WIN32
     #define GLFW_EXPOSE_NATIVE_WIN32
@@ -32,6 +33,7 @@ namespace CoreEngine
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+        glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
         glfwWindowHint(GLFW_SAMPLES, std::max<int>(8, config.m_MSAA_sample_count));
         glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, config.m_has_transparent_framebuffer);
         glfwWindowHint(GLFW_DECORATED, config.m_is_decorated);
@@ -137,7 +139,7 @@ namespace CoreEngine
             style.Colors[ImGuiCol_WindowBg].w = 1.0f;
         }
 
-        const float scale = std::min(ww / 1920.0f, wh / 1080.0f);
+        const float scale = std::min<float>(ww / 1920.0f, wh / 1080.0f);
 
         ImGuiStyle& style = ImGui::GetStyle();
         style.ScaleAllSizes(scale);

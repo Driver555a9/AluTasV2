@@ -35,18 +35,13 @@ namespace CoreEngine
         void Render() noexcept;
 
     protected:
-        #ifdef __INTELLISENSE__
-            static constexpr char s_VERTEX_SHADER_CODE[]   = {};
-            static constexpr char s_FRAGMENT_SHADER_CODE[] = {};
-        #else 
-            static constexpr char s_VERTEX_SHADER_CODE[]   = { 
-                #embed "shaders/shader_DrawPoints3D.vert" suffix(, '\0') 
-            };
-            
-            static constexpr char s_FRAGMENT_SHADER_CODE[] = { 
-                #embed "shaders/shader_DrawPoints3D.frag" suffix(, '\0') 
-            };
-        #endif
+        static constexpr const char* s_VERTEX_SHADER_CODE = 
+        #include "shaders/shader_DrawPoints3D.vert" 
+        ;
+        
+        static constexpr const char* s_FRAGMENT_SHADER_CODE = 
+        #include "shaders/shader_DrawPoints3D.frag" 
+        ;
 
         Shader  m_shader_program;
 

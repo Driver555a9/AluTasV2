@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.20)
-project(CoreEngine)
+project(CoreEngine LANGUAGES C CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_STANDARD 26)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_compile_options(-Wall -Wextra -Wpedantic -O2 -g)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
 
 file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
@@ -14,14 +14,17 @@ file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS
 
 add_library(Core STATIC ${CORE_SOURCES})
 
+target_compile_options(Core PRIVATE /Zi /Od /RTC1)
+
 target_include_directories(Core PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/include/dependencies
     ${CMAKE_CURRENT_SOURCE_DIR}/include/dependencies/imgui
     ${CMAKE_CURRENT_SOURCE_DIR}/include/dependencies/stb_image
     ${CMAKE_CURRENT_SOURCE_DIR}/include/dependencies/bullet
 )
+
 
 target_link_directories(Core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/lib
@@ -29,14 +32,20 @@ target_link_directories(Core PUBLIC
 )
 
 target_link_libraries(Core PUBLIC
-    assimp
-    z
-    glfw3
-    imgui
-    BulletDynamics
-    BulletCollision
-    LinearMath
-    enet
+
+    # --- Assimp / GLFW / ENet / ImGui / Zlib ---
+    assimp.lib
+    glfw3.lib
+    imgui.lib
+    enet.lib
+    zlibstatic.lib
+
+    # --- Bullet ---
+    LinearMath.lib
+    BulletDynamics.lib
+    BulletCollision.lib
+
+    # --- Windows system libs ---
     ole32
     uuid
     shell32

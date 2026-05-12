@@ -1,0 +1,9 @@
+.vs/
+.vscode/
+.cache/
+resources/
+out/
+engine/.vscode/
+engine/build/
+build/
+*.replay

@@ -306,7 +306,7 @@ namespace CoreEngine
         Delete();
     }
 
-    void SSBO::SetNewData(const void* data, GLuint size, GLuint bindingPoint)
+    void SSBO::SetNewData(const void* data, GLuint size, GLuint bindingPoint) noexcept
     {
         m_binding_point = bindingPoint;
         m_size = size;
@@ -333,7 +333,7 @@ namespace CoreEngine
         Unbind();
     }
 
-    void SSBO::ShrinkToFit()
+    void SSBO::ShrinkToFit() noexcept
     {
         if (m_size == m_capacity)
             return; 

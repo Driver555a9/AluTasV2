@@ -63,7 +63,7 @@ namespace CoreEngine
             
             constexpr AABB(const glm::vec3& local_half_extents, const glm::vec3& local_center) noexcept : m_half_extents(local_half_extents), m_center(local_center) {}
 
-            [[nodiscard]] constexpr inline static AABB CreateWorldSpaceAABB(const glm::mat4& model_mat, const glm::vec3& local_half_extents, const glm::vec3& local_center) noexcept
+            [[nodiscard]] static inline AABB CreateWorldSpaceAABB(const glm::mat4& model_mat, const glm::vec3& local_half_extents, const glm::vec3& local_center) noexcept
             {
                 AABB out;
                 const glm::mat3 absMatrix = glm::mat3( glm::abs(glm::vec3(model_mat[0])), glm::abs(glm::vec3(model_mat[1])), glm::abs(glm::vec3(model_mat[2])));

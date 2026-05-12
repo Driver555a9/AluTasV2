@@ -1,3 +1,5 @@
+R"glsl(
+
 #version 460 core
 
 in vec3 frag_color;
@@ -8,3 +10,5 @@ void main()
 {
     FragColor = vec4(frag_color, 1.0);
 }
+
+)glsl"

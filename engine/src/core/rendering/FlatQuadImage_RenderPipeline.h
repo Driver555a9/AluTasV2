@@ -25,19 +25,13 @@ namespace CoreEngine
 
             constexpr static GLsizei s_VERTEX_COUNT = 6;
 
-            //Shut up intellisense
-            #ifdef __INTELLISENSE__
-                static constexpr char s_VERTEX_SHADER_CODE[]   = {};
-                static constexpr char s_FRAGMENT_SHADER_CODE[] = {};
-            #else 
-                static constexpr char s_VERTEX_SHADER_CODE[]   = { 
-                    #embed "shaders/shader_FlatQuadImage.vert" suffix(, '\0') 
-                };
+            static constexpr const char* s_VERTEX_SHADER_CODE = 
+            #include "shaders/shader_FlatQuadImage.vert" 
+            ;
 
-                static constexpr char s_FRAGMENT_SHADER_CODE[] = { 
-                    #embed "shaders/shader_FlatQuadImage.frag" suffix(, '\0') 
-                };
-            #endif
+            static constexpr const char* s_FRAGMENT_SHADER_CODE = 
+            #include "shaders/shader_FlatQuadImage.frag" 
+            ;
 
 //-------------- Member variables
             Shader                    m_shader_program;
