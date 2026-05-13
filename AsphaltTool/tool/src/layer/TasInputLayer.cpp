@@ -24,7 +24,7 @@ namespace AsphaltTas
     {
         s_instance = nullptr;
         ReplayStateManager::ClearQueuedReplay();
-        ReplayStateManager::ClearInputCmdBuffer();
+        ReplayStateManager::ClearInputCommandBuffer();
     }   
         
     void TasInputLayer::OnEvent([[maybe_unused]] CoreEngine::Basic_Event& e) noexcept
@@ -71,46 +71,36 @@ namespace AsphaltTas
 
             // Same thread as us
             const std::optional<ReplayStateManager::PlaybackSession>& active_replay = ReplayStateManager::GetQueuedPlaybackSessionConstRef();
-
-            ScopeLockedAccess<ComDllIn::DllGeneralCommandsIn> general_command_ref = AsphaltDllManager::GetDllGeneralCommandsInRef();
+            const std::optional<ComDllOut::DllStateOut> dll_out_copy = AsphaltDllManager::GetDllStateOutCopy();
 
             if (ImGui::CollapsingHeader("General", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                ///////////////////// Fixed frame interval
-                if (ReplayStateManager::HasQueuedReplay())
+                // Recording, no changes
+                if (dll_out_copy->m_meta_data.m_is_in_race || active_replay.has_value())
                 {
                     PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, GuiStyle::COLOR_ORANGE);
-                    ImGui::Text("Fixed Frame Interval Micros Locked To Active Replay: %u", active_replay->m_replay.GetFrameIntervalMicros());
+                    ImGui::Text("Fixed Frame Interval Micros Locked: %u", AsphaltDllManager::GetDllGeneralCommandsInRef()->m_write_meta_data.m_fixed_frame_interval_micros);
                 }
                 else 
                 {
-                    // Recording, no change
-                    if (ReplayStateManager::GetCurrentRecordingAmountFrames() > 0)
-                    {
-                        PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, GuiStyle::COLOR_ORANGE);
-                        ImGui::Text("Fixed Frame Interval Micros Locked in Race: %u", general_command_ref->m_write_meta_data.m_fixed_frame_interval_micros);
-                    }
-                    else 
-                    {
-                        // 4167 = 240fps; 33'332 = 30fps
-                        ImGui::TextUnformatted("Fixed Frame Interval :");
-                        ImGui::SameLine();
-                        ImGui::SliderInt("##Fixed Frame Interval Micros", (int*)&general_command_ref->m_write_meta_data.m_fixed_frame_interval_micros, 4167, 33'332);
-                    } 
-                }
+                    // 4167 = 240fps; 33'332 = 30fps
+                    ImGui::TextUnformatted("Fixed Frame Interval :");
+                    ImGui::SameLine();
+                    ImGui::SliderInt("##Fixed Frame Interval Micros", (int*)&AsphaltDllManager::GetDllGeneralCommandsInRef()->m_write_meta_data.m_fixed_frame_interval_micros, 4167, 33'332);
+                } 
 
                 ///////////////////// Replay Playback speed
                 ImGui::TextUnformatted("Replay Tick Speed    :");
                 ImGui::SameLine();
-                ImGui::SliderInt("##Replay Tick Speed", (int*)&general_command_ref->m_write_meta_data.m_replay_speed_factor, 1, 20'000);
+                ImGui::SliderInt("##Replay Tick Speed", (int*)&AsphaltDllManager::GetDllGeneralCommandsInRef()->m_write_meta_data.m_replay_speed_factor, 1, 20'000);
 
                 ///////////////////// End of replay tick skip
                 ImGui::TextUnformatted("Replay End Tick Skip :");
                 ImGui::SameLine();
-                ImGui::SliderInt("##Replay End Tick Skip", (int*)&general_command_ref->m_write_meta_data.m_on_replay_end_skip_tick_count, 0, 500);
+                ImGui::SliderInt("##Replay End Tick Skip", (int*)&AsphaltDllManager::GetDllGeneralCommandsInRef()->m_write_meta_data.m_on_replay_end_skip_tick_count, 0, 500);
 
                 ///////////////////// Skip animations
-                auto skip_flags = std::to_underlying(general_command_ref->m_write_meta_data.m_skip_animation_flags);
+                auto skip_flags = std::to_underlying(AsphaltDllManager::GetDllGeneralCommandsInRef()->m_write_meta_data.m_skip_animation_flags);
 
                 bool skip_intro = skip_flags & std::to_underlying(Communication::SkipAnimationFlags::SKIP_RACE_INTRO);
                 if (ImGui::Checkbox("Skip Intro Cinematic", &skip_intro))
@@ -132,7 +122,7 @@ namespace AsphaltTas
                         skip_flags &= ~std::to_underlying(Communication::SkipAnimationFlags::SKIP_RACE_COUNT_DOWN);
                 }
 
-                general_command_ref->m_write_meta_data.m_skip_animation_flags = Communication::SkipAnimationFlags(skip_flags);
+                AsphaltDllManager::GetDllGeneralCommandsInRef()->m_write_meta_data.m_skip_animation_flags = Communication::SkipAnimationFlags(skip_flags);
             }
             if (ImGui::CollapsingHeader("Active Replay", ImGuiTreeNodeFlags_DefaultOpen))
             {
@@ -146,16 +136,9 @@ namespace AsphaltTas
                     if (ImGui::SliderInt("##Target Tick", (int*)&last_tick, 0, active_replay->m_replay.GetLastFrame()->m_replay_input.m_race_frame_tick))
                     {
                         ReplayStateManager::ChangeQueuedReplayTargetTick(last_tick);
-                    }
+                    }   
 
-                    if (ReplayStateManager::IsPlaybackActive())
-                    {
-                        ImGui::Text("Progress    : Tick %zu/%u", ReplayStateManager::GetCurrentRecordingAmountFrames(), active_replay->m_final_tick);
-                    }
-                    else 
-                    {
-                        ImGui::Text("Progress    : Tick %u/%u", 0, active_replay->m_final_tick);
-                    }
+                    ImGui::Text("Progress    : Tick %u/%u", min(dll_out_copy->m_replay_inputs.m_race_frame_tick, active_replay->m_final_tick), active_replay->m_final_tick);
 
                     PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Button, GuiStyle::COLOR_RED);
                     if (ImGui::Button("Remove"))
@@ -219,7 +202,7 @@ namespace AsphaltTas
                     }
                 }
 
-                ImGui::Text("Replay: %zu Recording... Tick: %zu", recorded_replays.size(), ReplayStateManager::GetCurrentRecordingAmountFrames());
+                ImGui::Text("Replay: %zu Recording... Tick: %u", recorded_replays.size(), dll_out_copy->m_replay_inputs.m_race_frame_tick);
             }
 
             if (ImGui::CollapsingHeader("Load Recorded Replay", ImGuiTreeNodeFlags_DefaultOpen))

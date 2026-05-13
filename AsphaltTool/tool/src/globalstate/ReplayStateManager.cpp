@@ -16,9 +16,6 @@ namespace AsphaltTas::ReplayStateManager
 {
     namespace 
     {
-        bool g_is_playback_active = false;
-        bool g_is_in_race         = false;
-
         std::vector<Replay> g_recorded_replays;
         Replay g_current_recording;
         
@@ -33,43 +30,83 @@ namespace AsphaltTas::ReplayStateManager
             g_current_recording = Replay();
         }
 
-        void SetPlaybackActive(ComDllIn::DllGeneralCommandsIn& general_cmd) noexcept
+        void EnableReplayModeActiveBlock(ComDllIn::DllGeneralCommandsIn& general_cmd) noexcept
         {
-            general_cmd.m_write_meta_data.m_replay_mode = Communication::ReplayMode::ActiveBlockThread;
-            g_is_playback_active = true;
+            // An active replay is to be replayed, rig dll to expect inputs & set frame interval of replay
+            general_cmd.m_write_meta_data.m_replay_mode                 = Communication::ReplayMode::ActiveBlockThread;
         }
 
-        void SetPlaybackInactive(ComDllIn::DllGeneralCommandsIn& general_cmd) noexcept
+        void DisableReplayModeActiveBlock(ComDllIn::DllGeneralCommandsIn& general_cmd) noexcept
         {
             general_cmd.m_write_meta_data.m_replay_mode = Communication::ReplayMode::Inactive;
-            g_is_playback_active = false;
+        }
+
+        void PushPlaybackFramesToInputInBuffer() noexcept
+        {
+            ComSharedMem::SharedState* shared_state = ComSharedMem::GetSharedState();
+            while (const std::optional<Replay::Frame>& frame_opt = g_queued_playback->m_replay.GetCurrentFrame()) 
+            {
+                if (! frame_opt.has_value() || frame_opt->m_replay_input.m_race_frame_tick > g_queued_playback->m_final_tick)
+                {
+                    break;
+                }
+
+                if (shared_state->m_dll_in_buffer_input_replay.TryPush(frame_opt->m_replay_input)) 
+                {
+                    g_queued_playback->m_replay.IncrementFrameIndex();
+                } 
+                else 
+                {
+                    break;
+                }
+            }
         }
     }
 
-    void ClearInputCmdBuffer() noexcept
+    void ClearInputCommandBuffer() noexcept
     {
         ComSharedMem::GetSharedState()->m_dll_in_buffer_input_replay.Reset();
     }
 
     bool QueueReplay(const Replay& replay, uint32_t target_tick) noexcept 
     {
-        if (IsPlaybackActive()) 
+        const auto copy = AsphaltDllManager::GetDllStateOutCopy();
+
+        if (replay.GetAmountFrames() == 0)
         {
-            return false; 
+            return false;
         }
-        
-        g_queued_playback.emplace(PlaybackSession{replay, target_tick});
+
+        // We are in a race, with a queued replay that has not yet finished playing; disallow changing replay
+        if (copy->m_meta_data.m_is_in_race && g_queued_playback.has_value() && g_queued_playback->m_final_tick >= copy->m_replay_inputs.m_race_frame_tick)
+        {
+            return false;
+        }
+
+        ClearInputCommandBuffer();
+
+        g_queued_playback.emplace(PlaybackSession{replay, min(target_tick, static_cast<uint32_t>(replay.GetAmountFrames() - 1))});
+        g_queued_playback->m_replay.ResetFrameIndex();
+
+        // We are not in a race (before next race) therefore we rig the dll to expect frames right away. Not in race, force restart for replay
+        if (! copy->m_meta_data.m_is_in_race)
+        {
+            auto general_cmd_ref = AsphaltDllManager::GetDllGeneralCommandsInRef();
+            EnableReplayModeActiveBlock(*general_cmd_ref);
+            general_cmd_ref->m_write_meta_data.m_fixed_frame_interval_micros = g_queued_playback->m_replay.GetFrameIntervalMicros();
+        }
+
         return true;
     }
 
     bool ChangeQueuedReplayTargetTick(uint32_t target_tick) noexcept
     {
-        if (IsPlaybackActive() || ! HasQueuedReplay())
+        if (! HasQueuedReplay() || g_queued_playback->m_replay.GetAmountFrames() == 0)
         {
             return false;
         }
-
-        g_queued_playback->m_final_tick = target_tick;
+        
+        g_queued_playback->m_final_tick = min(target_tick, g_queued_playback->m_replay.GetAmountFrames() - 1);
         return true;
     }
 
@@ -85,52 +122,32 @@ namespace AsphaltTas::ReplayStateManager
 
     void ClearQueuedReplay() noexcept 
     { 
-        g_queued_playback.reset(); 
-    }
-
-    size_t GetCurrentRecordingAmountFrames() noexcept
-    {
-        return g_current_recording.GetAmountFrames();
-    }
-
-    bool IsPlaybackActive() noexcept 
-    { 
-        return g_is_playback_active; 
+        g_queued_playback.reset();
+        DisableReplayModeActiveBlock(*AsphaltDllManager::GetDllGeneralCommandsInRef());
+        ClearInputCommandBuffer();
     }
 
     void OnRaceStarted() noexcept 
     {   
-        ReplayStateManager::ClearInputCmdBuffer();
         g_current_recording.ClearAllFrameData();
-
-        ScopeLockedAccess<ComDllIn::DllGeneralCommandsIn> general_cmd = AsphaltDllManager::GetDllGeneralCommandsInRef();
-
-        if (g_queued_playback.has_value()) 
-        {
-            SetPlaybackActive(*general_cmd);
-
-            g_queued_playback->m_replay.ResetFrameIndex();
-        }
-        else 
-        {
-            SetPlaybackInactive(*general_cmd);
-        }
-
         g_current_recording.SetFrameIntervalMicros(AsphaltDllManager::GetDllStateOutCopy()->m_meta_data.m_fixed_frame_interval_micros);
-
-        g_is_in_race = true;
     }
 
     void OnRaceEnded() noexcept 
     {
-        if (g_is_in_race) 
-        {
-            FinalizeRecording();
-        }
-        
-        ReplayStateManager::ClearInputCmdBuffer();
+        FinalizeRecording();
 
-        g_is_in_race = false;
+        //If we have a queued replay, we enable active block in preparation for next race
+        if (HasQueuedReplay())
+        {
+            g_queued_playback->m_replay.ResetFrameIndex();
+            auto general_cmd_ref = AsphaltDllManager::GetDllGeneralCommandsInRef();
+            EnableReplayModeActiveBlock(*general_cmd_ref);
+            general_cmd_ref->m_write_meta_data.m_fixed_frame_interval_micros = g_queued_playback->m_replay.GetFrameIntervalMicros();
+        }
+
+        // Clean up junk inputs before next race
+        ReplayStateManager::ClearInputCommandBuffer();
     }
 
     void OnUpdate() noexcept 
@@ -139,13 +156,13 @@ namespace AsphaltTas::ReplayStateManager
         // Record new tick
         ///////////////////////////////////
         const std::optional<Communication::DllOut::DllStateOut> dll_out_state = AsphaltDllManager::GetDllStateOutCopy();
-
         if (! dll_out_state.has_value())
         {
             return;
         }
 
-        if (g_is_in_race)
+        // Record current tick
+        if (dll_out_state->m_meta_data.m_is_in_race)
         {
             Replay::Frame new_frame;
             new_frame.m_replay_input.m_race_frame_tick                   = dll_out_state->m_replay_inputs.m_race_frame_tick;
@@ -165,31 +182,16 @@ namespace AsphaltTas::ReplayStateManager
         ///////////////////////////////////
         // Playback update
         ///////////////////////////////////
-        if (IsPlaybackActive() && g_queued_playback.has_value()) 
+
+        //If we have no replay, or our replay is already fully played, we disable the dll block
+        if (! HasQueuedReplay() || dll_out_state->m_replay_inputs.m_race_frame_tick >= g_queued_playback->m_final_tick)
         {
-            if (dll_out_state->m_replay_inputs.m_race_frame_tick >= g_queued_playback->m_final_tick) 
-            {
-                SetPlaybackInactive(*AsphaltDllManager::GetDllGeneralCommandsInRef());
-                return;
-            }
-
-            while (const std::optional<Replay::Frame>& frame_opt = g_queued_playback->m_replay.GetCurrentFrame()) 
-            {
-                if (! frame_opt.has_value() || frame_opt->m_replay_input.m_race_frame_tick > g_queued_playback->m_final_tick)
-                {
-                    break;
-                }
-
-                if (ComSharedMem::GetSharedState()->m_dll_in_buffer_input_replay.TryPush(frame_opt->m_replay_input)) 
-                {
-                    g_queued_playback->m_replay.IncrementFrameIndex();
-                } 
-                else 
-                {
-                    break;
-                }
-            }
+            DisableReplayModeActiveBlock(*AsphaltDllManager::GetDllGeneralCommandsInRef());
+            return;
         }
+
+        // Writing as many inputs as possible always e.g. in menu
+        PushPlaybackFramesToInputInBuffer();
     }
 
     std::vector<Replay>& GetRecordedReplayListRef() noexcept

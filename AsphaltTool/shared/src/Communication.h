@@ -373,9 +373,9 @@ namespace Communication
 
         struct SharedState
         {
-            constexpr static uint32_t DLL_OUT_BUFF_SIZE        = 1000;
+            constexpr static uint32_t DLL_OUT_BUFF_SIZE        = 5000;
             constexpr static uint32_t DLL_IN_REPLAY_BUFF_SIZE  = 1000;
-            constexpr static uint32_t DLL_IN_GENERAL_BUFF_SIZE = 100;
+            constexpr static uint32_t DLL_IN_GENERAL_BUFF_SIZE = 500;
 
             // WRITE: DLL - READ: Remote Tool -> This is used for all recorded data by the dll. External tools must never write here
             SharedRingBuffer<DllOut::DllStateOut, DLL_OUT_BUFF_SIZE>  m_dll_out_buffer;

@@ -24,9 +24,10 @@ namespace AsphaltDLL
     namespace GameDLLState
     {
         inline std::mutex g_modify_current_state_mutex;
-        // Any detour function will write it's data in here. This is pushed to shared mem after each "New Frame" function call
+        // Any detour function will write it's data in here. This is pushed to shared mem after each "NewPhysicsFrame" function call
         inline Communication::DllOut::DllStateOut g_current_state {};
-        // "New Frame" will check current state and, should it be avaiable, add input data for the frame
+
+        // "OnNewTick()" will check current replay input data, and should it be avaiable, add input data for the frame
         inline std::optional<Communication::DllIn::DllReplayInputIn> g_replay_current_frame_inputs = std::nullopt;
     }
 }

@@ -52,7 +52,6 @@ namespace AsphaltTas
 
         constexpr char g_dll_name_char[]       = "AsphaltToolDLL.dll";
         constexpr wchar_t g_dll_name_wchar_t[] = L"AsphaltToolDLL.dll";
-
     }
 }
 

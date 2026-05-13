@@ -64,11 +64,8 @@ namespace AsphaltTas
             ComSharedMem::SharedState* shared = ComSharedMem::GetSharedState();
             ComDllOut::DllStateOut out_state;
 
-            bool has_popped_successfully = false;
-
             while (shared->m_dll_out_buffer.TryPop(out_state))
             {
-                has_popped_successfully        = true;
                 const bool is_in_race          = out_state.m_meta_data.m_is_in_race;
                 bool new_race_began            = false;
                 bool race_ended                = false;
