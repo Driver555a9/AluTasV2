@@ -88,7 +88,7 @@ namespace AsphaltTas::ReplayStateManager
         g_queued_playback.emplace(PlaybackSession{replay, min(target_tick, static_cast<uint32_t>(replay.GetAmountFrames() - 1))});
         g_queued_playback->m_replay.ResetFrameIndex();
 
-        // We are not in a race (before next race) therefore we rig the dll to expect frames right away
+        // We are not in a race (before next race) therefore we rig the dll to expect frames right away. Not in race, force restart for replay
         if (! copy->m_meta_data.m_is_in_race)
         {
             auto general_cmd_ref = AsphaltDllManager::GetDllGeneralCommandsInRef();
