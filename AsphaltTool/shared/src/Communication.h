@@ -107,28 +107,30 @@ namespace Communication
         #define NO_VALID_RESOLVED_ADDRESS 0
         struct ResolvedAddresses
         {
-            uintptr_t m_local_racer_base_address      = NO_VALID_RESOLVED_ADDRESS;
-            uintptr_t m_camera_state_base_address     = NO_VALID_RESOLVED_ADDRESS;
-            uintptr_t m_nitro_bar_encrypted_address   = NO_VALID_RESOLVED_ADDRESS; 
-            uintptr_t m_steering_struct_gear_address  = NO_VALID_RESOLVED_ADDRESS;
+            uintptr_t m_local_racer_base_address           = NO_VALID_RESOLVED_ADDRESS;
+            uintptr_t m_camera_state_base_address          = NO_VALID_RESOLVED_ADDRESS;
+            uintptr_t m_nitro_bar_encrypted_address        = NO_VALID_RESOLVED_ADDRESS; 
+            uintptr_t m_steering_struct_gear_address       = NO_VALID_RESOLVED_ADDRESS;
+            uintptr_t m_game_target_fps_interval_address   = NO_VALID_RESOLVED_ADDRESS;
 
-            uintptr_t m_nitro_func_spoofed_rcx_arg    = NO_VALID_RESOLVED_ADDRESS;
-            uintptr_t m_brake_func_spoofed_rcx_arg    = NO_VALID_RESOLVED_ADDRESS;
-            uintptr_t m_steer_func_spoofed_rcx_arg    = NO_VALID_RESOLVED_ADDRESS;
+            uintptr_t m_nitro_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
+            uintptr_t m_brake_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
+            uintptr_t m_steer_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
 
             void ResetAll() noexcept
             {
-                m_local_racer_base_address      = NO_VALID_RESOLVED_ADDRESS;
-                m_camera_state_base_address     = NO_VALID_RESOLVED_ADDRESS;
-                m_nitro_bar_encrypted_address   = NO_VALID_RESOLVED_ADDRESS;
-                m_steering_struct_gear_address  = NO_VALID_RESOLVED_ADDRESS;
+                m_local_racer_base_address           = NO_VALID_RESOLVED_ADDRESS;
+                m_camera_state_base_address          = NO_VALID_RESOLVED_ADDRESS;
+                m_nitro_bar_encrypted_address        = NO_VALID_RESOLVED_ADDRESS;
+                m_steering_struct_gear_address       = NO_VALID_RESOLVED_ADDRESS;
+                m_game_target_fps_interval_address   = NO_VALID_RESOLVED_ADDRESS;
 
-                m_nitro_func_spoofed_rcx_arg    = NO_VALID_RESOLVED_ADDRESS;
-                m_brake_func_spoofed_rcx_arg    = NO_VALID_RESOLVED_ADDRESS;
-                m_steer_func_spoofed_rcx_arg    = NO_VALID_RESOLVED_ADDRESS;
+                m_nitro_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
+                m_brake_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
+                m_steer_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
             }
         };
-        static_assert(sizeof(ResolvedAddresses) == 7 * sizeof(uintptr_t), "No packing should occur");
+        static_assert(sizeof(ResolvedAddresses) == 8 * sizeof(uintptr_t), "No packing should occur");
 
         struct XInputState 
         {
@@ -145,19 +147,20 @@ namespace Communication
 
         struct DllStateMetaData 
         {
-            ReplayMode m_replay_mode_status               = ReplayMode::Inactive;
-            std::uint32_t m_fixed_frame_interval_micros   = 8333;
-            float m_physics_interval                      = 1/60.0f;
-            SkipAnimationFlags m_skip_animation_flags     = SkipAnimationFlags::SKIP_NONE;
-            std::uint32_t m_replay_speed_factor           = 1;
-            std::uint32_t m_on_replay_end_skip_tick_count = 0;
-            bool m_apply_physics_interval_override        = false;
-            bool m_is_in_race                             = false;
-            bool m_gui_is_hidden                          = false;
-            std::uint8_t __ignore_padding__[5]            = {};
+            ReplayMode m_replay_mode_status                 = ReplayMode::Inactive;
+            std::uint32_t m_fixed_frame_interval_micros     = 8333;
+            float m_physics_interval                        = 1/60.0f;
+            std::uint32_t m_game_target_fps_interval_micros = 8333;
+            SkipAnimationFlags m_skip_animation_flags       = SkipAnimationFlags::SKIP_NONE;
+            std::uint32_t m_replay_speed_factor             = 1;
+            std::uint32_t m_on_replay_end_skip_tick_count   = 0;
+            bool m_apply_physics_interval_override          = false;
+            bool m_is_in_race                               = false;
+            bool m_gui_is_hidden                            = false;
+            bool m_apply_game_target_fps_interval_override  = false;
         };
-        static_assert(sizeof(DllStateMetaData) == sizeof(ReplayMode) + 3 * sizeof(std::uint32_t) + sizeof(float) + sizeof(SkipAnimationFlags) +
-                            + 3 * sizeof(bool) + 5 * sizeof(std::uint8_t), "No packing should occur");
+        static_assert(sizeof(DllStateMetaData) == sizeof(ReplayMode) + 4 * sizeof(std::uint32_t) + sizeof(float) + sizeof(SkipAnimationFlags) +
+                            + 4 * sizeof(bool), "No packing should occur");
 
         struct DllStateOut
         {   
@@ -257,20 +260,22 @@ namespace Communication
 
         struct WriteMetaData
         {
-            CommandType m_command_type                    = CommandType::IgnoreCommand;
-            ReplayMode  m_replay_mode                     = ReplayMode::Inactive;
-            std::uint32_t m_fixed_frame_interval_micros   = 8333;    // 120fps
-            float m_physics_interval                      = 1/60.0f; // 60pf
-            SkipAnimationFlags m_skip_animation_flags     = SkipAnimationFlags::SKIP_NONE;
-            std::uint32_t m_replay_speed_factor           = 1;
-            std::uint32_t m_on_replay_end_skip_tick_count = 0; 
-            bool m_apply_physics_interval_override        = false;   // true changes game behaviour
-            bool m_request_dll_shutdown                   = false;   // Alternative to extern C func RequestShutdown call
-            bool m_hide_gui                               = false;
-            std::uint8_t __ignore__padding__[1];
+            CommandType m_command_type                      = CommandType::IgnoreCommand;
+            ReplayMode  m_replay_mode                       = ReplayMode::Inactive;
+            std::uint32_t m_fixed_frame_interval_micros     = 8333;    // 120fps
+            float m_physics_interval                        = 1/60.0f; // 60pf
+            std::uint32_t m_game_target_fps_interval_micros = 8333;
+            SkipAnimationFlags m_skip_animation_flags       = SkipAnimationFlags::SKIP_NONE;
+            std::uint32_t m_replay_speed_factor             = 1;
+            std::uint32_t m_on_replay_end_skip_tick_count   = 0; 
+            bool m_apply_physics_interval_override          = false;   // true changes game behaviour
+            bool m_request_dll_shutdown                     = false;   // Alternative to extern C func RequestShutdown call
+            bool m_hide_gui                                 = false;
+            bool m_apply_game_target_fps_interval_override  = false;
+            std::uint8_t __ignore__padding__[4];
         };
-        static_assert(sizeof(WriteMetaData) == sizeof(CommandType) + sizeof(ReplayMode) + 3 * sizeof(std::uint32_t) + sizeof(float) + sizeof(SkipAnimationFlags) +
-                                           3 * sizeof(bool) + 1 * sizeof(std::uint8_t), "No packing should occur");
+        static_assert(sizeof(WriteMetaData) == sizeof(CommandType) + sizeof(ReplayMode) + 4 * sizeof(std::uint32_t) + sizeof(float) + sizeof(SkipAnimationFlags) +
+                                           4 * sizeof(bool) + 4 * sizeof(std::uint8_t), "No packing should occur");
 
         struct DllGeneralCommandsIn
         {
