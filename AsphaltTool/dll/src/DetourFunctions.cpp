@@ -199,6 +199,21 @@ namespace AsphaltDLL
                             NewPhysicsFrameFunction::QueueSkipSubsequentTicks(GameDLLState::g_current_state.m_meta_data.m_on_replay_end_skip_tick_count);
                         }
 
+                        // max value = uninitialized!
+                        if (GameDLLState::g_current_state.m_resolved_addresses.m_game_frame_interval_address != NO_VALID_RESOLVED_ADDRESS)
+                        {
+                            if (meta_cmd.m_apply_game_target_fps_interval_override)
+                            {
+                                *reinterpret_cast<uint32_t*>(GameDLLState::g_current_state.m_resolved_addresses.m_game_frame_interval_address) = meta_cmd.m_game_target_fps_interval_micros;
+                                // We only update here if we actually overrode the target fps. Default should be original game fps
+                                GameDLLState::g_current_state.m_meta_data.m_game_target_fps_interval_micros = meta_cmd.m_game_target_fps_interval_micros;
+                            }
+                        }
+                        else 
+                        {
+                            DLL_ERROR_PRINT("Failed to apply game target fps interval override because address is not resolved");
+                        }
+                       
                         GameDLLState::g_current_state.m_meta_data.m_physics_interval                = meta_cmd.m_physics_interval;
                         GameDLLState::g_current_state.m_meta_data.m_fixed_frame_interval_micros     = meta_cmd.m_fixed_frame_interval_micros;
                         GameDLLState::g_current_state.m_meta_data.m_replay_mode_status              = meta_cmd.m_replay_mode;
@@ -206,7 +221,8 @@ namespace AsphaltDLL
                         GameDLLState::g_current_state.m_meta_data.m_gui_is_hidden                   = meta_cmd.m_hide_gui;
                         GameDLLState::g_current_state.m_meta_data.m_skip_animation_flags            = meta_cmd.m_skip_animation_flags;
                         GameDLLState::g_current_state.m_meta_data.m_replay_speed_factor             = meta_cmd.m_replay_speed_factor;
-                        GameDLLState::g_current_state.m_meta_data.m_on_replay_end_skip_tick_count   = meta_cmd.m_on_replay_end_skip_tick_count;       
+                        GameDLLState::g_current_state.m_meta_data.m_on_replay_end_skip_tick_count   = meta_cmd.m_on_replay_end_skip_tick_count;  
+                        GameDLLState::g_current_state.m_meta_data.m_apply_game_target_fps_interval_override = meta_cmd.m_apply_game_target_fps_interval_override;     
                     }
 
                     if (racer_cmd.m_command_type == ComDllIn::CommandType::ExecuteCommand)
@@ -307,14 +323,26 @@ namespace AsphaltDLL
                 }
             }
 
+            void OnTryResolveFpsTargetIntervalPointer() noexcept
+            {
+                if (GameDLLState::g_current_state.m_resolved_addresses.m_game_frame_interval_address == NO_VALID_RESOLVED_ADDRESS)
+                {
+                    static const uintptr_t module = reinterpret_cast<uintptr_t>(GetModuleHandleW(L"Asphalt9_Steam_x64_rtl.exe"));
+                    static const std::vector<uintptr_t> pointerchain_1 = {0x06EE14E0, 0xFC8};
+                    GameDLLState::g_current_state.m_resolved_addresses.m_game_frame_interval_address = Utility::SafeResolvePointerChain(module, pointerchain_1) + 0xC9C;
+                    GameDLLState::g_current_state.m_meta_data.m_fixed_frame_interval_micros = *reinterpret_cast<uint32_t*>(GameDLLState::g_current_state.m_resolved_addresses.m_game_frame_interval_address);
+                }
+            }
+
             // No mutex lock, caller must lock
             void OnNewTick() noexcept
             {
                 GameDLLState::g_replay_current_frame_inputs = std::nullopt;
                 GameDLLState::g_current_state.m_replay_inputs.m_nitro_activation_count_this_frame = 0;
 
-                OnHandleGeneralInBuffer();
                 OnTryResolveNitroRCXArgPointer();
+                OnTryResolveFpsTargetIntervalPointer();
+                OnHandleGeneralInBuffer();
 
                 if (!GameDLLState::g_current_state.m_meta_data.m_is_in_race)
                 {
