@@ -33,7 +33,7 @@ namespace AsphaltTas::ReplayStateManager
         void EnableReplayModeActiveBlock(ComDllIn::DllGeneralCommandsIn& general_cmd) noexcept
         {
             // An active replay is to be replayed, rig dll to expect inputs & set frame interval of replay
-            general_cmd.m_write_meta_data.m_replay_mode                 = Communication::ReplayMode::ActiveBlockThread;
+            general_cmd.m_write_meta_data.m_replay_mode = Communication::ReplayMode::ActiveBlockThread;
         }
 
         void DisableReplayModeActiveBlock(ComDllIn::DllGeneralCommandsIn& general_cmd) noexcept

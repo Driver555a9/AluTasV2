@@ -211,7 +211,7 @@ namespace AsphaltDLL
                         }
                         else if (meta_cmd.m_apply_game_target_fps_interval_override)
                         {
-                            DLL_ERROR_PRINT("Failed to apply game target fps interval override because address is not resolved");
+                            //DLL_ERROR_PRINT("Failed to apply game target fps interval override because address is not resolved");
                         }
                        
                         GameDLLState::g_current_state.m_meta_data.m_physics_interval                = meta_cmd.m_physics_interval;
@@ -1209,6 +1209,7 @@ namespace AsphaltDLL
                 void REROUTE_FUNCTION Detour_OnBeginRaceFunction(void* p_this) noexcept
                 {
                     RealOnBeginRaceFunctionCall(p_this);
+
                     {
                         LOCK_CURRENT_STATE_MUTEX();
                         GameDLLState::g_current_state.m_meta_data.m_is_in_race = true;
@@ -1219,7 +1220,7 @@ namespace AsphaltDLL
 
             bool SetupHook() noexcept
             {
-                constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x779710; 
+                constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x855940;
                 return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_OnBeginRaceFunction), 
                     &g_real_function_address, reinterpret_cast<LPVOID*>(&RealOnBeginRaceFunctionCall), g_hook_state
                 );

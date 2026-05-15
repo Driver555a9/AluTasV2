@@ -396,7 +396,7 @@ namespace AsphaltTas
                 }
 
                 float offset_forward = s_front_car_camera_controller.GetOffsetForward();
-                if (ImGui::SliderFloat("Offset Forward", &offset_forward, -5.0f, 5.0f))
+                if (ImGui::SliderFloat("Offset Forward", &offset_forward, -10.0f, 10.0f))
                 {
                     s_front_car_camera_controller.SetOffsetForward(offset_forward);
                 }
