@@ -1353,14 +1353,7 @@ namespace AsphaltDLL
                 uint32_t REROUTE_FUNCTION Detour_RenderGUIToggle()
                 {
                     LOCK_CURRENT_STATE_MUTEX();
-                    if (GameDLLState::g_current_state.m_meta_data.m_gui_is_hidden)
-                    {
-                        return 0;
-                    }
-                    else 
-                    {
-                        return 1;
-                    }
+                    return GameDLLState::g_current_state.m_meta_data.m_gui_is_hidden ? 0 : 1;
                 }
             } 
 
@@ -1538,6 +1531,35 @@ namespace AsphaltDLL
             {
                 return _Implementation::SetupHook(L"xinput1_4.dll", "XInputGetState", reinterpret_cast<LPVOID>(&Detour_XInputGetState), &g_real_function_address, 
                     reinterpret_cast<LPVOID*>(&RealXInputGetStateCall), g_hook_state);
+            }
+
+            bool RemoveHook() noexcept { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }
+            bool EnableHook() noexcept { return _Implementation::EnableHook(g_real_function_address, g_hook_state); }
+            bool DisableHook() noexcept { return _Implementation::DisableHook(g_real_function_address, g_hook_state);}
+            HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire);}
+        }
+
+        namespace UcrtBaseRandom
+        {
+            namespace
+            {
+                std::atomic<HookState> g_hook_state = HookState::NotInPlace;
+
+                LPVOID g_real_function_address = nullptr;
+
+                typedef int (REROUTE_FUNCTION* UcrtBaseRand_t)();
+                UcrtBaseRand_t RealUcrtBaseRandCall = nullptr;
+
+                int REROUTE_FUNCTION Detour_UcrtBaseRand() noexcept
+                {
+                    return 1; // unrandomized
+                }
+            }
+
+            bool SetupHook() noexcept
+            {
+                return _Implementation::SetupHook(L"ucrtbase.dll", "rand", reinterpret_cast<LPVOID>(&Detour_UcrtBaseRand), &g_real_function_address, 
+                    reinterpret_cast<LPVOID*>(&RealUcrtBaseRandCall), g_hook_state);
             }
 
             bool RemoveHook() noexcept { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }

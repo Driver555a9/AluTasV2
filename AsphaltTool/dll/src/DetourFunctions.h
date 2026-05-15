@@ -326,5 +326,16 @@ namespace AsphaltDLL
             [[nodiscard]] HookState GetHookState() noexcept;
         }
 
+        /////////////////////////////////////////
+        // UcrtBaseRandom
+        /////////////////////////////////////////
+        namespace UcrtBaseRandom
+        {
+            bool SetupHook() noexcept;
+            bool RemoveHook() noexcept;
+            bool EnableHook() noexcept;
+            bool DisableHook() noexcept;
+            [[nodiscard]] HookState GetHookState() noexcept;
+        }
     }
 }

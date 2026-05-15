@@ -121,6 +121,9 @@ namespace AsphaltDLL
 
         DetourFunctions::AnimationProgressFunction::SetupHook();
         DetourFunctions::AnimationProgressFunction::EnableHook();
+
+        DetourFunctions::UcrtBaseRandom::SetupHook();
+        DetourFunctions::UcrtBaseRandom::EnableHook();
     }
 
     void RemoveHooks() noexcept
@@ -145,6 +148,7 @@ namespace AsphaltDLL
         DetourFunctions::FloatXorObfuscationSetter::RemoveHook();
         DetourFunctions::MainLoopNewFrameDispatcher::RemoveHook();
         DetourFunctions::AnimationProgressFunction::RemoveHook();
+        DetourFunctions::UcrtBaseRandom::RemoveHook();
     }
 
     void Initialize(HMODULE hmodule) noexcept
