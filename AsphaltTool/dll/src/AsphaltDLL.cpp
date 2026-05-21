@@ -29,11 +29,14 @@ namespace AsphaltDLL
         Utility::InitConsole();
 
         if (MH_Initialize() == MH_OK)
+        {
             DLL_INFO_LOG("Successfully initialized MinHook.");
+            SetupHooks();
+        }
         else
+        {
             DLL_ERROR_PRINT("Failed to initialize MinHook.");
-
-        SetupHooks();
+        }
 
         while (g_running.load(std::memory_order::acquire))
         {
@@ -122,8 +125,8 @@ namespace AsphaltDLL
         DetourFunctions::AnimationProgressFunction::SetupHook();
         DetourFunctions::AnimationProgressFunction::EnableHook();
 
-        DetourFunctions::UcrtBaseRandom::SetupHook();
-        DetourFunctions::UcrtBaseRandom::EnableHook();
+        DetourFunctions::UcrtBaseRand::SetupHook();
+        DetourFunctions::UcrtBaseRand::EnableHook();
     }
 
     void RemoveHooks() noexcept
@@ -148,7 +151,7 @@ namespace AsphaltDLL
         DetourFunctions::FloatXorObfuscationSetter::RemoveHook();
         DetourFunctions::MainLoopNewFrameDispatcher::RemoveHook();
         DetourFunctions::AnimationProgressFunction::RemoveHook();
-        DetourFunctions::UcrtBaseRandom::RemoveHook();
+        DetourFunctions::UcrtBaseRand::RemoveHook();
     }
 
     void Initialize(HMODULE hmodule) noexcept

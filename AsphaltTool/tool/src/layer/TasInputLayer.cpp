@@ -103,7 +103,7 @@ namespace AsphaltTas
                 ///////////////////// Replay Playback speed
                 ImGui::TextUnformatted("Replay Tick Speed    :");
                 ImGui::SameLine();
-                ImGui::SliderInt("##Replay Tick Speed", (int*)&general_cmd_ref->m_write_meta_data.m_replay_speed_factor, 1, 20'000);
+                ImGui::SliderInt("##Replay Tick Speed", (int*)&general_cmd_ref->m_write_meta_data.m_replay_speed_factor, 1, 50'000);
 
                 ///////////////////// End of replay tick skip
                 ImGui::TextUnformatted("Replay End Tick Skip :");

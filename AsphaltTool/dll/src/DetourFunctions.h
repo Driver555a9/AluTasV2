@@ -327,9 +327,10 @@ namespace AsphaltDLL
         }
 
         /////////////////////////////////////////
-        // UcrtBaseRandom
+        // UcrtBaseRand
+        // E.g. used for wreck physics / wreck camera
         /////////////////////////////////////////
-        namespace UcrtBaseRandom
+        namespace UcrtBaseRand
         {
             bool SetupHook() noexcept;
             bool RemoveHook() noexcept;

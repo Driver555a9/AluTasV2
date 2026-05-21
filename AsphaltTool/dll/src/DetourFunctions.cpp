@@ -10,6 +10,7 @@
 #include <cstdint>
 
 #include <XInput.h>
+#include <cstdlib>
 #include <cstring>
 #include <excpt.h>
 #include <array>
@@ -198,8 +199,7 @@ namespace AsphaltDLL
                             // We switched from replay to inactive - final frame
                             NewPhysicsFrameFunction::QueueSkipSubsequentTicks(GameDLLState::g_current_state.m_meta_data.m_on_replay_end_skip_tick_count);
                         }
-
-                        // max value = uninitialized!
+                        
                         if (GameDLLState::g_current_state.m_resolved_addresses.m_game_target_fps_interval_address != NO_VALID_RESOLVED_ADDRESS)
                         {
                             if (meta_cmd.m_apply_game_target_fps_interval_override)
@@ -214,14 +214,14 @@ namespace AsphaltDLL
                             //DLL_ERROR_PRINT("Failed to apply game target fps interval override because address is not resolved");
                         }
                        
-                        GameDLLState::g_current_state.m_meta_data.m_physics_interval                = meta_cmd.m_physics_interval;
-                        GameDLLState::g_current_state.m_meta_data.m_fixed_frame_interval_micros     = meta_cmd.m_fixed_frame_interval_micros;
-                        GameDLLState::g_current_state.m_meta_data.m_replay_mode_status              = meta_cmd.m_replay_mode;
-                        GameDLLState::g_current_state.m_meta_data.m_apply_physics_interval_override = meta_cmd.m_apply_physics_interval_override; 
-                        GameDLLState::g_current_state.m_meta_data.m_gui_is_hidden                   = meta_cmd.m_hide_gui;
-                        GameDLLState::g_current_state.m_meta_data.m_skip_animation_flags            = meta_cmd.m_skip_animation_flags;
-                        GameDLLState::g_current_state.m_meta_data.m_replay_speed_factor             = meta_cmd.m_replay_speed_factor;
-                        GameDLLState::g_current_state.m_meta_data.m_on_replay_end_skip_tick_count   = meta_cmd.m_on_replay_end_skip_tick_count;  
+                        GameDLLState::g_current_state.m_meta_data.m_physics_interval                        = meta_cmd.m_physics_interval;
+                        GameDLLState::g_current_state.m_meta_data.m_fixed_frame_interval_micros             = meta_cmd.m_fixed_frame_interval_micros;
+                        GameDLLState::g_current_state.m_meta_data.m_replay_mode_status                      = meta_cmd.m_replay_mode;
+                        GameDLLState::g_current_state.m_meta_data.m_apply_physics_interval_override         = meta_cmd.m_apply_physics_interval_override; 
+                        GameDLLState::g_current_state.m_meta_data.m_gui_is_hidden                           = meta_cmd.m_hide_gui;
+                        GameDLLState::g_current_state.m_meta_data.m_skip_animation_flags                    = meta_cmd.m_skip_animation_flags;
+                        GameDLLState::g_current_state.m_meta_data.m_replay_speed_factor                     = meta_cmd.m_replay_speed_factor;
+                        GameDLLState::g_current_state.m_meta_data.m_on_replay_end_skip_tick_count           = meta_cmd.m_on_replay_end_skip_tick_count;  
                         GameDLLState::g_current_state.m_meta_data.m_apply_game_target_fps_interval_override = meta_cmd.m_apply_game_target_fps_interval_override;     
                     }
 
@@ -340,9 +340,9 @@ namespace AsphaltDLL
                 GameDLLState::g_replay_current_frame_inputs = std::nullopt;
                 GameDLLState::g_current_state.m_replay_inputs.m_nitro_activation_count_this_frame = 0;
 
-                OnHandleGeneralInBuffer();
                 OnTryResolveNitroRCXArgPointer();
                 OnTryResolveFpsTargetIntervalPointer();
+                OnHandleGeneralInBuffer();
 
                 if (!GameDLLState::g_current_state.m_meta_data.m_is_in_race)
                 {
@@ -636,7 +636,6 @@ namespace AsphaltDLL
 
                 void REROUTE_FUNCTION Detour_AcceleratorValue(void* p_this, float* p_pass_through) noexcept
                 {
-
                     // Function modifies the value, so we must run it prior to modifying the value
                     RealAcceleratorValueCall(p_this, p_pass_through);   
                     float* accelerator_value = reinterpret_cast<float*>(reinterpret_cast<uintptr_t>(p_this) + 0x1D0);
@@ -682,7 +681,7 @@ namespace AsphaltDLL
                         LOCK_CURRENT_STATE_MUTEX();
                         if (GameDLLState::g_replay_current_frame_inputs.has_value())
                         {
-                            // We prevent player from clicking nitro if we're in a replay frame
+                            // We prevent player from clicking nitro if we're in a replay framet
                             return;
                         }
 
@@ -838,7 +837,7 @@ namespace AsphaltDLL
             }
 
             // This must not lock mutex such that we avoid a deadlock
-            [[nodiscard]] float ReadNitroBar() noexcept
+            float ReadNitroBar() noexcept
             {
                 const uintptr_t target_addr = GameDLLState::g_current_state.m_resolved_addresses.m_nitro_bar_encrypted_address;
 
@@ -1453,17 +1452,18 @@ namespace AsphaltDLL
                     int64_t duration = 0;
                     GetDuration(adjusted_rcx, &duration);
 
+                    bool is_in_race = false;
+                    uint32_t flags  = 0;
+
                     {
                         LOCK_CURRENT_STATE_MUTEX();
-                        //////////////////// Change this when there is animation skips inisde of race
-                        if (GameDLLState::g_current_state.m_meta_data.m_is_in_race)
-                        {
-                            RealAnimationProgressFunctionCall(rcx, rdx);
-                            return;
-                        }
+                        is_in_race = GameDLLState::g_current_state.m_meta_data.m_is_in_race;
+                        flags = std::to_underlying(GameDLLState::g_current_state.m_meta_data.m_skip_animation_flags);
+                    }
 
-                        auto flags = std::to_underlying(GameDLLState::g_current_state.m_meta_data.m_skip_animation_flags);
-                        
+                    //////////////////// Change this when there is animation skips inisde of race
+                    if (! is_in_race)
+                    {
                         for (const auto& it : banned_durations)
                         {
                             if ((flags & std::to_underlying(it.first)) && duration == it.second)
@@ -1472,7 +1472,7 @@ namespace AsphaltDLL
                                 break; 
                             }
                         }
-                    } 
+                    }
 
                     RealAnimationProgressFunctionCall(rcx, rdx);
                 }
@@ -1539,7 +1539,7 @@ namespace AsphaltDLL
             HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire);}
         }
 
-        namespace UcrtBaseRandom
+        namespace UcrtBaseRand
         {
             namespace
             {
@@ -1552,7 +1552,7 @@ namespace AsphaltDLL
 
                 int REROUTE_FUNCTION Detour_UcrtBaseRand() noexcept
                 {
-                    return 1; // unrandomized
+                    return RealUcrtBaseRandCall();
                 }
             }
 

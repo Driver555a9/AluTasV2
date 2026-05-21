@@ -76,7 +76,7 @@ namespace AsphaltDLL::Utility
         }
         __except(EXCEPTION_EXECUTE_HANDLER) 
         {
-            return 0;
+            return NULL;
         }
     }
 
