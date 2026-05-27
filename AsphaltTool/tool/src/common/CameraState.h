@@ -41,8 +41,11 @@ namespace AsphaltTas
 
     private:
         glm::vec3 m_position {0};
-        glm::quat m_rotation = glm::identity<glm::quat>();
-        float     m_fov_radians   = 1.0f;
-        float     m_aspect_ratio  = 1920.0f / 1080;
+        glm::vec3 m_local_racer_offset {};
+        float     m_fov_radians    = 1.0f;
+        float     m_aspect_ratio   = 1920.0f / 1080;
+        // Simply stored for the sake of avoiding data loss
+        glm::quat m_rotation       = glm::identity<glm::quat>();
+        bool      m_look_backwards = false; // Applied if using relative offset, simply 
     };
 }

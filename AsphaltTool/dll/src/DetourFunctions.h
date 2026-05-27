@@ -234,6 +234,18 @@ namespace AsphaltDLL
         }
 
         ///////////////////////////////////////
+        // Arbitrary function called when clicking play or restart
+        ///////////////////////////////////////
+        namespace OnClickPlayFunction
+        {
+            bool SetupHook() noexcept;
+            bool RemoveHook() noexcept;
+            bool EnableHook() noexcept;
+            bool DisableHook() noexcept;
+            [[nodiscard]] HookState GetHookState() noexcept;
+        }
+
+        ///////////////////////////////////////
         // End Race function
         // Arbitrary function called when ending a race, to detect "is in race" state
         // Called precisely at Fin line if race isn't aborted

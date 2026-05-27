@@ -7,3 +7,4 @@ engine/.vscode/
 engine/build/
 build/
 *.replay
+engine/lib/assimp.lib

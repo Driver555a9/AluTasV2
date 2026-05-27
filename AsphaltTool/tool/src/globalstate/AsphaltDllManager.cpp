@@ -66,20 +66,20 @@ namespace AsphaltTas
 
             while (shared->m_dll_out_buffer.TryPop(out_state))
             {
-                const bool is_in_race          = out_state.m_meta_data.m_is_in_race;
+                const bool is_in_race          = out_state.m_meta_data.m_race_status_state == ComDllOut::RaceStatusState::IN_RACE;
                 bool new_race_began            = false;
                 bool race_ended                = false;
                 const uint32_t current_tick    = out_state.m_replay_inputs.m_race_frame_tick;
 
                 {
-                    ScopeLockedAccess<std::optional<ComDllOut::DllStateOut>> opt_out_state = GetDllStateOutLockResultRef();
-                    if (opt_out_state->has_value())
+                    ScopeLockedAccess<std::optional<ComDllOut::DllStateOut>> opt_prev_out_state = GetDllStateOutLockResultRef();
+                    if (opt_prev_out_state->has_value())
                     {
-                        new_race_began   =   is_in_race && ! (*opt_out_state)->m_meta_data.m_is_in_race;
-                        race_ended       = ! is_in_race &&   (*opt_out_state)->m_meta_data.m_is_in_race;
+                        new_race_began   =   is_in_race && (*opt_prev_out_state)->m_meta_data.m_race_status_state != ComDllOut::RaceStatusState::IN_RACE;
+                        race_ended       = ! is_in_race && (*opt_prev_out_state)->m_meta_data.m_race_status_state == ComDllOut::RaceStatusState::IN_RACE;
                     }
 
-                    *opt_out_state = out_state;
+                    *opt_prev_out_state = out_state;
                 }
 
                 if (new_race_began)

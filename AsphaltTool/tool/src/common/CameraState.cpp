@@ -8,15 +8,19 @@ namespace AsphaltTas
     {
         std::memcpy(glm::value_ptr(m_position), state.m_camera_position_vec3.data(), sizeof(decltype(m_position)));
         std::memcpy(glm::value_ptr(m_rotation), state.m_camera_rotation_quat.data(), sizeof(decltype(m_rotation)));
+        std::memcpy(glm::value_ptr(m_local_racer_offset), state.m_offset_relative_to_car.data(), sizeof(decltype(m_local_racer_offset)));
         m_fov_radians = state.m_fov_radians;
+        m_look_backwards = state.m_look_backwards;
     }
 
     CameraState::CameraState(const ComDllOut::RecordedCameraState& state) noexcept
     {
         std::memcpy(glm::value_ptr(m_position), state.m_camera_position_vec3.data(), sizeof(decltype(m_position)));
         std::memcpy(glm::value_ptr(m_rotation), state.m_camera_rotation_quat.data(), sizeof(decltype(m_rotation)));
-        m_fov_radians = state.m_fov_radians;
-        m_aspect_ratio = state.m_aspect_ratio;
+        std::memcpy(glm::value_ptr(m_local_racer_offset), state.m_offset_relative_to_car.data(), sizeof(decltype(m_local_racer_offset)));
+        m_fov_radians    = state.m_fov_radians;
+        m_aspect_ratio   = state.m_aspect_ratio;
+        m_look_backwards = state.m_look_backwards;
     }
 
     ComDllIn::WriteCameraState CameraState::ToWriteCameraState() noexcept
@@ -25,7 +29,9 @@ namespace AsphaltTas
 
         std::memcpy(state_out.m_camera_position_vec3.data(), glm::value_ptr(m_position), sizeof(decltype(m_position)));
         std::memcpy(state_out.m_camera_rotation_quat.data(), glm::value_ptr(m_rotation), sizeof(decltype(m_rotation)));
-        state_out.m_fov_radians = m_fov_radians;
+        std::memcpy(state_out.m_offset_relative_to_car.data(), glm::value_ptr(m_local_racer_offset), sizeof(decltype(m_local_racer_offset)));
+        state_out.m_fov_radians    = m_fov_radians;
+        state_out.m_look_backwards = m_look_backwards;
         return state_out;
     }
 
@@ -35,8 +41,10 @@ namespace AsphaltTas
 
         std::memcpy(state_out.m_camera_position_vec3.data(), glm::value_ptr(m_position), sizeof(decltype(m_position)));
         std::memcpy(state_out.m_camera_rotation_quat.data(), glm::value_ptr(m_rotation), sizeof(decltype(m_rotation)));
-        state_out.m_fov_radians = m_fov_radians;
-        state_out.m_aspect_ratio = m_aspect_ratio;
+        std::memcpy(state_out.m_offset_relative_to_car.data(), glm::value_ptr(m_local_racer_offset), sizeof(decltype(m_local_racer_offset)));
+        state_out.m_fov_radians    = m_fov_radians;
+        state_out.m_aspect_ratio   = m_aspect_ratio;
+        state_out.m_look_backwards = m_look_backwards;
         return state_out;
     }
 

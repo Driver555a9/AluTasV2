@@ -128,6 +128,15 @@ namespace AsphaltTas
             out.SetPositionOpenGL_XYZ(m_free_cam_pseudo_camera.GetPosition());
             out.SetRotationOpenGL_WXYZ(m_free_cam_pseudo_camera.GetRotation());
             out.SetFovRadians(m_free_cam_pseudo_camera.GetFovRad());
+
+            constexpr std::uint32_t continuous_override_flags = ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_FOV_RAD 
+                                                              | ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_POSITION 
+                                                              | ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_ROTATION;
+                                        
+            ScopeLockedAccess<ComDllIn::DllGeneralCommandsIn> general_cmd_ref_lock = AsphaltDllManager::GetDllGeneralCommandsInRef(); 
+            general_cmd_ref_lock->m_write_camera_state = out.ToWriteCameraState();
+            general_cmd_ref_lock->m_write_camera_state.m_continuous_override_on_flags = continuous_override_flags;
+            general_cmd_ref_lock->m_write_camera_state.m_command_type = ComDllIn::CommandType::ExecuteCommand;
         }
         else if (s_current_controller_type == CameraControllerType::ORBITAL_CAM)
         {
@@ -157,11 +166,20 @@ namespace AsphaltTas
                 ENGINE_ERROR_PRINT("Exited ORBITAL Camera because of failure to obtain current Car State.");
                 s_current_controller_type = CameraControllerType::FREE_CAM;
             }
+            
+            constexpr std::uint32_t continuous_override_flags = ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_FOV_RAD 
+                                                              | ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_POSITION 
+                                                              | ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_ROTATION;
+
+            ScopeLockedAccess<ComDllIn::DllGeneralCommandsIn> general_cmd_ref_lock = AsphaltDllManager::GetDllGeneralCommandsInRef(); 
+            general_cmd_ref_lock->m_write_camera_state = out.ToWriteCameraState();
+            general_cmd_ref_lock->m_write_camera_state.m_continuous_override_on_flags = continuous_override_flags;
+            general_cmd_ref_lock->m_write_camera_state.m_command_type = ComDllIn::CommandType::ExecuteCommand;
 
         }
         else if (s_current_controller_type == CameraControllerType::FRONT_CAR)
         {
-            try 
+            /*try 
             {
                 RacerState car_state (dll_state_out_opt_copy->m_racer_state);
 
@@ -180,23 +198,39 @@ namespace AsphaltTas
                 out.SetPositionOpenGL_XYZ(m_front_car_cam_pseudo_camera.GetPosition());
                 out.SetRotationOpenGL_WXYZ(m_front_car_cam_pseudo_camera.GetRotation());
                 out.SetFovRadians(m_front_car_cam_pseudo_camera.GetFovRad());
-            } 
+            }
             catch (const std::exception& e)
             {
                 ENGINE_ERROR_PRINT("Exited FRONT_CAR Camera because of failure to obtain current Car State.");
                 s_current_controller_type = CameraControllerType::FREE_CAM;
+            }*/
+
+            const CoreEngine::Units::Second dt_secs = CoreEngine::Units::Convert<CoreEngine::Units::Second>(dt);
+            if (GetAsyncKeyState('E') & 0x8000)
+            {
+                s_front_car_camera_controller.SetOffsetForward(s_front_car_camera_controller.GetOffsetForward() + 1.0f * dt_secs.Get());
             }
+            if (GetAsyncKeyState('Q') & 0x8000)
+            {
+                s_front_car_camera_controller.SetOffsetForward(s_front_car_camera_controller.GetOffsetForward() + -1.0f * dt_secs.Get());
+            }
+
+            constexpr std::uint32_t continuous_override_flags = ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_RELATIVE_TO_CAR
+                                                              | ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_FOV_RAD 
+                                                              | ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_POSITION 
+                                                              | ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_ROTATION;
+
+            ScopeLockedAccess<ComDllIn::DllGeneralCommandsIn> general_cmd_ref_lock = AsphaltDllManager::GetDllGeneralCommandsInRef();
+            const float offset_right   = s_front_car_camera_controller.GetOffsetRight();
+            const float offset_forward = s_front_car_camera_controller.GetOffsetForward();
+            const float offset_up      = s_front_car_camera_controller.GetOffsetUp();
+            general_cmd_ref_lock->m_write_camera_state                                = out.ToWriteCameraState();
+            general_cmd_ref_lock->m_write_camera_state.m_offset_relative_to_car       = {offset_right, offset_forward, offset_up};
+            general_cmd_ref_lock->m_write_camera_state.m_continuous_override_on_flags = continuous_override_flags;
+            general_cmd_ref_lock->m_write_camera_state.m_fov_radians                  = m_front_car_cam_pseudo_camera.GetFovRad();
+            general_cmd_ref_lock->m_write_camera_state.m_look_backwards               = s_front_car_camera_controller.GetLookBackwards();
+            general_cmd_ref_lock->m_write_camera_state.m_command_type                 = ComDllIn::CommandType::ExecuteCommand;
         }
-
-
-        constexpr std::uint32_t flags = ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_FOV_RAD 
-                                      | ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_POSITION 
-                                      | ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_ROTATION;
-
-        ScopeLockedAccess<ComDllIn::DllGeneralCommandsIn> general_cmd_ref_lock = AsphaltDllManager::GetDllGeneralCommandsInRef(); 
-        general_cmd_ref_lock->m_write_camera_state = out.ToWriteCameraState();
-        general_cmd_ref_lock->m_write_camera_state.m_continuous_override_on_flags = flags;
-        general_cmd_ref_lock->m_write_camera_state.m_command_type = ComDllIn::CommandType::ExecuteCommand;
     }
 
     void CameraToolLayer::OnRender() noexcept 
@@ -269,10 +303,10 @@ namespace AsphaltTas
                     m_free_cam_pseudo_camera.SetFovDeg(fov_deg);
                 }
 
-                if (ImGui::SliderInt("Game Speed", (int*)&general_cmd_ref_lock->m_write_meta_data.m_fixed_frame_interval_micros, 0, 25'000))
-                {
-                    general_cmd_ref_lock->m_write_meta_data.m_command_type = ComDllIn::CommandType::ExecuteCommand;
-                }
+                //if (ImGui::SliderInt("Game Speed", (int*)&general_cmd_ref_lock->m_write_meta_data.m_fixed_frame_interval_micros, 0, 25'000))
+                //{
+                //    general_cmd_ref_lock->m_write_meta_data.m_command_type = ComDllIn::CommandType::ExecuteCommand;
+                //}
 
                 bool enable_mouse_input = MouseInputService::GetThreadIsRunning();
                 if (ImGui::Checkbox("Enable Mouse Input", &enable_mouse_input))
@@ -351,10 +385,10 @@ namespace AsphaltTas
                         MouseInputService::StopThread();
                 }
 
-                if (ImGui::SliderInt("Game Speed", (int*)&general_cmd_ref_lock->m_write_meta_data.m_fixed_frame_interval_micros, 0, 25'000))
-                {
-                    general_cmd_ref_lock->m_write_meta_data.m_command_type = ComDllIn::CommandType::ExecuteCommand;
-                }
+                //if (ImGui::SliderInt("Game Speed", (int*)&general_cmd_ref_lock->m_write_meta_data.m_fixed_frame_interval_micros, 0, 25'000))
+                //{
+                //    general_cmd_ref_lock->m_write_meta_data.m_command_type = ComDllIn::CommandType::ExecuteCommand;
+                //}
 
                 if (enable_mouse_input)
                 {
@@ -401,10 +435,10 @@ namespace AsphaltTas
                     s_front_car_camera_controller.SetOffsetForward(offset_forward);
                 }
 
-                if (ImGui::SliderInt("Game Speed", (int*)&general_cmd_ref_lock->m_write_meta_data.m_fixed_frame_interval_micros, 0, 25'000))
-                {
-                    general_cmd_ref_lock->m_write_meta_data.m_command_type = ComDllIn::CommandType::ExecuteCommand;
-                }
+                //if (ImGui::SliderInt("Game Speed", (int*)&general_cmd_ref_lock->m_write_meta_data.m_fixed_frame_interval_micros, 0, 25'000))
+                //{
+                //    general_cmd_ref_lock->m_write_meta_data.m_command_type = ComDllIn::CommandType::ExecuteCommand;
+                //}
 
                 bool look_backwards = s_front_car_camera_controller.GetLookBackwards();
                 if (ImGui::Checkbox("Look Backwards", &look_backwards))

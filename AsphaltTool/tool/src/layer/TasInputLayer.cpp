@@ -69,7 +69,7 @@ namespace AsphaltTas
                 std::filesystem::create_directories(s_replay_folder_path);
             }
 
-            // Same thread as us
+            // ReplayStateManager is same thread as us, so no mutex needed
             const std::optional<ReplayStateManager::PlaybackSession>& active_replay = ReplayStateManager::GetQueuedPlaybackSessionConstRef();
             const std::optional<ComDllOut::DllStateOut> dll_out_copy = AsphaltDllManager::GetDllStateOutCopy();
 
@@ -79,7 +79,7 @@ namespace AsphaltTas
                 ScopeLockedAccess<ComDllIn::DllGeneralCommandsIn> general_cmd_ref = AsphaltDllManager::GetDllGeneralCommandsInRef();
 
                 // Recording, no changes
-                if (dll_out_copy->m_meta_data.m_is_in_race || active_replay.has_value())
+                if (dll_out_copy->m_meta_data.m_race_status_state == ComDllOut::RaceStatusState::IN_RACE || active_replay.has_value())
                 {
                     PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, GuiStyle::COLOR_ORANGE);
                     ImGui::Text("Fixed Frame Interval Micros Locked: %u", general_cmd_ref->m_write_meta_data.m_fixed_frame_interval_micros);
@@ -95,10 +95,8 @@ namespace AsphaltTas
                 ///////////////////// Desired frame interval / game target fps
                 ImGui::TextUnformatted("Target Frame Interval:");
                 ImGui::SameLine();
-                if (ImGui::SliderInt("##Target Frame Interval", (int*)&general_cmd_ref->m_write_meta_data.m_game_target_fps_interval_micros, 0, 33'332))
-                {
-                    general_cmd_ref->m_write_meta_data.m_apply_game_target_fps_interval_override = true;
-                }
+                ImGui::SliderInt("##Target Frame Interval", (int*)&general_cmd_ref->m_write_meta_data.m_game_target_fps_interval_micros, 0, 33'332);
+                general_cmd_ref->m_write_meta_data.m_apply_game_target_fps_interval_override = true;
 
                 ///////////////////// Replay Playback speed
                 ImGui::TextUnformatted("Replay Tick Speed    :");
@@ -132,8 +130,11 @@ namespace AsphaltTas
                     else
                         skip_flags &= ~std::to_underlying(Communication::SkipAnimationFlags::SKIP_RACE_COUNT_DOWN);
                 }
-
                 general_cmd_ref->m_write_meta_data.m_skip_animation_flags = Communication::SkipAnimationFlags(skip_flags);
+
+                ImGui::SameLine();
+
+                ImGui::Checkbox("Speed Up Race Intro", &general_cmd_ref->m_write_meta_data.m_speed_up_pre_race_cinematic);
             }
             if (ImGui::CollapsingHeader("Active Replay", ImGuiTreeNodeFlags_DefaultOpen))
             {

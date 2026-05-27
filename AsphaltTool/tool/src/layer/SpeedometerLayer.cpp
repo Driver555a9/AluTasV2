@@ -83,7 +83,7 @@ namespace AsphaltTas
 
             std::optional<ComDllOut::DllStateOut> out = AsphaltDllManager::GetDllStateOutCopy();
             
-            if (out.has_value() && out->m_meta_data.m_is_in_race)
+            if (out.has_value() && out->m_meta_data.m_race_status_state == ComDllOut::RaceStatusState::IN_RACE)
             {
                 RacerState racer(out->m_racer_state);
                 const float real_ms = glm::length(racer.GetVelocityOpenGL_XYZ());

@@ -7,6 +7,7 @@
 #include <string_view>
 #include <iostream>
 #include <vector>
+#include <array>
 
 namespace AsphaltDLL
 {
@@ -21,7 +22,17 @@ namespace AsphaltDLL
         
         [[nodiscard]] uintptr_t SafeResolvePointerChain(uintptr_t module_base, const std::vector<uintptr_t>& offsets) noexcept;
         std::string LPCWSTRToString(LPCWSTR lpcwstr) noexcept;
-        
+
+        struct QuaternionXZYW 
+        {
+            float x;
+            float z;
+            float y;
+            float w;
+        };
+        [[nodiscard]] QuaternionXZYW RotationExtractQuatCast(const std::array<float, 9>& mat) noexcept;
+        [[nodiscard]] std::array<float, 3> RotateVectorByQuaternionXZYW(const Utility::QuaternionXZYW& q, const std::array<float, 3>& v) noexcept;
+                
         namespace ColorCodes
         {
             constexpr std::string_view  RESET   = "\033[0m";

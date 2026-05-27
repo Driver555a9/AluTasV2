@@ -78,7 +78,8 @@ namespace AsphaltTas::ReplayStateManager
         }
 
         // We are in a race, with a queued replay that has not yet finished playing; disallow changing replay
-        if (copy->m_meta_data.m_is_in_race && g_queued_playback.has_value() && g_queued_playback->m_final_tick >= copy->m_replay_inputs.m_race_frame_tick)
+        if (copy->m_meta_data.m_race_status_state == ComDllOut::RaceStatusState::IN_RACE 
+            && g_queued_playback.has_value() && g_queued_playback->m_final_tick >= copy->m_replay_inputs.m_race_frame_tick)
         {
             return false;
         }
@@ -89,7 +90,7 @@ namespace AsphaltTas::ReplayStateManager
         g_queued_playback->m_replay.ResetFrameIndex();
 
         // We are not in a race (before next race) therefore we rig the dll to expect frames right away
-        if (! copy->m_meta_data.m_is_in_race)
+        if (copy->m_meta_data.m_race_status_state != ComDllOut::RaceStatusState::IN_RACE)
         {
             auto general_cmd_ref = AsphaltDllManager::GetDllGeneralCommandsInRef();
             EnableReplayModeActiveBlock(*general_cmd_ref);
@@ -162,7 +163,7 @@ namespace AsphaltTas::ReplayStateManager
         }
 
         // Record current tick
-        if (dll_out_state->m_meta_data.m_is_in_race)
+        if (dll_out_state->m_meta_data.m_race_status_state == ComDllOut::RaceStatusState::IN_RACE)
         {
             Replay::Frame new_frame;
             new_frame.m_replay_input.m_race_frame_tick                   = dll_out_state->m_replay_inputs.m_race_frame_tick;

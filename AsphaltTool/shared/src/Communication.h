@@ -90,11 +90,15 @@ namespace Communication
             std::array<float, 4> m_camera_rotation_quat {}; // XZYW
             float m_fov_radians {};
             float m_aspect_ratio {};
+            std::array<float, 3> m_offset_relative_to_car {}; // Requiures continuous override flag CONTINUOUS_OVERRIDE_RELATIVE_TO_CAR or ignored - RIGHT, FORWARD, UP
             std::uint32_t m_continuous_override_on_flags = 0;
+            bool m_look_backwards = false; // Looks backwars if in CONTINUOUS_OVERRIDE_RELATIVE_TO_CAR
+            std::uint8_t __ignore__padding__[3];
 
-            constexpr static std::uint32_t CONTINUOUS_OVERRIDE_POSITION  = 1 << 0;
-            constexpr static std::uint32_t CONTINUOUS_OVERRIDE_ROTATION  = 1 << 1;
-            constexpr static std::uint32_t CONTINUOUS_OVERRIDE_FOV_RAD   = 1 << 2;
+            constexpr static std::uint32_t CONTINUOUS_OVERRIDE_POSITION           = 1 << 0;
+            constexpr static std::uint32_t CONTINUOUS_OVERRIDE_ROTATION           = 1 << 1;
+            constexpr static std::uint32_t CONTINUOUS_OVERRIDE_FOV_RAD            = 1 << 2;
+            constexpr static std::uint32_t CONTINUOUS_OVERRIDE_RELATIVE_TO_CAR    = 1 << 3;
             
             // Utility: memory offsets from resolved address
             constexpr static const inline uintptr_t OFFSET_POSITON_VEC3  = 0x0;
@@ -102,7 +106,7 @@ namespace Communication
             constexpr static const inline uintptr_t OFFSET_FOV_RADIANS   = 0xF0;
             constexpr static const inline uintptr_t OFFSET_ASPECT_RATIO  = 0xF8;
         };
-        static_assert(sizeof(RecordedCameraState) == 9 * sizeof(float) + sizeof(bool) + 3 * sizeof(std::uint8_t), "No packing should occur");
+        static_assert(sizeof(RecordedCameraState) == 12 * sizeof(float) + sizeof(std::uint32_t) + 4 * sizeof(uint8_t), "No packing should occur");
 
         #define NO_VALID_RESOLVED_ADDRESS 0
         struct ResolvedAddresses
@@ -145,22 +149,28 @@ namespace Communication
         };
         static_assert(sizeof(XInputState) == sizeof(uint32_t) + sizeof(uint16_t) + 2 * sizeof(uint8_t) + 4 * sizeof(int16_t), "No packing should occur");
 
+        enum class RaceStatusState : uint8_t 
+        {
+            IN_MENU, IN_RACE, IN_LOADING_SCREEN, IN_PRE_RACE_CINEMATIC
+        };
         struct DllStateMetaData 
         {
             ReplayMode m_replay_mode_status                 = ReplayMode::Inactive;
             std::uint32_t m_fixed_frame_interval_micros     = 8333;
             float m_physics_interval                        = 1/60.0f;
             std::uint32_t m_game_target_fps_interval_micros = 8333;
-            SkipAnimationFlags m_skip_animation_flags       = SkipAnimationFlags::SKIP_NONE;
+            SkipAnimationFlags m_skip_animation_flags       = SkipAnimationFlags::SKIP_NONE; // Deprecated, prefer m_speed_up_pre_race_cinematic
             std::uint32_t m_replay_speed_factor             = 1;
             std::uint32_t m_on_replay_end_skip_tick_count   = 0;
+            RaceStatusState m_race_status_state             = RaceStatusState::IN_MENU;
             bool m_apply_physics_interval_override          = false;
-            bool m_is_in_race                               = false;
             bool m_gui_is_hidden                            = false;
             bool m_apply_game_target_fps_interval_override  = false;
+            bool m_speed_up_pre_race_cinematic              = false;
+            uint8_t __ignore_padding__[7];
         };
         static_assert(sizeof(DllStateMetaData) == sizeof(ReplayMode) + 4 * sizeof(std::uint32_t) + sizeof(float) + sizeof(SkipAnimationFlags) +
-                            + 4 * sizeof(bool), "No packing should occur");
+                            + 12 * sizeof(bool), "No packing should occur");
 
         struct DllStateOut
         {   
@@ -244,11 +254,15 @@ namespace Communication
             std::array<float, 3> m_camera_position_vec3 {};
             std::array<float, 4> m_camera_rotation_quat {}; // XZYW
             float m_fov_radians {};
+            std::array<float, 3> m_offset_relative_to_car {}; // Requiures continuous override flag CONTINUOUS_OVERRIDE_RELATIVE_TO_CAR or ignored - RIGHT, FORWARD, UP
             std::uint32_t m_continuous_override_on_flags = 0;
+            bool m_look_backwards = false; // Looks backwars if in CONTINUOUS_OVERRIDE_RELATIVE_TO_CAR
+            uint8_t __ignore__padding[7];
 
-            constexpr static std::uint32_t CONTINUOUS_OVERRIDE_POSITION  = DllOut::RecordedCameraState::CONTINUOUS_OVERRIDE_POSITION;
-            constexpr static std::uint32_t CONTINUOUS_OVERRIDE_ROTATION  = DllOut::RecordedCameraState::CONTINUOUS_OVERRIDE_ROTATION;
-            constexpr static std::uint32_t CONTINUOUS_OVERRIDE_FOV_RAD   = DllOut::RecordedCameraState::CONTINUOUS_OVERRIDE_FOV_RAD;
+            constexpr static std::uint32_t CONTINUOUS_OVERRIDE_POSITION           = DllOut::RecordedCameraState::CONTINUOUS_OVERRIDE_POSITION;
+            constexpr static std::uint32_t CONTINUOUS_OVERRIDE_ROTATION           = DllOut::RecordedCameraState::CONTINUOUS_OVERRIDE_ROTATION;
+            constexpr static std::uint32_t CONTINUOUS_OVERRIDE_FOV_RAD            = DllOut::RecordedCameraState::CONTINUOUS_OVERRIDE_FOV_RAD;
+            constexpr static std::uint32_t CONTINUOUS_OVERRIDE_RELATIVE_TO_CAR    = DllOut::RecordedCameraState::CONTINUOUS_OVERRIDE_RELATIVE_TO_CAR;
 
             // Utility: memory offsets from resolved address
             constexpr static uintptr_t OFFSET_POSITON_VEC3  = 0x0;
@@ -256,7 +270,7 @@ namespace Communication
             constexpr static uintptr_t OFFSET_FOV_RADIANS   = 0xF0;
             constexpr static uintptr_t OFFSET_ASPECT_RATIO  = 0xF8;
         };
-        static_assert(sizeof(WriteCameraState) == sizeof(CommandType) + 8 * sizeof(float) + sizeof(std::uint32_t), "No packing should occur");
+        static_assert(sizeof(WriteCameraState) == sizeof(CommandType) + 11 * sizeof(float) + sizeof(std::uint32_t) + 8 * sizeof(uint8_t), "No packing should occur");
 
         struct WriteMetaData
         {
@@ -272,10 +286,11 @@ namespace Communication
             bool m_request_dll_shutdown                     = false;   // Alternative to extern C func RequestShutdown call
             bool m_hide_gui                                 = false;
             bool m_apply_game_target_fps_interval_override  = false;
-            std::uint8_t __ignore__padding__[4];
+            bool m_speed_up_pre_race_cinematic              = false;
+            uint8_t __ignore_padding__[7];
         };
         static_assert(sizeof(WriteMetaData) == sizeof(CommandType) + sizeof(ReplayMode) + 4 * sizeof(std::uint32_t) + sizeof(float) + sizeof(SkipAnimationFlags) +
-                                           4 * sizeof(bool) + 4 * sizeof(std::uint8_t), "No packing should occur");
+                                           12 * sizeof(bool), "No packing should occur");
 
         struct DllGeneralCommandsIn
         {

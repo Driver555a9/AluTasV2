@@ -193,7 +193,7 @@ namespace AsphaltDLL
                         }
 
                         if ( GameDLLState::g_current_state.m_meta_data.m_replay_mode_status != Communication::ReplayMode::Inactive
-                          && GameDLLState::g_current_state.m_meta_data.m_is_in_race
+                          && GameDLLState::g_current_state.m_meta_data.m_race_status_state  == ComDllOut::RaceStatusState::IN_RACE
                           && meta_cmd.m_replay_mode == Communication::ReplayMode::Inactive)
                         {
                             // We switched from replay to inactive - final frame
@@ -222,7 +222,8 @@ namespace AsphaltDLL
                         GameDLLState::g_current_state.m_meta_data.m_skip_animation_flags                    = meta_cmd.m_skip_animation_flags;
                         GameDLLState::g_current_state.m_meta_data.m_replay_speed_factor                     = meta_cmd.m_replay_speed_factor;
                         GameDLLState::g_current_state.m_meta_data.m_on_replay_end_skip_tick_count           = meta_cmd.m_on_replay_end_skip_tick_count;  
-                        GameDLLState::g_current_state.m_meta_data.m_apply_game_target_fps_interval_override = meta_cmd.m_apply_game_target_fps_interval_override;     
+                        GameDLLState::g_current_state.m_meta_data.m_apply_game_target_fps_interval_override = meta_cmd.m_apply_game_target_fps_interval_override;
+                        GameDLLState::g_current_state.m_meta_data.m_speed_up_pre_race_cinematic             = meta_cmd.m_speed_up_pre_race_cinematic;   
                     }
 
                     if (racer_cmd.m_command_type == ComDllIn::CommandType::ExecuteCommand)
@@ -273,6 +274,9 @@ namespace AsphaltDLL
                             CameraUpdate::PatchEnableGameFovWriteInstruction();
                         }
 
+                        std::memcpy(GameDLLState::g_current_state.m_camera_state.m_offset_relative_to_car.data(), 
+                                    camera_cmd.m_offset_relative_to_car.data(), sizeof(camera_cmd.m_offset_relative_to_car));
+
                         std::memcpy(GameDLLState::g_current_state.m_camera_state.m_camera_position_vec3.data(), 
                                     camera_cmd.m_camera_position_vec3.data(), sizeof(camera_cmd.m_camera_position_vec3));
 
@@ -280,6 +284,7 @@ namespace AsphaltDLL
                                     camera_cmd.m_camera_rotation_quat.data(), sizeof(camera_cmd.m_camera_rotation_quat));
 
                         GameDLLState::g_current_state.m_camera_state.m_fov_radians = camera_cmd.m_fov_radians;
+                        GameDLLState::g_current_state.m_camera_state.m_look_backwards = camera_cmd.m_look_backwards;
                         
                         if (camera_base_addr != NO_VALID_RESOLVED_ADDRESS)
                         {
@@ -344,7 +349,7 @@ namespace AsphaltDLL
                 OnTryResolveFpsTargetIntervalPointer();
                 OnHandleGeneralInBuffer();
 
-                if (!GameDLLState::g_current_state.m_meta_data.m_is_in_race)
+                if (GameDLLState::g_current_state.m_meta_data.m_race_status_state != ComDllOut::RaceStatusState::IN_RACE)
                 {
                     return;
                 }
@@ -401,7 +406,7 @@ namespace AsphaltDLL
                 GameDLLState::g_current_state.IncreasePacketIDToHighest();
                 ComSharedMem::GetSharedState()->m_dll_out_buffer.PushOverwrite(GameDLLState::g_current_state);
 
-                if (GameDLLState::g_current_state.m_meta_data.m_is_in_race)
+                if (GameDLLState::g_current_state.m_meta_data.m_race_status_state == ComDllOut::RaceStatusState::IN_RACE)
                 {
                     GameDLLState::g_current_state.m_replay_inputs.m_race_frame_tick++;
                 }
@@ -978,6 +983,69 @@ namespace AsphaltDLL
 
                 std::atomic<bool> g_memory_is_patched = false;
 
+                void SetCameraRelativeToLocalRacerWithOffset(std::array<float, 3> offsets, bool look_backwards = false)
+                {
+                    const float right   = offsets[0];
+                    const float forward = offsets[1];
+                    const float up      = offsets[2];
+
+                    if (GameDLLState::g_current_state.m_resolved_addresses.m_steering_struct_gear_address != NO_VALID_RESOLVED_ADDRESS)
+                    {
+                        // See offsets in steering CT
+                        const uintptr_t steer_base = GameDLLState::g_current_state.m_resolved_addresses.m_steering_struct_gear_address + 0x1480;
+
+                        const uintptr_t pos_x                = steer_base + 0x7F8;
+                        const uintptr_t pos_z                = steer_base + 0x7FC;
+                        const uintptr_t terrain_height       = steer_base + 0x800;
+                        const uintptr_t height_above_terrain = steer_base + 0x818;
+
+                        const auto& racer_trans = GameDLLState::g_current_state.m_racer_state.m_racer_transform_mat4x4;
+
+                        std::array<float, 9> rotation_matrix;
+                        rotation_matrix[0] = racer_trans[0];  // Right.x
+                        rotation_matrix[1] = racer_trans[1];  // Right.z
+                        rotation_matrix[2] = racer_trans[2];  // Right.y
+                        rotation_matrix[3] = racer_trans[4];  // Forward.x
+                        rotation_matrix[4] = racer_trans[5];  // Forward.z
+                        rotation_matrix[5] = racer_trans[6];  // Forward.y
+                        rotation_matrix[6] = racer_trans[8];  // Up.x
+                        rotation_matrix[7] = racer_trans[9];  // Up.z
+                        rotation_matrix[8] = racer_trans[10]; // Up.y
+
+                        Utility::QuaternionXZYW rotation = Utility::RotationExtractQuatCast(rotation_matrix);
+                        
+                        if (look_backwards)
+                        {
+                            const auto orig = rotation;
+                            rotation.x = -orig.z;
+                            rotation.y =  orig.w;
+                            rotation.z =  orig.x;
+                            rotation.w = -orig.y;
+                        }
+
+                        const std::array<float, 3> world_offset = RotateVectorByQuaternionXZYW(rotation, { right, forward, up });
+
+                        const float pos_x_val = *reinterpret_cast<float*>(pos_x);
+                        const float pos_z_val = *reinterpret_cast<float*>(pos_z);
+                        const float pos_y_val = *reinterpret_cast<float*>(terrain_height) + *reinterpret_cast<float*>(height_above_terrain);
+
+                        GameDLLState::g_current_state.m_camera_state.m_camera_position_vec3 = 
+                        {
+                            pos_x_val + world_offset[0],
+                            pos_z_val + world_offset[1],
+                            pos_y_val + world_offset[2]
+                        };
+
+                        GameDLLState::g_current_state.m_camera_state.m_camera_rotation_quat = 
+                        {
+                            rotation.x, 
+                            rotation.z, 
+                            rotation.y, 
+                            rotation.w
+                        };
+                    }
+                }
+
                 void REROUTE_FUNCTION Detour_CameraUpdate(uintptr_t rcx) noexcept
                 {
                     RealCameraUpdateCall(rcx);
@@ -990,8 +1058,13 @@ namespace AsphaltDLL
 
                         GameDLLState::g_current_state.m_resolved_addresses.m_camera_state_base_address = cam_position_addr;
 
-                        const auto& override_flags = GameDLLState::g_current_state.m_camera_state.m_continuous_override_on_flags;
                         ComDllOut::RecordedCameraState& cam = GameDLLState::g_current_state.m_camera_state;
+                        const auto& override_flags = cam.m_continuous_override_on_flags;
+
+                        if (override_flags & ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_RELATIVE_TO_CAR)
+                        {
+                            SetCameraRelativeToLocalRacerWithOffset(cam.m_offset_relative_to_car, cam.m_look_backwards);
+                        }
 
                         if (override_flags & ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_POSITION)
                         {
@@ -1211,7 +1284,7 @@ namespace AsphaltDLL
 
                     {
                         LOCK_CURRENT_STATE_MUTEX();
-                        GameDLLState::g_current_state.m_meta_data.m_is_in_race = true;
+                        GameDLLState::g_current_state.m_meta_data.m_race_status_state = ComDllOut::RaceStatusState::IN_RACE;
                         GameDLLState::g_current_state.m_resolved_addresses.ResetAll();
                     }
                 }
@@ -1222,6 +1295,40 @@ namespace AsphaltDLL
                 constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x855940;
                 return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_OnBeginRaceFunction), 
                     &g_real_function_address, reinterpret_cast<LPVOID*>(&RealOnBeginRaceFunctionCall), g_hook_state
+                );
+            }
+
+            bool RemoveHook() noexcept { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }
+            bool EnableHook() noexcept { return _Implementation::EnableHook(g_real_function_address, g_hook_state); }
+            bool DisableHook() noexcept { return _Implementation::DisableHook(g_real_function_address, g_hook_state); }
+            HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire); }
+        }
+
+        namespace OnClickPlayFunction
+        {
+            namespace 
+            {
+                std::atomic<HookState> g_hook_state = HookState::NotInPlace;
+                LPVOID g_real_function_address = nullptr;
+
+                typedef void (REROUTE_FUNCTION* OnClickPlayFunction_t)(uintptr_t rcx);
+                OnClickPlayFunction_t RealOnClickPlayFunctionCall = nullptr;
+
+                void REROUTE_FUNCTION Detour_OnClickPlayFunction(uintptr_t rcx) noexcept
+                {
+                    {
+                        LOCK_CURRENT_STATE_MUTEX();
+                        GameDLLState::g_current_state.m_meta_data.m_race_status_state = ComDllOut::RaceStatusState::IN_LOADING_SCREEN;
+                    }
+                    RealOnClickPlayFunctionCall(rcx);
+                }
+            }
+
+            bool SetupHook() noexcept
+            {
+                constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x6080A0;
+                return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_OnClickPlayFunction), 
+                    &g_real_function_address, reinterpret_cast<LPVOID*>(&RealOnClickPlayFunctionCall), g_hook_state
                 );
             }
 
@@ -1245,7 +1352,7 @@ namespace AsphaltDLL
                 {
                     {
                         LOCK_CURRENT_STATE_MUTEX();
-                        GameDLLState::g_current_state.m_meta_data.m_is_in_race          = false;
+                        GameDLLState::g_current_state.m_meta_data.m_race_status_state   = ComDllOut::RaceStatusState::IN_MENU;
                         GameDLLState::g_current_state.m_replay_inputs.m_race_frame_tick = 0;
                         GameDLLState::g_current_state.m_resolved_addresses.ResetAll();
                     }
@@ -1386,18 +1493,29 @@ namespace AsphaltDLL
 
                     {
                         LOCK_CURRENT_STATE_MUTEX();
+                        const auto status = GameDLLState::g_current_state.m_meta_data.m_race_status_state;
+                        const bool speed_up = GameDLLState::g_current_state.m_meta_data.m_speed_up_pre_race_cinematic;
+
                         if (GameDLLState::g_replay_current_frame_inputs.has_value())
                         {
                             iterations = GameDLLState::g_current_state.m_meta_data.m_replay_speed_factor;
                         }
+                        else if (status == ComDllOut::RaceStatusState::IN_PRE_RACE_CINEMATIC && speed_up)
+                        {
+                            iterations = 100'000; // Skip entirely
+                        }
                     }
 
-                    for (std::uint32_t i{}; i < iterations; ++i)
+                    for (std::uint32_t i = 0; i < iterations; ++i)
                     {
                         RealMainLoopNewFrameDispatcherCall(rcx, rdx);
 
                         LOCK_CURRENT_STATE_MUTEX();
-                        if (! GameDLLState::g_replay_current_frame_inputs.has_value())
+                        const auto status = GameDLLState::g_current_state.m_meta_data.m_race_status_state;
+                        const bool speed_up       = GameDLLState::g_current_state.m_meta_data.m_speed_up_pre_race_cinematic;
+                        const bool still_speeding = (status == ComDllOut::RaceStatusState::IN_PRE_RACE_CINEMATIC && speed_up) 
+                                                    || GameDLLState::g_replay_current_frame_inputs.has_value();
+                        if (!still_speeding)
                         {
                             break;
                         }
@@ -1457,8 +1575,22 @@ namespace AsphaltDLL
 
                     {
                         LOCK_CURRENT_STATE_MUTEX();
-                        is_in_race = GameDLLState::g_current_state.m_meta_data.m_is_in_race;
+                        is_in_race = GameDLLState::g_current_state.m_meta_data.m_race_status_state == ComDllOut::RaceStatusState::IN_RACE;
                         flags = std::to_underlying(GameDLLState::g_current_state.m_meta_data.m_skip_animation_flags);
+
+                        // If we previously were in loading screen and now match an animation duration for in race or countdown, we assume we're in pre race cinematic
+                        if (GameDLLState::g_current_state.m_meta_data.m_race_status_state == ComDllOut::RaceStatusState::IN_LOADING_SCREEN)
+                        {
+                            for (const auto& it : banned_durations)
+                            {
+                                if ( (std::to_underlying(it.first) & std::to_underlying(Communication::SkipAnimationFlags::SKIP_RACE_INTRO) || 
+                                      std::to_underlying(it.first) & std::to_underlying(Communication::SkipAnimationFlags::SKIP_RACE_COUNT_DOWN)) &&
+                                      duration == it.second)
+                                {
+                                    GameDLLState::g_current_state.m_meta_data.m_race_status_state = ComDllOut::RaceStatusState::IN_PRE_RACE_CINEMATIC;
+                                }
+                            }
+                        }
                     }
 
                     //////////////////// Change this when there is animation skips inisde of race
