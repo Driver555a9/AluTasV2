@@ -61,6 +61,14 @@ namespace AsphaltTas::ReplayStateManager
                 }
             }
         }
+
+        void OnInitNewReplay()
+        {
+            g_queued_playback->m_replay.ResetFrameIndex();
+            auto general_cmd_ref = AsphaltDllManager::GetDllGeneralCommandsInRef();
+            EnableReplayModeActiveBlock(*general_cmd_ref);
+            general_cmd_ref->m_write_meta_data.m_fixed_frame_interval_micros    = g_queued_playback->m_replay.GetFrameIntervalMicros();
+        }
     }
 
     void ClearInputCommandBuffer() noexcept
@@ -92,9 +100,7 @@ namespace AsphaltTas::ReplayStateManager
         // We are not in a race (before next race) therefore we rig the dll to expect frames right away
         if (copy->m_meta_data.m_race_status_state != ComDllOut::RaceStatusState::IN_RACE)
         {
-            auto general_cmd_ref = AsphaltDllManager::GetDllGeneralCommandsInRef();
-            EnableReplayModeActiveBlock(*general_cmd_ref);
-            general_cmd_ref->m_write_meta_data.m_fixed_frame_interval_micros = g_queued_playback->m_replay.GetFrameIntervalMicros();
+            OnInitNewReplay();
         }
 
         return true;
@@ -131,7 +137,9 @@ namespace AsphaltTas::ReplayStateManager
     void OnRaceStarted() noexcept 
     {   
         g_current_recording.ClearAllFrameData();
-        g_current_recording.SetFrameIntervalMicros(AsphaltDllManager::GetDllStateOutCopy()->m_meta_data.m_fixed_frame_interval_micros);
+        const auto state_out = AsphaltDllManager::GetDllStateOutCopy();
+        if (!state_out) return;
+        g_current_recording.SetFrameIntervalMicros(state_out->m_meta_data.m_fixed_frame_interval_micros);
     }
 
     void OnRaceEnded() noexcept 
@@ -141,10 +149,7 @@ namespace AsphaltTas::ReplayStateManager
         //If we have a queued replay, we enable active block in preparation for next race
         if (HasQueuedReplay())
         {
-            g_queued_playback->m_replay.ResetFrameIndex();
-            auto general_cmd_ref = AsphaltDllManager::GetDllGeneralCommandsInRef();
-            EnableReplayModeActiveBlock(*general_cmd_ref);
-            general_cmd_ref->m_write_meta_data.m_fixed_frame_interval_micros = g_queued_playback->m_replay.GetFrameIntervalMicros();
+            OnInitNewReplay();
         }
 
         // Clean up junk inputs before next race
@@ -174,6 +179,7 @@ namespace AsphaltTas::ReplayStateManager
             new_frame.m_replay_input.m_value_rbx_2228                    = dll_out_state->m_replay_inputs.m_value_rbx_2228;
             new_frame.m_replay_input.m_value_rbx_222C                    = dll_out_state->m_replay_inputs.m_value_rbx_222C;
             new_frame.m_replay_input.m_barrel_angular_velocities_vec3    = dll_out_state->m_replay_inputs.m_barrel_angular_velocities_vec3;
+            new_frame.m_replay_input.m_respawn_button_press              = dll_out_state->m_replay_inputs.m_respawn_button_press;
             new_frame.m_recorded_camera_state                            = dll_out_state->m_camera_state;
             new_frame.m_recorded_racer_state                             = dll_out_state->m_racer_state;
 

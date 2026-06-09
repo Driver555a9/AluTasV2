@@ -104,6 +104,12 @@ namespace AsphaltDLL
         DetourFunctions::BarrelYawStabilization::SetupHook();
         DetourFunctions::BarrelYawStabilization::EnableHook();
 
+        DetourFunctions::OnWreck::SetupHook();
+        DetourFunctions::OnWreck::EnableHook();
+
+        DetourFunctions::OnRespawnButtonPressed::SetupHook();
+        DetourFunctions::OnRespawnButtonPressed::EnableHook();
+
         DetourFunctions::GetPhysicsInterval::SetupHook();
         DetourFunctions::GetPhysicsInterval::EnableHook();
 
@@ -147,6 +153,8 @@ namespace AsphaltDLL
         DetourFunctions::CameraUpdate::RemoveHook();
         DetourFunctions::BarrelRollStabilization::RemoveHook();
         DetourFunctions::BarrelYawStabilization::RemoveHook();
+        DetourFunctions::OnWreck::RemoveHook();
+        DetourFunctions::OnRespawnButtonPressed::RemoveHook();
         DetourFunctions::GetPhysicsInterval::RemoveHook();
         DetourFunctions::OnBeginRaceFunction::RemoveHook();
         DetourFunctions::OnClickPlayFunction::RemoveHook();

@@ -200,6 +200,20 @@ namespace AsphaltTas
                     PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, dll_state_copy.has_value() && dll_state_copy->m_resolved_addresses.m_steering_struct_gear_address ? GuiStyle::COLOR_GREEN : GuiStyle::COLOR_RED);
                     ImGui::TextUnformatted(ToHex(dll_state_copy->m_resolved_addresses.m_steering_struct_gear_address).c_str());
                 }
+
+                {
+                    ImGui::Text("Target Frame Interval:");
+                    ImGui::SameLine();
+                    PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, dll_state_copy.has_value() && dll_state_copy->m_resolved_addresses.m_game_target_fps_interval_address ? GuiStyle::COLOR_GREEN : GuiStyle::COLOR_RED);
+                    ImGui::TextUnformatted(ToHex(dll_state_copy->m_resolved_addresses.m_game_target_fps_interval_address).c_str());
+                }
+
+                {
+                    ImGui::Text("Respawn Func RCX Arg :");
+                    ImGui::SameLine();
+                    PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, dll_state_copy.has_value() && dll_state_copy->m_resolved_addresses.m_respawn_func_spoofed_rcx_arg ? GuiStyle::COLOR_GREEN : GuiStyle::COLOR_RED);
+                    ImGui::TextUnformatted(ToHex(dll_state_copy->m_resolved_addresses.m_respawn_func_spoofed_rcx_arg).c_str());
+                }
             }
             
             if (ImGui::CollapsingHeader("Tool Performance", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf))

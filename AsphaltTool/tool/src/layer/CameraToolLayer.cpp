@@ -216,9 +216,7 @@ namespace AsphaltTas
             }
 
             constexpr std::uint32_t continuous_override_flags = ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_RELATIVE_TO_CAR
-                                                              | ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_FOV_RAD 
-                                                              | ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_POSITION 
-                                                              | ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_ROTATION;
+                                                              | ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_FOV_RAD;
 
             ScopeLockedAccess<ComDllIn::DllGeneralCommandsIn> general_cmd_ref_lock = AsphaltDllManager::GetDllGeneralCommandsInRef();
             const float offset_right   = s_front_car_camera_controller.GetOffsetRight();
@@ -303,10 +301,10 @@ namespace AsphaltTas
                     m_free_cam_pseudo_camera.SetFovDeg(fov_deg);
                 }
 
-                //if (ImGui::SliderInt("Game Speed", (int*)&general_cmd_ref_lock->m_write_meta_data.m_fixed_frame_interval_micros, 0, 25'000))
-                //{
-                //    general_cmd_ref_lock->m_write_meta_data.m_command_type = ComDllIn::CommandType::ExecuteCommand;
-                //}
+                if (ImGui::SliderInt("Game Speed", (int*)&general_cmd_ref_lock->m_write_meta_data.m_fixed_frame_interval_micros, 0, 25'000))
+                {
+                    general_cmd_ref_lock->m_write_meta_data.m_command_type = ComDllIn::CommandType::ExecuteCommand;
+                }
 
                 bool enable_mouse_input = MouseInputService::GetThreadIsRunning();
                 if (ImGui::Checkbox("Enable Mouse Input", &enable_mouse_input))

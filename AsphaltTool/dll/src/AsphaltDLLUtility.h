@@ -19,6 +19,7 @@ namespace AsphaltDLL
 
         [[nodiscard]] float RandomFloat(float min, float max) noexcept;
         [[nodiscard]] int RandomInt(int min, int max) noexcept;
+        [[nodiscard]] uint64_t GetMonotonicMicrosecondCount() noexcept;
         
         [[nodiscard]] uintptr_t SafeResolvePointerChain(uintptr_t module_base, const std::vector<uintptr_t>& offsets) noexcept;
         std::string LPCWSTRToString(LPCWSTR lpcwstr) noexcept;

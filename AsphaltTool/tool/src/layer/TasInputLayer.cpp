@@ -90,7 +90,7 @@ namespace AsphaltTas
                     ImGui::TextUnformatted("Fixed Frame Interval :");
                     ImGui::SameLine();
                     ImGui::SliderInt("##Fixed Frame Interval Micros", (int*)&general_cmd_ref->m_write_meta_data.m_fixed_frame_interval_micros, 4167, 33'332);
-                }   
+                }  
 
                 ///////////////////// Desired frame interval / game target fps
                 ImGui::TextUnformatted("Target Frame Interval:");
@@ -107,34 +107,26 @@ namespace AsphaltTas
                 ImGui::TextUnformatted("Replay End Tick Skip :");
                 ImGui::SameLine();
                 ImGui::SliderInt("##Replay End Tick Skip", (int*)&general_cmd_ref->m_write_meta_data.m_on_replay_end_skip_tick_count, 0, 500);
-
-                ///////////////////// Skip animations
+                
+                ImGui::Checkbox("Speed Up Race Intro", &general_cmd_ref->m_write_meta_data.m_speed_up_pre_race_cinematic);
+                ImGui::SameLine();
+                ImGui::Checkbox("Force Accomplish Target FPS", &general_cmd_ref->m_write_meta_data.m_force_accomplish_target_fps_interval);
+                
+                ///////////////////// LEGACY: Skip animations
+                ImGui::SameLine();
                 auto skip_flags = std::to_underlying(general_cmd_ref->m_write_meta_data.m_skip_animation_flags);
 
                 bool skip_intro = skip_flags & std::to_underlying(Communication::SkipAnimationFlags::SKIP_RACE_INTRO);
-                if (ImGui::Checkbox("Skip Intro Cinematic", &skip_intro))
+                if (ImGui::Checkbox("[Deprecated] Skip Intro", &skip_intro))
                 {
                     if (skip_intro)
-                        skip_flags |= std::to_underlying(Communication::SkipAnimationFlags::SKIP_RACE_INTRO);
+                        skip_flags |= (std::to_underlying(Communication::SkipAnimationFlags::SKIP_RACE_INTRO) 
+                                     | std::to_underlying(Communication::SkipAnimationFlags::SKIP_RACE_COUNT_DOWN));
                     else
-                        skip_flags &= ~std::to_underlying(Communication::SkipAnimationFlags::SKIP_RACE_INTRO);
-                }
-
-                ImGui::SameLine();
-
-                bool skip_countdown = skip_flags & std::to_underlying(Communication::SkipAnimationFlags::SKIP_RACE_COUNT_DOWN);
-                if (ImGui::Checkbox("Skip Race Countdown", &skip_countdown))
-                {
-                    if (skip_countdown)
-                        skip_flags |= std::to_underlying(Communication::SkipAnimationFlags::SKIP_RACE_COUNT_DOWN);
-                    else
-                        skip_flags &= ~std::to_underlying(Communication::SkipAnimationFlags::SKIP_RACE_COUNT_DOWN);
+                        skip_flags &= ~(std::to_underlying(Communication::SkipAnimationFlags::SKIP_RACE_INTRO)
+                                      | std::to_underlying(Communication::SkipAnimationFlags::SKIP_RACE_COUNT_DOWN));
                 }
                 general_cmd_ref->m_write_meta_data.m_skip_animation_flags = Communication::SkipAnimationFlags(skip_flags);
-
-                ImGui::SameLine();
-
-                ImGui::Checkbox("Speed Up Race Intro", &general_cmd_ref->m_write_meta_data.m_speed_up_pre_race_cinematic);
             }
             if (ImGui::CollapsingHeader("Active Replay", ImGuiTreeNodeFlags_DefaultOpen))
             {

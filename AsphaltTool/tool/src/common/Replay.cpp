@@ -108,15 +108,28 @@ namespace AsphaltTas
         m_frame_interval_micros = interval;   
     }
 
+    enum class ReplayVersion : uint32_t
+    {
+        VERSION_1 = 1, // Core features that are mandatory
+        VERSION_2 = 2, // Added: bool RespawnButton for respawn button press inputs
+        NEWEST    = VERSION_2
+    };
+
+    constexpr std::strong_ordering operator<=>(ReplayVersion lhs, ReplayVersion rhs)
+    {
+        return static_cast<uint32_t>(lhs) <=> static_cast<uint32_t>(rhs);
+    }
+
     namespace SerializeKeys
     {
+        
         namespace Meta
         {
-            constexpr char ROOT []          = "Meta";
-            constexpr char TITLE[]          = "Title";
-            constexpr char TIMESTAMP[]      = "Timestamp";
-            constexpr char VERSION[]        = "ManifestVersion";
-            constexpr char FRAME_INTERVAL[] = "FrameInterval";
+            constexpr char ROOT []           = "Meta";
+            constexpr char TITLE[]           = "Title";
+            constexpr char TIMESTAMP[]       = "Timestamp";
+            constexpr char VERSION[]         = "ManifestVersion";
+            constexpr char FRAME_INTERVAL[]  = "FrameInterval";
         }
 
         namespace ReplayInputs
@@ -130,6 +143,7 @@ namespace AsphaltTas
             constexpr char BARREL_ANGULAR_VELOCITIES[] = "BarrelAngular";
             constexpr char BARREL_RBX_2228[]           = "BarrelRBX2228";
             constexpr char BARREL_RBX_222C[]           = "BarrelRBX222C";
+            constexpr char RESPAWN_BUTTON[]            = "RespawnButton";
         }
 
         namespace RacerStates
@@ -180,7 +194,7 @@ namespace AsphaltTas
 
         j[SerializeKeys::Meta::ROOT][SerializeKeys::Meta::TITLE]            = replay.GetName();
         j[SerializeKeys::Meta::ROOT][SerializeKeys::Meta::TIMESTAMP]        = std::time(nullptr);
-        j[SerializeKeys::Meta::ROOT][SerializeKeys::Meta::VERSION]          = 1;
+        j[SerializeKeys::Meta::ROOT][SerializeKeys::Meta::VERSION]          = ReplayVersion::NEWEST;
         j[SerializeKeys::Meta::ROOT][SerializeKeys::Meta::FRAME_INTERVAL]   = replay.GetFrameIntervalMicros();
 
         j[SerializeKeys::ReplayInputs::ROOT] = nlohmann::ordered_json::array();
@@ -217,6 +231,7 @@ namespace AsphaltTas
 
                 tick[SerializeKeys::ReplayInputs::BARREL_RBX_2228] = FloatToDecimal(in.m_value_rbx_2228);
                 tick[SerializeKeys::ReplayInputs::BARREL_RBX_222C] = FloatToDecimal(in.m_value_rbx_222C);
+                tick[SerializeKeys::ReplayInputs::RESPAWN_BUTTON]  = in.m_respawn_button_press;
 
                 j[SerializeKeys::ReplayInputs::ROOT].push_back(tick);
             }
@@ -306,7 +321,8 @@ namespace AsphaltTas
     
         Replay replay;
         replay.SetName(std::string(doc[SerializeKeys::Meta::ROOT][SerializeKeys::Meta::TITLE].get_string().value()));
-        replay.SetFrameIntervalMicros(doc[SerializeKeys::Meta::ROOT][SerializeKeys::Meta::FRAME_INTERVAL]->get_uint32());
+        const ReplayVersion replay_version { static_cast<uint32_t>(doc[SerializeKeys::Meta::ROOT][SerializeKeys::Meta::VERSION].get_uint32()) };
+        replay.SetFrameIntervalMicros(doc[SerializeKeys::Meta::ROOT][SerializeKeys::Meta::FRAME_INTERVAL].get_uint32());
     
         size_t index = 0;
         for (auto input : doc[SerializeKeys::ReplayInputs::ROOT].get_array())
@@ -314,13 +330,13 @@ namespace AsphaltTas
             Frame frame;
             auto& out_input = frame.m_replay_input;
     
-            out_input.m_race_frame_tick = uint32_t(input[SerializeKeys::ReplayInputs::TICK].get_uint64());
+            out_input.m_race_frame_tick = input[SerializeKeys::ReplayInputs::TICK].get_uint32();
     
             out_input.m_steer_value       = DecimalToFloat(input[SerializeKeys::ReplayInputs::STEER_BITS].value());
             out_input.m_brake_value       = DecimalToFloat(input[SerializeKeys::ReplayInputs::BRAKE_BITS].value());
             out_input.m_accelerator_value = DecimalToFloat(input[SerializeKeys::ReplayInputs::ACCEL_BITS].value());
     
-            out_input.m_nitro_activation_count_this_frame = uint32_t(input[SerializeKeys::ReplayInputs::NITRO_ACTIVATIONS].get_uint64());
+            out_input.m_nitro_activation_count_this_frame = input[SerializeKeys::ReplayInputs::NITRO_ACTIVATIONS].get_uint32();
     
             {
                 auto arr = input[SerializeKeys::ReplayInputs::BARREL_ANGULAR_VELOCITIES].get_array();
@@ -333,6 +349,11 @@ namespace AsphaltTas
     
             out_input.m_value_rbx_2228 = DecimalToFloat(input[SerializeKeys::ReplayInputs::BARREL_RBX_2228].value());
             out_input.m_value_rbx_222C = DecimalToFloat(input[SerializeKeys::ReplayInputs::BARREL_RBX_222C].value());
+
+            if (replay_version >= ReplayVersion::VERSION_2)
+            {
+                out_input.m_respawn_button_press = input[SerializeKeys::ReplayInputs::RESPAWN_BUTTON]->get_bool();
+            }
     
             if (index < racer_state_cache.size())
             {

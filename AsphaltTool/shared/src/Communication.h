@@ -55,7 +55,6 @@ namespace Communication
             //// Accelerator
             float m_accelerator_value {};
 
-            //////////////// Implementation related
             //// Barrel-Angular-Patch
             std::array<float, 3> m_barrel_angular_velocities_vec3 = {};
 
@@ -63,7 +62,10 @@ namespace Communication
             float m_value_rbx_2228 = {};
             float m_value_rbx_222C = {};
 
-            uint8_t __ignore__padding[4];
+            // Respawn button press
+            bool m_respawn_button_press = false;
+
+            uint8_t __ignore__padding[3];
         };
         static_assert(sizeof(RecordedReplayInputData) == 8 * sizeof(float) + 2 * sizeof(std::uint32_t) + 4 * sizeof(uint8_t), "No packing should occur");
 
@@ -120,6 +122,7 @@ namespace Communication
             uintptr_t m_nitro_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
             uintptr_t m_brake_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
             uintptr_t m_steer_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
+            uintptr_t m_respawn_func_spoofed_rcx_arg       = NO_VALID_RESOLVED_ADDRESS;
 
             void ResetAll() noexcept
             {
@@ -132,20 +135,21 @@ namespace Communication
                 m_nitro_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
                 m_brake_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
                 m_steer_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
+                m_respawn_func_spoofed_rcx_arg       = NO_VALID_RESOLVED_ADDRESS;
             }
         };
-        static_assert(sizeof(ResolvedAddresses) == 8 * sizeof(uintptr_t), "No packing should occur");
+        static_assert(sizeof(ResolvedAddresses) == 9 * sizeof(uintptr_t), "No packing should occur");
 
         struct XInputState 
         {
             uint32_t m_packet_id {};
             uint16_t m_buttons {};
-            uint8_t m_left_trigger {};
-            uint8_t m_right_trigger {};
-            int16_t m_thumb_lx {};
-            int16_t m_thumb_ly {};
-            int16_t m_thumb_rx {}; 
-            int16_t m_thumb_ry {};
+            uint8_t  m_left_trigger {};
+            uint8_t  m_right_trigger {};
+            int16_t  m_thumb_lx {};
+            int16_t  m_thumb_ly {};
+            int16_t  m_thumb_rx {}; 
+            int16_t  m_thumb_ry {};
         };
         static_assert(sizeof(XInputState) == sizeof(uint32_t) + sizeof(uint16_t) + 2 * sizeof(uint8_t) + 4 * sizeof(int16_t), "No packing should occur");
 
@@ -167,7 +171,8 @@ namespace Communication
             bool m_gui_is_hidden                            = false;
             bool m_apply_game_target_fps_interval_override  = false;
             bool m_speed_up_pre_race_cinematic              = false;
-            uint8_t __ignore_padding__[7];
+            bool m_force_accomplish_target_fps_interval     = false;
+            uint8_t __ignore_padding__[6];
         };
         static_assert(sizeof(DllStateMetaData) == sizeof(ReplayMode) + 4 * sizeof(std::uint32_t) + sizeof(float) + sizeof(SkipAnimationFlags) +
                             + 12 * sizeof(bool), "No packing should occur");
@@ -176,6 +181,7 @@ namespace Communication
         {   
         private:
             std::uint64_t m_monotonic_packet_id {0};
+            static inline std::atomic<std::uint64_t> s_monotonic_packet_counter = {};
 
         public:
             ResolvedAddresses m_resolved_addresses {};
@@ -188,7 +194,6 @@ namespace Communication
             [[nodiscard]] inline std::uint64_t GetMonotonicPacketID() noexcept { return m_monotonic_packet_id; }
             inline void IncreasePacketIDToHighest() noexcept { m_monotonic_packet_id = DllStateOut::s_monotonic_packet_counter.fetch_add(1, std::memory_order_acq_rel); }
             inline DllStateOut() noexcept : m_monotonic_packet_id(DllStateOut::s_monotonic_packet_counter.fetch_add(1, std::memory_order_acq_rel)) {}
-            static inline std::atomic<std::uint64_t> s_monotonic_packet_counter = {};
         };
         static_assert(sizeof(DllStateOut) == sizeof(std::uint64_t) + sizeof(ResolvedAddresses) + sizeof(RecordedReplayInputData) + sizeof(RecordedRacerState) 
                                            + sizeof(RecordedCameraState) + sizeof(XInputState) + sizeof(DllStateMetaData), "No packing should occur");
@@ -227,8 +232,14 @@ namespace Communication
             //// Barrel-RBX Values-Patch
             float m_value_rbx_2228 = {};
             float m_value_rbx_222C = {};
+
+            // Respawn button press
+            bool m_respawn_button_press = false;
+
+            // Pad
+            uint8_t __ignore__padding__[3];
         };
-        static_assert(sizeof(DllReplayInputIn) == 8 * sizeof(float) + 2 * sizeof(std::uint32_t), "No packing should occur");
+        static_assert(sizeof(DllReplayInputIn) == 8 * sizeof(float) + 2 * sizeof(std::uint32_t) + 4 * sizeof(uint8_t), "No packing should occur");
 
         struct WriteRacerState
         {
@@ -287,7 +298,8 @@ namespace Communication
             bool m_hide_gui                                 = false;
             bool m_apply_game_target_fps_interval_override  = false;
             bool m_speed_up_pre_race_cinematic              = false;
-            uint8_t __ignore_padding__[7];
+            bool m_force_accomplish_target_fps_interval     = false;
+            uint8_t __ignore_padding__[6];
         };
         static_assert(sizeof(WriteMetaData) == sizeof(CommandType) + sizeof(ReplayMode) + 4 * sizeof(std::uint32_t) + sizeof(float) + sizeof(SkipAnimationFlags) +
                                            12 * sizeof(bool), "No packing should occur");
@@ -296,6 +308,8 @@ namespace Communication
         {
         private:
             std::uint64_t m_monotonic_packet_id   = {};
+            static inline std::atomic<std::uint64_t> s_monotonic_packet_counter = {};
+
         public:
             WriteRacerState m_write_racer_state   = {};
             WriteCameraState m_write_camera_state = {};
@@ -304,7 +318,6 @@ namespace Communication
             [[nodiscard]] inline std::uint64_t GetMonotonicPacketID() noexcept { return m_monotonic_packet_id; }
             inline void IncreasePacketIDToHighest() noexcept { m_monotonic_packet_id = DllGeneralCommandsIn::s_monotonic_packet_counter.fetch_add(1, std::memory_order_acq_rel); }
             inline DllGeneralCommandsIn() noexcept : m_monotonic_packet_id(DllGeneralCommandsIn::s_monotonic_packet_counter.fetch_add(1, std::memory_order_acq_rel)) {}
-            static inline std::atomic<std::uint64_t> s_monotonic_packet_counter = {};
         };
         static_assert(sizeof(DllGeneralCommandsIn) == sizeof(std::uint64_t) + sizeof(WriteRacerState) + sizeof(WriteCameraState) + sizeof(WriteMetaData), "No packing should occur");
     }

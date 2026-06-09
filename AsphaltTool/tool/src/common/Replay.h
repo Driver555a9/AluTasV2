@@ -56,8 +56,8 @@ namespace AsphaltTas
 
     private:
         std::vector<Frame> m_frames;
-        std::string m_name = "Unnamed Replay";
-        uint32_t m_frame_interval_micros = 8333;
-        size_t m_current_frame_index{0};
+        std::string m_name                        = "Unnamed";
+        uint32_t m_frame_interval_micros          = 8333;
+        size_t m_current_frame_index              = 0;
     };
 }

@@ -18,6 +18,21 @@ namespace AsphaltDLL
             void OnHandleGeneralInBuffer() noexcept;
         }
 
+        ////////////////////////////////////////////
+        // This function runs on the games main thread
+        // Dispatches logic for new frame (including Physics worker thread)
+        // On this same thread runs camera and cp logic
+        // May not be used for replay entry point, because this function runs even in menus
+        ////////////////////////////////////////////
+        namespace MainLoopNewFrameDispatcher
+        {
+            bool SetupHook() noexcept;
+            bool RemoveHook() noexcept;
+            bool EnableHook() noexcept;
+            bool DisableHook() noexcept;
+            [[nodiscard]] HookState GetHookState() noexcept;
+        }
+
         ////////////////////////////////////////////////////////////
         // Function called on each new logical frame. 
         // R8 = elapsed delta time in microseconds
@@ -209,6 +224,32 @@ namespace AsphaltDLL
         }
 
         ///////////////////////////////////////
+        // Called on dynamic object wreck e.g. taffic or racer
+        ///////////////////////////////////////
+        namespace OnWreck
+        {
+            std::uint64_t GetMonotonicWreckSessionCount() noexcept;
+            bool SetupHook() noexcept;
+            bool RemoveHook() noexcept;
+            bool EnableHook() noexcept;
+            bool DisableHook() noexcept;
+            [[nodiscard]] HookState GetHookState() noexcept;
+        }
+
+        ///////////////////////////////////////
+        // Switch case for different inputs; notably for respawn button press
+        ///////////////////////////////////////
+        namespace OnRespawnButtonPressed
+        {
+            void SpoofCallToRespawnInputFunc() noexcept;
+            bool SetupHook() noexcept;
+            bool RemoveHook() noexcept;
+            bool EnableHook() noexcept;
+            bool DisableHook() noexcept;
+            [[nodiscard]] HookState GetHookState() noexcept;
+        }
+
+        ///////////////////////////////////////
         // Getter that returns 1/PF - Physics cycle interval as float secs
         ///////////////////////////////////////
         namespace GetPhysicsInterval
@@ -292,20 +333,6 @@ namespace AsphaltDLL
         // Function returns 0 or 1 to render or hide all of the GUI
         ////////////////////////////////////////////
         namespace RenderGUIToggle
-        {
-            bool SetupHook() noexcept;
-            bool RemoveHook() noexcept;
-            bool EnableHook() noexcept;
-            bool DisableHook() noexcept;
-            [[nodiscard]] HookState GetHookState() noexcept;
-        }
-
-        ////////////////////////////////////////////
-        // This function runs on the games main thread
-        // Dispatches logic for new frame (including Physics worker thread)
-        // On this same thread runs camera and cp logic
-        ////////////////////////////////////////////
-        namespace MainLoopNewFrameDispatcher
         {
             bool SetupHook() noexcept;
             bool RemoveHook() noexcept;

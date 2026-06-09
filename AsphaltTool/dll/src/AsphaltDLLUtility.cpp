@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <random>
+#include <chrono>
 
 namespace AsphaltDLL::Utility
 {
@@ -61,6 +62,11 @@ namespace AsphaltDLL::Utility
         static std::mt19937 gen(rd());
         std::uniform_int_distribution<int> dis(min, max);
         return dis(gen);
+    }
+
+    uint64_t GetMonotonicMicrosecondCount() noexcept
+    {
+        return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
     }
 
     uintptr_t SafeResolvePointerChain(uintptr_t module_base, const std::vector<uintptr_t>& offsets) noexcept
