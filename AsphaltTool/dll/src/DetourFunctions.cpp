@@ -461,29 +461,42 @@ namespace AsphaltDLL
                 void REROUTE_FUNCTION Detour_MainLoopNewFrameDispatcher(uintptr_t rcx, uintptr_t rdx)
                 {
                     std::uint32_t iterations = 0;
+                    
+                    enum class FrameExecutionMode 
+                    {
+                        StandardFallback,
+                        IntroCinematicSkip,
+                        AccumulatorNormalRace,
+                        AccumulatorReplayFastForward
+                    };
+                    
+                    FrameExecutionMode current_mode = FrameExecutionMode::StandardFallback;
 
                     {
                         LOCK_CURRENT_STATE_MUTEX();
+                        
                         const auto status = GameDLLState::g_current_state.m_meta_data.m_race_status_state;
-                        const bool speed_up = GameDLLState::g_current_state.m_meta_data.m_speed_up_pre_race_cinematic;
-                        const uint32_t speed_factor = (GameDLLState::g_current_state.m_meta_data.m_replay_mode_status == Communication::ReplayMode::Inactive)
-                                                 ? 1 : GameDLLState::g_current_state.m_meta_data.m_replay_speed_factor;
+                        const bool speed_up_cin = GameDLLState::g_current_state.m_meta_data.m_speed_up_pre_race_cinematic;
+                        const bool is_replay = (GameDLLState::g_current_state.m_meta_data.m_replay_mode_status != Communication::ReplayMode::Inactive);
+                        const uint32_t speed_factor = is_replay ? GameDLLState::g_current_state.m_meta_data.m_replay_speed_factor : 1;
 
-                        if (status == ComDllOut::RaceStatusState::IN_PRE_RACE_CINEMATIC && speed_up)
+                        if (status == ComDllOut::RaceStatusState::IN_PRE_RACE_CINEMATIC && speed_up_cin)
                         {
-                            // Massive hardcoded skip for cinematics bypasses timing entirely
                             iterations = 10'000;
+                            current_mode = FrameExecutionMode::IntroCinematicSkip;
                         }
+  
                         else if (GameDLLState::g_current_state.m_meta_data.m_force_accomplish_target_fps_interval)
                         {
+                            current_mode = is_replay ? FrameExecutionMode::AccumulatorReplayFastForward : FrameExecutionMode::AccumulatorNormalRace;
+
                             static uint64_t last_time = Utility::GetMonotonicMicrosecondCount();
                             const  uint64_t time_now  = Utility::GetMonotonicMicrosecondCount();
-                            
+
                             const uint64_t elapsed = std::clamp<uint64_t>(time_now - last_time, 0, 250'000);
                             last_time = time_now; 
 
                             static int64_t accumulator = 0;
-                            
                             accumulator += (elapsed * speed_factor);
                             
                             const int64_t target_interval = GameDLLState::g_current_state.m_meta_data.m_game_target_fps_interval_micros;
@@ -503,7 +516,8 @@ namespace AsphaltDLL
                         }
                         else
                         {
-                            iterations = speed_factor;
+                            iterations   = speed_factor;
+                            current_mode = FrameExecutionMode::StandardFallback;
                         }
                     }
 
@@ -511,18 +525,30 @@ namespace AsphaltDLL
                     {
                         RealMainLoopNewFrameDispatcherCall(rcx, rdx);
 
-                        LOCK_CURRENT_STATE_MUTEX();
-                        const auto status = GameDLLState::g_current_state.m_meta_data.m_race_status_state;
-                        const bool speed_up       = GameDLLState::g_current_state.m_meta_data.m_speed_up_pre_race_cinematic;
-                        const bool still_speeding = (status == ComDllOut::RaceStatusState::IN_PRE_RACE_CINEMATIC && speed_up) 
-                                                    || GameDLLState::g_replay_current_frame_inputs.has_value();
-                        if (!still_speeding)
+                        if (current_mode == FrameExecutionMode::AccumulatorNormalRace || current_mode == FrameExecutionMode::StandardFallback)
                         {
-                            break;
+                            continue; 
+                        }
+
+                        LOCK_CURRENT_STATE_MUTEX();
+                        if (current_mode == FrameExecutionMode::IntroCinematicSkip)
+                        {
+                            const auto status = GameDLLState::g_current_state.m_meta_data.m_race_status_state;
+                            if (status != ComDllOut::RaceStatusState::IN_PRE_RACE_CINEMATIC)
+                            {
+                                break;
+                            }
+                        }
+                        else if (current_mode == FrameExecutionMode::AccumulatorReplayFastForward)
+                        {
+                            if (!GameDLLState::g_replay_current_frame_inputs.has_value())
+                            {
+                                break; 
+                            }
                         }
                     }
                 }
-            } 
+            }
 
             bool SetupHook() noexcept
             {
