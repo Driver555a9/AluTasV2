@@ -136,10 +136,43 @@ namespace AsphaltDLL
 
         DetourFunctions::UcrtBaseRand::SetupHook();
         DetourFunctions::UcrtBaseRand::EnableHook();
+
+        //DetourFunctions::Experimental::JtlAbsolutePath::SetupHook();
+        //DetourFunctions::Experimental::JtlAbsolutePath::EnableHook();
+
+        //DetourFunctions::Experimental::FunctionLookup::SetupHook();
+        //DetourFunctions::Experimental::FunctionLookup::EnableHook();
     }
 
     void RemoveHooks() noexcept
     {
+        DetourFunctions::XInput_GetState::DisableHook();
+        DetourFunctions::NewPhysicsFrameFunction::DisableHook();
+        DetourFunctions::NewBulletPhysicsTick::DisableHook();
+        DetourFunctions::BrakeValue::DisableHook();
+        DetourFunctions::SteeringValue::DisableHook();
+        DetourFunctions::AcceleratorValue::DisableHook();
+        DetourFunctions::EnableNitro::DisableHook();
+        DetourFunctions::DecreaseNitroBarFunc::DisableHook();
+        DetourFunctions::IncreaseNitroBarFunc::DisableHook();
+        DetourFunctions::RacerTransformUpdate::DisableHook();
+        DetourFunctions::CameraUpdate::DisableHook();
+        DetourFunctions::BarrelRollStabilization::DisableHook();
+        DetourFunctions::BarrelYawStabilization::DisableHook();
+        DetourFunctions::OnWreck::DisableHook();
+        DetourFunctions::OnRespawnButtonPressed::DisableHook();
+        DetourFunctions::GetPhysicsInterval::DisableHook();
+        DetourFunctions::OnBeginRaceFunction::DisableHook();
+        DetourFunctions::OnClickPlayFunction::DisableHook();
+        DetourFunctions::OnEndRaceFunction::DisableHook();
+        DetourFunctions::FloatXorObfuscationGetter::DisableHook();
+        DetourFunctions::FloatXorObfuscationSetter::DisableHook();
+        DetourFunctions::MainLoopNewFrameDispatcher::DisableHook();
+        DetourFunctions::AnimationProgressFunction::DisableHook();
+        DetourFunctions::UcrtBaseRand::DisableHook();
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
         DetourFunctions::XInput_GetState::RemoveHook();
         DetourFunctions::NewPhysicsFrameFunction::RemoveHook();
         DetourFunctions::NewBulletPhysicsTick::RemoveHook();

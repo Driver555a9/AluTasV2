@@ -377,5 +377,27 @@ namespace AsphaltDLL
             bool DisableHook() noexcept;
             [[nodiscard]] HookState GetHookState() noexcept;
         }
+
+        namespace Experimental 
+        {
+            namespace JtlAbsolutePath
+            {
+                bool SetupHook() noexcept;
+                bool RemoveHook() noexcept;
+                bool EnableHook() noexcept;
+                bool DisableHook() noexcept;
+                [[nodiscard]] HookState GetHookState() noexcept;
+            }
+
+            namespace FunctionLookup
+            {
+                bool SetupHook() noexcept;
+                bool RemoveHook() noexcept;
+                bool EnableHook() noexcept;
+                bool DisableHook() noexcept;
+                [[nodiscard]] HookState GetHookState() noexcept;
+            }
+        }
+
     }
 }

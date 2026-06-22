@@ -2,6 +2,7 @@
 
 #ifdef _WIN32
 
+#define NO_MIN_MAX
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
@@ -171,7 +172,7 @@ namespace Communication
             bool m_gui_is_hidden                            = false;
             bool m_apply_game_target_fps_interval_override  = false;
             bool m_speed_up_pre_race_cinematic              = false;
-            bool m_force_accomplish_target_fps_interval     = false;
+            bool m_force_accomplish_target_fps_interval     = true;
             uint8_t __ignore_padding__[6];
         };
         static_assert(sizeof(DllStateMetaData) == sizeof(ReplayMode) + 4 * sizeof(std::uint32_t) + sizeof(float) + sizeof(SkipAnimationFlags) +
@@ -233,13 +234,27 @@ namespace Communication
             float m_value_rbx_2228 = {};
             float m_value_rbx_222C = {};
 
+            // Skips
+            enum SkipOverride : std::uint32_t
+            {
+                NONE             = 0,
+                STEER            = 1 << 0, 
+                BRAKE            = 1 << 1, 
+                NITRO_ACTIVATION = 1 << 2, 
+                ACCELERATOR      = 1 << 3, 
+                BARREL_ANGULAR   = 1 << 4, 
+                BARREL_RBX       = 1 << 5,
+                RESPAWN_BUTTON   = 1 << 6
+            };
+            SkipOverride m_skip_override_flags = SkipOverride::NONE;
+
             // Respawn button press
             bool m_respawn_button_press = false;
 
             // Pad
-            uint8_t __ignore__padding__[3];
+            uint8_t __ignore__padding__[7];
         };
-        static_assert(sizeof(DllReplayInputIn) == 8 * sizeof(float) + 2 * sizeof(std::uint32_t) + 4 * sizeof(uint8_t), "No packing should occur");
+        static_assert(sizeof(DllReplayInputIn) == 8 * sizeof(float) + 3 * sizeof(std::uint32_t) + 8 * sizeof(uint8_t), "No packing should occur");
 
         struct WriteRacerState
         {
@@ -298,7 +313,7 @@ namespace Communication
             bool m_hide_gui                                 = false;
             bool m_apply_game_target_fps_interval_override  = false;
             bool m_speed_up_pre_race_cinematic              = false;
-            bool m_force_accomplish_target_fps_interval     = false;
+            bool m_force_accomplish_target_fps_interval     = true;
             uint8_t __ignore_padding__[6];
         };
         static_assert(sizeof(WriteMetaData) == sizeof(CommandType) + sizeof(ReplayMode) + 4 * sizeof(std::uint32_t) + sizeof(float) + sizeof(SkipAnimationFlags) +
