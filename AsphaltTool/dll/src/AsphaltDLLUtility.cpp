@@ -1,4 +1,5 @@
 #include "AsphaltDLLUtility.h"
+#include "Communication.h"
 #include <cstdint>
 #include <cstdio>
 #include <random>
@@ -82,7 +83,7 @@ namespace AsphaltDLL::Utility
         }
         __except(EXCEPTION_EXECUTE_HANDLER) 
         {
-            return NULL;
+            return NO_VALID_RESOLVED_ADDRESS;
         }
     }
 
@@ -156,8 +157,8 @@ namespace AsphaltDLL::Utility
     std::array<float, 3> RotateVectorByQuaternionXZYW(const Utility::QuaternionXZYW& q, const std::array<float, 3>& v) noexcept
     {
         const float qx = q.x;
-        const float qy = q.z; // Formula conversion
-        const float qz = q.y; // Formula conversion
+        const float qy = q.z; // Swap z,y for formula due to game convention XZY
+        const float qz = q.y; 
         const float qw = q.w;
 
         const float vx = v[0];

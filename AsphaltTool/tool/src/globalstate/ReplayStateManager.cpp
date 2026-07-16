@@ -94,7 +94,7 @@ namespace AsphaltTas::ReplayStateManager
 
         ClearInputCommandBuffer();
 
-        g_queued_playback.emplace(PlaybackSession{replay, min(target_tick, static_cast<uint32_t>(replay.GetAmountFrames() - 1))});
+        g_queued_playback.emplace(PlaybackSession{replay, std::min<uint32_t>(target_tick, replay.GetAmountFrames() - 1)});
         g_queued_playback->m_replay.ResetFrameIndex();
 
         // We are not in a race (before next race) therefore we rig the dll to expect frames right away
@@ -113,7 +113,7 @@ namespace AsphaltTas::ReplayStateManager
             return false;
         }
         
-        g_queued_playback->m_final_tick = min(target_tick, g_queued_playback->m_replay.GetAmountFrames() - 1);
+        g_queued_playback->m_final_tick = std::min<uint32_t>(target_tick, g_queued_playback->m_replay.GetAmountFrames() - 1);
         return true;
     }
 

@@ -145,7 +145,7 @@ namespace AsphaltTas
                     const bool playback_active = active_replay->m_replay.GetCurrentIndex() > 0;
                     if (playback_active)
                     {
-                        ImGui::Text("Progress    : Tick %u/%u", min(dll_out_copy->m_replay_inputs.m_race_frame_tick, active_replay->m_final_tick), active_replay->m_final_tick);
+                        ImGui::Text("Progress    : Tick %u/%u", std::min<uint32_t>(dll_out_copy->m_replay_inputs.m_race_frame_tick, active_replay->m_final_tick), active_replay->m_final_tick);
                     }
                     else 
                     {

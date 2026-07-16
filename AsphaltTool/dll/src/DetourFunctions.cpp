@@ -704,6 +704,12 @@ namespace AsphaltDLL
                     return false;
                 }
 
+                if (!RealSteeringValueCall)
+                {
+                    DLL_ERROR_PRINT("Could not spoof call to steer value function because hook is not in place");
+                    return false;
+                }
+
                 RealSteeringValueCall(reinterpret_cast<void*>(GameDLLState::g_current_state.m_resolved_addresses.m_steer_func_spoofed_rcx_arg), &steer);
                 return true;
             }
@@ -760,6 +766,12 @@ namespace AsphaltDLL
                 if (GameDLLState::g_current_state.m_resolved_addresses.m_brake_func_spoofed_rcx_arg == NO_VALID_RESOLVED_ADDRESS)
                 {
                     DLL_ERROR_PRINT("Could not spoof call to brake value function because rcx arg is not resolved yet");
+                    return false;
+                }
+
+                if (!RealBrakeValueCall)
+                {
+                    DLL_ERROR_PRINT("Could not spoof call to brake value function because hook is not in place");
                     return false;
                 }
 
@@ -1200,6 +1212,12 @@ namespace AsphaltDLL
                             rotation.y, 
                             rotation.w
                         };
+
+                        DLL_INFO_LOG("Successfully applied local offset");
+                    }
+                    else 
+                    {
+                        DLL_ERROR_PRINT_NO_TEXT();
                     }
                 }
 
@@ -1221,6 +1239,10 @@ namespace AsphaltDLL
                         if (override_flags & ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_RELATIVE_TO_CAR)
                         {
                             SetCameraRelativeToLocalRacerWithOffset(cam.m_offset_relative_to_car, cam.m_look_backwards);
+                            std::memcpy(reinterpret_cast<uint8_t*>(cam_position_addr + ComDllIn::WriteCameraState::OFFSET_POSITON_VEC3), 
+                                cam.m_camera_position_vec3.data(), sizeof(cam.m_camera_position_vec3));
+                            std::memcpy(reinterpret_cast<uint8_t*>(cam_position_addr + ComDllIn::WriteCameraState::OFFSET_ROTATION_QUAT), 
+                                cam.m_camera_rotation_quat.data(), sizeof(cam.m_camera_rotation_quat));
                         }
 
                         if (override_flags & ComDllIn::WriteCameraState::CONTINUOUS_OVERRIDE_POSITION)
@@ -1511,8 +1533,8 @@ namespace AsphaltDLL
 
         bool SetupHook() noexcept
         {
-            constexpr uintptr_t TARGET_FUNCTION_PROLOGUE = 0x250390; 
-            return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", TARGET_FUNCTION_PROLOGUE, reinterpret_cast<LPVOID>(&Detour_OnRespawnButtonPressed), 
+            constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x250390; 
+            return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_OnRespawnButtonPressed), 
                                               &g_real_function_address, reinterpret_cast<LPVOID*>(&RealOnRespawnButtonPressedCall), g_hook_state);
         }
 
@@ -1797,12 +1819,12 @@ namespace AsphaltDLL
 
                 void REROUTE_FUNCTION Detour_AnimationProgressFunction(uintptr_t rcx, int64_t* rdx)
                 {
-                    uintptr_t metadata_ptr  = *reinterpret_cast<uintptr_t*>(rcx + 8);
-                    int32_t internal_offset = *reinterpret_cast<int32_t*>(metadata_ptr + 4);
+                    const uintptr_t metadata_ptr  = *reinterpret_cast<uintptr_t*>(rcx + 8);
+                    const int32_t internal_offset = *reinterpret_cast<int32_t*>(metadata_ptr + 4);
                     
-                    uintptr_t adjusted_rcx = rcx + internal_offset + 8;
+                    const uintptr_t adjusted_rcx = rcx + internal_offset + 8;
 
-                    uintptr_t* vtable = *reinterpret_cast<uintptr_t**>(adjusted_rcx);
+                    const uintptr_t* vtable = *reinterpret_cast<uintptr_t**>(adjusted_rcx);
 
                     using GetDuration_t = void(__fastcall*)(uintptr_t, int64_t*);
                     GetDuration_t GetDuration = reinterpret_cast<GetDuration_t>(vtable[12]);

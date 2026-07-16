@@ -2,7 +2,7 @@
 
 #ifdef _WIN32
 
-#define NO_MIN_MAX
+#define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
@@ -103,7 +103,7 @@ namespace Communication
             constexpr static std::uint32_t CONTINUOUS_OVERRIDE_FOV_RAD            = 1 << 2;
             constexpr static std::uint32_t CONTINUOUS_OVERRIDE_RELATIVE_TO_CAR    = 1 << 3;
             
-            // Utility: memory offsets from resolved address
+            // Utility: memory offsets from resolved address, NOT from Vtable*
             constexpr static const inline uintptr_t OFFSET_POSITON_VEC3  = 0x0;
             constexpr static const inline uintptr_t OFFSET_ROTATION_QUAT = 0xC;
             constexpr static const inline uintptr_t OFFSET_FOV_RADIANS   = 0xF0;
