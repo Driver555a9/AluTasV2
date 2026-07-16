@@ -1212,12 +1212,6 @@ namespace AsphaltDLL
                             rotation.y, 
                             rotation.w
                         };
-
-                        DLL_INFO_LOG("Successfully applied local offset");
-                    }
-                    else 
-                    {
-                        DLL_ERROR_PRINT_NO_TEXT();
                     }
                 }
 
