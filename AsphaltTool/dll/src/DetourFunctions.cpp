@@ -850,7 +850,7 @@ namespace AsphaltDLL
                         LOCK_CURRENT_STATE_MUTEX();
                         if (GameDLLState::g_replay_current_frame_inputs.has_value())
                         {
-                            // We prevent player from clicking nitro if we're in a replay framet
+                            // We prevent player from clicking nitro if we're in a replay frame
                             return;
                         }
 
@@ -1509,7 +1509,6 @@ namespace AsphaltDLL
 
         void SpoofCallToRespawnInputFunc() noexcept
         {
-            return;
             if (RealOnRespawnButtonPressedCall == nullptr)
             {
                 DLL_ERROR_PRINT("Could not spoof call to respawn button: hook not in place.");

@@ -105,7 +105,7 @@ namespace AsphaltDLL
 
         ///////////////////////////////////////
         // Function is called when any nitro button is pressed
-        // RCX parameter = NitroState; if provided we can spoof a call to enable nitro without relying on input
+        // RCX parameter = NitroState; if provided rcx we can spoof a call to enable nitro without relying on input
         ///////////////////////////////////////
         namespace EnableNitro 
         {
@@ -225,6 +225,7 @@ namespace AsphaltDLL
 
         ///////////////////////////////////////
         // Called on dynamic object wreck e.g. taffic or racer
+        // Deploys breakables specifically (not main wreck entrypoint)
         ///////////////////////////////////////
         namespace OnWreck
         {
