@@ -6,8 +6,11 @@
 
 #include <string_view>
 #include <iostream>
+#include <optional>
 #include <vector>
 #include <array>
+
+#include "BulletTypes.h"
 
 namespace AsphaltDLL
 {
@@ -22,17 +25,44 @@ namespace AsphaltDLL
         [[nodiscard]] uint64_t GetMonotonicMicrosecondCount() noexcept;
         
         [[nodiscard]] uintptr_t SafeResolvePointerChain(uintptr_t module_base, const std::vector<uintptr_t>& offsets) noexcept;
+
+        template <typename T>
+        std::optional<T*> SafeReadPointer(T* const* ptr) noexcept
+        {
+            T* result = nullptr;
+            __try
+            {
+                if (ptr) result = *ptr;
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER) 
+            {
+                return std::nullopt;
+            }
+            return result;
+        }
+
+        template <typename T>
+        std::optional<T*> SafeDereference(T* ptr) noexcept
+        {
+            __try
+            {
+                if (!ptr) return std::nullopt;
+
+                volatile char dummy = *reinterpret_cast<volatile char*>(ptr);
+                (void)dummy;
+                return ptr;
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER)
+            {
+                return std::nullopt;
+            }
+        }
+
         std::string LPCWSTRToString(LPCWSTR lpcwstr) noexcept;
 
-        struct QuaternionXZYW 
-        {
-            float x;
-            float z;
-            float y;
-            float w;
-        };
-        [[nodiscard]] QuaternionXZYW RotationExtractQuatCast(const std::array<float, 9>& mat) noexcept;
-        [[nodiscard]] std::array<float, 3> RotateVectorByQuaternionXZYW(const Utility::QuaternionXZYW& q, const std::array<float, 3>& v) noexcept;
+        [[nodiscard]] BulletTypes::Quaternion RotationFromTransform(const BulletTypes::Transform& mat) noexcept;
+        [[nodiscard]] BulletTypes::Vector3 RotateVectorByQuaternion(const BulletTypes::Quaternion& q, const BulletTypes::Vector3& v) noexcept;
+        [[nodiscard]] BulletTypes::Vector3 PositionFromTransform(const BulletTypes::Transform& mat) noexcept;
                 
         namespace ColorCodes
         {

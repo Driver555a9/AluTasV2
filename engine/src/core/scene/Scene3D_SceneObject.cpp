@@ -553,7 +553,7 @@ namespace CoreEngine
                 const OwnedCompoundShape* compound = static_cast<OwnedCompoundShape*>(m_physics_object->GetShape());
 
                 ENGINE_ASSERT(compound->GetFirstBaseShape()->getShapeType() == BOX_SHAPE_PROXYTYPE 
-                              && "At SceneObject::SerializeToJson(): Serialization support for Owned Compouind Shape very lacking. Right now only one Box works.");
+                              && "At SceneObject::SerializeToJson(): Serialization support for Owned Compound Shape very lacking. Right now only one Box works.");
 
                 const btBoxShape* shape = static_cast<const btBoxShape*>(compound->GetFirstBaseShape());
                 const btVector3 half_extents = shape->getHalfExtentsWithoutMargin();

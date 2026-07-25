@@ -1,6 +1,5 @@
 #include "common/Replay.h"
 
-#include "common/RacerState.h"
 #include "core/utility/Assert.h"
 #include "core/utility/CommonUtility.h"
 
@@ -112,7 +111,8 @@ namespace AsphaltTas
     {
         VERSION_1 = 1, // Core features that are mandatory
         VERSION_2 = 2, // Added: bool RespawnButton for respawn button press inputs
-        NEWEST    = VERSION_2
+        VERSION_3 = 3, // Added: RACE_PROGRESS, CAR_RPM, CP, GEAR - datapoints for RacerStates
+        NEWEST    = VERSION_3
     };
 
     constexpr std::strong_ordering operator<=>(ReplayVersion lhs, ReplayVersion rhs)
@@ -148,11 +148,15 @@ namespace AsphaltTas
 
         namespace RacerStates
         {
-            constexpr char ROOT[]      = "RacerStates";
-            constexpr char TICK[]      = "Tick";
-            constexpr char TRANSFORM[] = "Transform";
-            constexpr char VELOCITY[]  = "Velocity";
-            constexpr char NITRO_BAR[] = "Nitro%";
+            constexpr char ROOT[]          = "RacerStates";
+            constexpr char TICK[]          = "Tick";
+            constexpr char TRANSFORM[]     = "Transform";
+            constexpr char VELOCITY[]      = "Velocity";
+            constexpr char NITRO_BAR[]     = "Nitro%";
+            constexpr char RACE_PROGRESS[] = "Progress%";
+            constexpr char CAR_RPM[]       = "Rpm";
+            constexpr char CP[]            = "Cp";
+            constexpr char GEAR[]          = "Gear";
         }
     }
 
@@ -181,6 +185,7 @@ namespace AsphaltTas
         }
     }
 
+    // always serializes to newest version (all features)
     std::string Replay::SerializeReplayToString(const Replay& replay)
     {
         const auto FloatToDecimal = [](float f) -> std::string 
@@ -221,10 +226,9 @@ namespace AsphaltTas
 
                 {
                     nlohmann::ordered_json arr = nlohmann::ordered_json::array();
-                    for (float v : in.m_barrel_angular_velocities_vec3)
-                    {
-                        arr.push_back(FloatToDecimal(v));
-                    }
+                    arr.push_back(FloatToDecimal(in.m_barrel_angular_velocities_vec3.x));
+                    arr.push_back(FloatToDecimal(in.m_barrel_angular_velocities_vec3.y));
+                    arr.push_back(FloatToDecimal(in.m_barrel_angular_velocities_vec3.z));
 
                     tick[SerializeKeys::ReplayInputs::BARREL_ANGULAR_VELOCITIES] = arr;
                 }
@@ -244,9 +248,9 @@ namespace AsphaltTas
 
                 {
                     nlohmann::ordered_json arr = nlohmann::ordered_json::array();
-                    for (float v : rs.m_racer_transform_mat4x4)
+                    for (size_t i{}; i < 16; i++)
                     {
-                        arr.push_back(FloatToDecimal(v));
+                        arr.push_back(FloatToDecimal(rs.m_racer_transform_mat4x4[i]));
                     }
 
                     tick[SerializeKeys::RacerStates::TRANSFORM] = arr;
@@ -254,15 +258,18 @@ namespace AsphaltTas
 
                 {
                     nlohmann::ordered_json arr = nlohmann::ordered_json::array();
-                    for (float v : rs.m_racer_velocity_vec3)
-                    {
-                        arr.push_back(FloatToDecimal(v));
-                    }
+                    arr.push_back(FloatToDecimal(rs.m_racer_velocity_vec3.x));
+                    arr.push_back(FloatToDecimal(rs.m_racer_velocity_vec3.y));
+                    arr.push_back(FloatToDecimal(rs.m_racer_velocity_vec3.z));
 
                     tick[SerializeKeys::RacerStates::VELOCITY] = arr;
                 }
 
-                tick[SerializeKeys::RacerStates::NITRO_BAR] = FloatToDecimal(rs.m_nitro_bar_value);
+                tick[SerializeKeys::RacerStates::NITRO_BAR]     = FloatToDecimal(rs.m_nitro_bar_value);
+                tick[SerializeKeys::RacerStates::RACE_PROGRESS] = FloatToDecimal(rs.m_race_progress_percentage);
+                tick[SerializeKeys::RacerStates::CAR_RPM]       = FloatToDecimal(rs.m_rpm);
+                tick[SerializeKeys::RacerStates::CP]            = rs.m_checkpoint;
+                tick[SerializeKeys::RacerStates::GEAR]          = rs.m_gear;
 
                 j[SerializeKeys::RacerStates::ROOT].push_back(tick);
             }
@@ -287,6 +294,8 @@ namespace AsphaltTas
             simdjson::padded_string padded_json_pass1(replay_json);
             simdjson::ondemand::parser parser_pass1;
             auto doc_pass1 = parser_pass1.iterate(padded_json_pass1);
+
+            const ReplayVersion replay_version { static_cast<uint32_t>(doc_pass1[SerializeKeys::Meta::ROOT][SerializeKeys::Meta::VERSION].get_uint32()) };
     
             for (auto rs : doc_pass1[SerializeKeys::RacerStates::ROOT].get_array())
             {
@@ -312,6 +321,14 @@ namespace AsphaltTas
     
                 racer_state.m_nitro_bar_value = DecimalToFloat(rs[SerializeKeys::RacerStates::NITRO_BAR].value());
                 racer_state_cache.push_back(racer_state);
+
+                if (replay_version >= ReplayVersion::VERSION_3)
+                {
+                    racer_state.m_race_progress_percentage = DecimalToFloat(rs[SerializeKeys::RacerStates::RACE_PROGRESS].value());
+                    racer_state.m_rpm  = DecimalToFloat(rs[SerializeKeys::RacerStates::CAR_RPM].value());
+                    racer_state.m_checkpoint = rs[SerializeKeys::RacerStates::CP].get_uint32();
+                    racer_state.m_gear       = rs[SerializeKeys::RacerStates::GEAR].get_uint32();
+                }
             }
         }
     

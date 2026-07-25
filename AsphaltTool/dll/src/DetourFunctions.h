@@ -1,6 +1,10 @@
 #pragma once
 
+#define NOMINMAX
 #include <cstdint>
+#include <vector>
+
+#include "BulletTypes.h"
 
 namespace AsphaltDLL
 {
@@ -39,7 +43,7 @@ namespace AsphaltDLL
         // Handles both game side logic (nitro, drift etc.) and calls Physics Update function
         // Does not run whilst in pause menu for whatever reason
         ////////////////////////////////////////////////////////////
-        namespace NewPhysicsFrameFunction 
+        namespace OnNewFrameWithPhysics 
         {
             void QueueSkipSubsequentTicks(uint32_t amount) noexcept;
             bool SetupHook() noexcept;
@@ -301,6 +305,30 @@ namespace AsphaltDLL
             [[nodiscard]] HookState GetHookState() noexcept;
         }
 
+        ///////////////////////////////////////
+        // Writes race % value we can read
+        ///////////////////////////////////////
+        namespace OnUpdateRaceProgress
+        {
+            bool SetupHook() noexcept;
+            bool RemoveHook() noexcept;
+            bool EnableHook() noexcept;
+            bool DisableHook() noexcept;
+            [[nodiscard]] HookState GetHookState() noexcept;
+        }
+
+        ///////////////////////////////////////
+        // Writes CP value we can read
+        ///////////////////////////////////////
+        namespace OnUpdateCheckpoint
+        {
+            bool SetupHook() noexcept;
+            bool RemoveHook() noexcept;
+            bool EnableHook() noexcept;
+            bool DisableHook() noexcept;
+            [[nodiscard]] HookState GetHookState() noexcept;
+        }
+
         ////////////////////////////////////////////
         // Sets float value obfuscated as 3 * 4 bytes into the destination directly
         // Destination must be final game storage address
@@ -392,6 +420,42 @@ namespace AsphaltDLL
 
             namespace FunctionLookup
             {
+                bool SetupHook() noexcept;
+                bool RemoveHook() noexcept;
+                bool EnableHook() noexcept;
+                bool DisableHook() noexcept;
+                [[nodiscard]] HookState GetHookState() noexcept;
+            }
+
+            namespace BVHBroadphaseTraversal
+            {
+                struct DumpedNode 
+                {
+                    BulletTypes::BroadphaseProxy*  m_broadphase_proxy {};
+                    BulletTypes::Vector3           m_aabb_min {};
+                    BulletTypes::Vector3           m_aabb_max {};
+                };
+
+                [[nodiscard]] std::vector<DumpedNode> DumpAllLeaves() noexcept;
+                bool SetupHook() noexcept;
+                bool RemoveHook() noexcept;
+                bool EnableHook() noexcept;
+                bool DisableHook() noexcept;
+                [[nodiscard]] HookState GetHookState() noexcept;
+            }
+
+            namespace OnRaycastVehicleUpdate
+            {
+                bool SetupHook() noexcept;
+                bool RemoveHook() noexcept;
+                bool EnableHook() noexcept;
+                bool DisableHook() noexcept;
+                [[nodiscard]] HookState GetHookState() noexcept;
+            }
+
+            namespace PhysicsWorldRaycast
+            {
+                [[nodiscard]] BulletTypes::RaycastOutput SpoofCallToCastRay(BulletTypes::Vector3 start, BulletTypes::Vector3 end, uint16_t layer_mask, uint16_t query_flags) noexcept;
                 bool SetupHook() noexcept;
                 bool RemoveHook() noexcept;
                 bool EnableHook() noexcept;

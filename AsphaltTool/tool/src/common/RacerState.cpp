@@ -1,29 +1,33 @@
 #include "common/RacerState.h"
 
+#include "BulletTypes.h"
 #include "core/utility/CommonUtility.h"
-#include "glm/gtc/type_ptr.hpp"
-#include "glm/gtx/orthonormalize.hpp"
+#include <bit>
 
 namespace AsphaltTas
 {
     RacerState::RacerState(const ComDllIn::WriteRacerState& state) noexcept
     {
-        std::memcpy(glm::value_ptr(m_transform), state.m_racer_transform_mat4x4.data(), sizeof(decltype(m_transform)));
-        std::memcpy(glm::value_ptr(m_velocity), state.m_racer_velocity_vec3.data(), sizeof(decltype(m_velocity)));
+        m_transform = std::bit_cast<glm::mat4>(state.m_racer_transform_mat4x4);
+        m_velocity  = std::bit_cast<glm::vec3>(state.m_racer_velocity_vec3);
     }
     
     RacerState::RacerState(const ComDllOut::RecordedRacerState& state) noexcept
     {
-        std::memcpy(glm::value_ptr(m_transform), state.m_racer_transform_mat4x4.data(), sizeof(decltype(m_transform)));
-        std::memcpy(glm::value_ptr(m_velocity), state.m_racer_velocity_vec3.data(), sizeof(decltype(m_velocity)));
+        m_transform = std::bit_cast<glm::mat4>(state.m_racer_transform_mat4x4);
+        m_velocity  = std::bit_cast<glm::vec3>(state.m_racer_velocity_vec3);
+        m_race_progress_percentage = state.m_race_progress_percentage;
+        m_rpm = state.m_rpm;
+        m_checkpoint = state.m_checkpoint;
+        m_gear = state.m_gear;
     }
 
     ComDllIn::WriteRacerState RacerState::ToWriteRacerState() noexcept
     {
         ComDllIn::WriteRacerState out;
 
-        std::memcpy(out.m_racer_transform_mat4x4.data(), glm::value_ptr(m_transform), sizeof(decltype(m_transform)));
-        std::memcpy(out.m_racer_velocity_vec3.data(), glm::value_ptr(m_velocity), sizeof(decltype(m_velocity)));
+        out.m_racer_transform_mat4x4 = std::bit_cast<BulletTypes::UnalignedTransform>(m_transform);
+        out.m_racer_velocity_vec3    = std::bit_cast<BulletTypes::UnalignedVector3>(m_velocity);
 
         return out;
     }
@@ -32,9 +36,12 @@ namespace AsphaltTas
     {
         ComDllOut::RecordedRacerState out;
 
-        std::memcpy(out.m_racer_transform_mat4x4.data(), glm::value_ptr(m_transform), sizeof(decltype(m_transform)));
-        std::memcpy(out.m_racer_velocity_vec3.data(), glm::value_ptr(m_velocity), sizeof(decltype(m_velocity)));
-
+        out.m_racer_transform_mat4x4   = std::bit_cast<BulletTypes::UnalignedTransform>(m_transform);
+        out.m_racer_velocity_vec3      = std::bit_cast<BulletTypes::UnalignedVector3>(m_velocity);
+        out.m_race_progress_percentage = m_race_progress_percentage;
+        out.m_rpm                = m_rpm;
+        out.m_checkpoint               = m_checkpoint;
+        out.m_gear                     = m_gear;
         return out;
     }
 
@@ -134,6 +141,42 @@ namespace AsphaltTas
     void RacerState::SetTransformMatrixGameloft_XZY(const glm::mat4& trans) noexcept
     {
         m_transform = trans;
+    }
+
+    float RacerState::GetRaceProgress() const noexcept
+    {
+        return m_race_progress_percentage;
+    }
+    void RacerState::SetRaceProgress(float prog) noexcept
+    {
+        m_race_progress_percentage = prog;
+    }
+
+    float RacerState::GetRpm() const noexcept
+    {
+        return m_rpm;
+    }
+    void RacerState::SetRpm(float rpm) noexcept
+    {
+        m_rpm = rpm;
+    }
+
+    std::uint32_t RacerState::GetCheckpoint() const noexcept
+    {   
+        return m_checkpoint;
+    }
+    void RacerState::SetCheckpoint(std::uint32_t cp) noexcept
+    {
+        m_checkpoint = cp;
+    }
+
+    std::uint32_t RacerState::GetGear() const noexcept
+    {
+        return m_gear;
+    }
+    void RacerState::SetGear(std::uint32_t gear) noexcept
+    {
+        m_gear = gear;
     }
 
     std::string RacerState::ToString() const noexcept

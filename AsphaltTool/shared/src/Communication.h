@@ -10,7 +10,8 @@
 #include <cassert>
 #include <atomic>
 #include <type_traits>
-#include <array>
+
+#include "BulletTypes.h"
 
 namespace Communication
 {
@@ -57,7 +58,7 @@ namespace Communication
             float m_accelerator_value {};
 
             //// Barrel-Angular-Patch
-            std::array<float, 3> m_barrel_angular_velocities_vec3 = {};
+            BulletTypes::UnalignedVector3 m_barrel_angular_velocities_vec3 = {};
 
             //// Barrel-RBX Values-Patch
             float m_value_rbx_2228 = {};
@@ -66,15 +67,19 @@ namespace Communication
             // Respawn button press
             bool m_respawn_button_press = false;
 
-            uint8_t __ignore__padding[3];
+            uint8_t __ignore__padding__[3];
         };
         static_assert(sizeof(RecordedReplayInputData) == 8 * sizeof(float) + 2 * sizeof(std::uint32_t) + 4 * sizeof(uint8_t), "No packing should occur");
 
         struct RecordedRacerState
         {
-            std::array<float, 16> m_racer_transform_mat4x4 {};
-            std::array<float, 3> m_racer_velocity_vec3 {};
+            BulletTypes::UnalignedTransform m_racer_transform_mat4x4 {};
+            BulletTypes::UnalignedVector3 m_racer_velocity_vec3 {};
             float m_nitro_bar_value {};
+            float m_race_progress_percentage {};
+            float m_rpm {};
+            std::uint32_t m_checkpoint {};
+            std::uint32_t m_gear {};
             std::uint32_t m_continuous_override_on_flags = 0;
 
             constexpr static std::uint32_t CONTINUOUS_OVERRIDE_TRANSFORM = 1 << 0;
@@ -85,15 +90,15 @@ namespace Communication
             constexpr static uintptr_t OFFSET_TRANSFORM = 0x20;
             constexpr static uintptr_t OFFSET_VELOCITY  = 0x160; 
         };
-        static_assert(sizeof(RecordedRacerState) == 20 * sizeof(float) + sizeof(uint32_t), "No packing should occur");
+        static_assert(sizeof(RecordedRacerState) == 22 * sizeof(float) + 3 * sizeof(uint32_t), "No packing should occur");
 
         struct RecordedCameraState 
         {
-            std::array<float, 3> m_camera_position_vec3 {};
-            std::array<float, 4> m_camera_rotation_quat {}; // XZYW
+            BulletTypes::UnalignedVector3    m_camera_position_vec3 {};
+            BulletTypes::UnalignedQuaternion m_camera_rotation_quat {};
             float m_fov_radians {};
             float m_aspect_ratio {};
-            std::array<float, 3> m_offset_relative_to_car {}; // Requiures continuous override flag CONTINUOUS_OVERRIDE_RELATIVE_TO_CAR or ignored - RIGHT, FORWARD, UP
+            BulletTypes::UnalignedVector3 m_offset_relative_to_car {}; // Requiures continuous override flag CONTINUOUS_OVERRIDE_RELATIVE_TO_CAR or ignored - RIGHT, FORWARD, UP
             std::uint32_t m_continuous_override_on_flags = 0;
             bool m_look_backwards = false; // Looks backwars if in CONTINUOUS_OVERRIDE_RELATIVE_TO_CAR
             std::uint8_t __ignore__padding__[3];
@@ -119,11 +124,13 @@ namespace Communication
             uintptr_t m_nitro_bar_encrypted_address        = NO_VALID_RESOLVED_ADDRESS; 
             uintptr_t m_steering_struct_gear_address       = NO_VALID_RESOLVED_ADDRESS;
             uintptr_t m_game_target_fps_interval_address   = NO_VALID_RESOLVED_ADDRESS;
+            uintptr_t m_physics_world_instance_address     = NO_VALID_RESOLVED_ADDRESS;
 
             uintptr_t m_nitro_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
             uintptr_t m_brake_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
             uintptr_t m_steer_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
             uintptr_t m_respawn_func_spoofed_rcx_arg       = NO_VALID_RESOLVED_ADDRESS;
+            uintptr_t m_bvh_root_node_objects              = NO_VALID_RESOLVED_ADDRESS;
 
             void ResetAll() noexcept
             {
@@ -132,14 +139,16 @@ namespace Communication
                 m_nitro_bar_encrypted_address        = NO_VALID_RESOLVED_ADDRESS;
                 m_steering_struct_gear_address       = NO_VALID_RESOLVED_ADDRESS;
                 m_game_target_fps_interval_address   = NO_VALID_RESOLVED_ADDRESS;
+                m_physics_world_instance_address     = NO_VALID_RESOLVED_ADDRESS;
 
                 m_nitro_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
                 m_brake_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
                 m_steer_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
                 m_respawn_func_spoofed_rcx_arg       = NO_VALID_RESOLVED_ADDRESS;
+                m_bvh_root_node_objects              = NO_VALID_RESOLVED_ADDRESS;
             }
         };
-        static_assert(sizeof(ResolvedAddresses) == 9 * sizeof(uintptr_t), "No packing should occur");
+        static_assert(sizeof(ResolvedAddresses) == 11 * sizeof(uintptr_t), "No packing should occur");
 
         struct XInputState 
         {
@@ -228,7 +237,7 @@ namespace Communication
 
             ////////// Implementation related
             //// Barrel-Angular-Patch
-            std::array<float, 3> m_barrel_angular_velocities_vec3 = {};
+            BulletTypes::UnalignedVector3 m_barrel_angular_velocities_vec3 = {};
 
             //// Barrel-RBX Values-Patch
             float m_value_rbx_2228 = {};
@@ -259,8 +268,8 @@ namespace Communication
         struct WriteRacerState
         {
             CommandType m_command_type = CommandType::IgnoreCommand;
-            std::array<float, 16> m_racer_transform_mat4x4 {};
-            std::array<float, 3> m_racer_velocity_vec3 {};
+            BulletTypes::UnalignedTransform m_racer_transform_mat4x4 {};
+            BulletTypes::UnalignedVector3 m_racer_velocity_vec3 {};
             float m_nitro_bar_value { -1.0f }; // negative = ignore
             std::uint32_t m_continuous_override_on_flags = 0;
 
@@ -277,10 +286,10 @@ namespace Communication
         struct WriteCameraState 
         {
             CommandType m_command_type = CommandType::IgnoreCommand;
-            std::array<float, 3> m_camera_position_vec3 {};
-            std::array<float, 4> m_camera_rotation_quat {}; // XZYW
+            BulletTypes::UnalignedVector3 m_camera_position_vec3 {};
+            BulletTypes::UnalignedQuaternion m_camera_rotation_quat {}; // XZYW
             float m_fov_radians {};
-            std::array<float, 3> m_offset_relative_to_car {}; // Requiures continuous override flag CONTINUOUS_OVERRIDE_RELATIVE_TO_CAR or ignored - RIGHT, FORWARD, UP
+            BulletTypes::UnalignedVector3 m_offset_relative_to_car {}; // Requiures continuous override flag CONTINUOUS_OVERRIDE_RELATIVE_TO_CAR or ignored - RIGHT, FORWARD, UP
             std::uint32_t m_continuous_override_on_flags = 0;
             bool m_look_backwards = false; // Looks backwars if in CONTINUOUS_OVERRIDE_RELATIVE_TO_CAR
             uint8_t __ignore__padding[7];

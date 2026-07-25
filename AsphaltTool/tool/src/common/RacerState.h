@@ -6,8 +6,6 @@
 #include "glm/glm.hpp"
 #include "glm/gtc/quaternion.hpp"
 
-#include "globalstate/AsphaltDllManager.h"
-
 #include <string>
 
 namespace AsphaltTas
@@ -38,6 +36,18 @@ namespace AsphaltTas
     [[nodiscard]] glm::mat4 GetTransformMatrixGameloft_XZY() const noexcept;
     void SetTransformMatrixGameloft_XZY(const glm::mat4& trans) noexcept;
 
+    [[nodiscard]] float GetRaceProgress() const noexcept;
+    void SetRaceProgress(float prog) noexcept;
+
+    [[nodiscard]] float GetRpm() const noexcept;
+    void SetRpm(float rpm) noexcept;
+
+    [[nodiscard]] std::uint32_t GetCheckpoint() const noexcept;
+    void SetCheckpoint(std::uint32_t cp) noexcept;
+
+    [[nodiscard]] std::uint32_t GetGear() const noexcept;
+    void SetGear(std::uint32_t gear) noexcept;
+
     [[nodiscard]] std::string ToString() const noexcept;
 
     [[nodiscard]] bool Equals(const RacerState& other) const noexcept;
@@ -45,5 +55,9 @@ namespace AsphaltTas
     private:
         glm::mat4 m_transform{};
         glm::vec3 m_velocity{};
+        float m_race_progress_percentage {};
+        float m_rpm {};
+        std::uint32_t m_checkpoint {};
+        std::uint32_t m_gear {};
     };
 }

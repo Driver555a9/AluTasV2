@@ -1,4 +1,5 @@
 #include "AsphaltDLLUtility.h"
+#include "BulletTypes.h"
 #include "Communication.h"
 #include <cstdint>
 #include <cstdio>
@@ -98,19 +99,19 @@ namespace AsphaltDLL::Utility
         return str;
     }
 
-    Utility::QuaternionXZYW RotationExtractQuatCast(const std::array<float, 9>& mat) noexcept 
+    BulletTypes::Quaternion RotationFromTransform(const BulletTypes::Transform& mat) noexcept 
     {
         float r00 = mat[0];  // Right.x
         float r10 = mat[2];  // Right.y
         float r20 = mat[1];  // Right.z
 
-        float r02 = mat[3];  // Forward.x
-        float r12 = mat[5];  // Forward.y
-        float r22 = mat[4];  // Forward.z
+        float r02 = mat[4];  // Forward.x
+        float r12 = mat[6];  // Forward.y
+        float r22 = mat[5];  // Forward.z
 
-        float r01 = mat[6];  // Up.x
-        float r11 = mat[8];  // Up.y
-        float r21 = mat[7];  // Up.z
+        float r01 = mat[8];   // Up.x
+        float r11 = mat[10];  // Up.y
+        float r21 = mat[9];   // Up.z
 
         float qx, qy, qz, qw;
         float trace = r00 + r11 + r22; // Right.x + Up.y + Forward.z
@@ -151,29 +152,35 @@ namespace AsphaltDLL::Utility
             }
         }
 
-        return Utility::QuaternionXZYW{ qx, qz, qy, qw };
+        //TODO: Fix this, why do we return wrong order?
+        return BulletTypes::Quaternion{ qx, qz, qy, qw };
     }
 
-    std::array<float, 3> RotateVectorByQuaternionXZYW(const Utility::QuaternionXZYW& q, const std::array<float, 3>& v) noexcept
+    BulletTypes::Vector3 RotateVectorByQuaternion(const BulletTypes::Quaternion& q, const BulletTypes::Vector3& v) noexcept
     {
         const float qx = q.x;
-        const float qy = q.z; // Swap z,y for formula due to game convention XZY
-        const float qz = q.y; 
+        const float qy = q.y;
+        const float qz = q.z; 
         const float qw = q.w;
 
-        const float vx = v[0];
-        const float vy = v[1];
-        const float vz = v[2];
+        const float vx = v.x;
+        const float vy = v.y;
+        const float vz = v.z;
 
         const float tx = 2.0f * (qy * vz - qz * vy);
         const float ty = 2.0f * (qz * vx - qx * vz);
         const float tz = 2.0f * (qx * vy - qy * vx);
 
-        std::array<float, 3> rotated;
-        rotated[0] = vx + qw * tx + (qy * tz - qz * ty);
-        rotated[1] = vy + qw * ty + (qz * tx - qx * tz);
-        rotated[2] = vz + qw * tz + (qx * ty - qy * tx);
+        BulletTypes::Vector3 rotated;
+        rotated.x = vx + qw * tx + (qy * tz - qz * ty);
+        rotated.y = vy + qw * ty + (qz * tx - qx * tz);
+        rotated.z = vz + qw * tz + (qx * ty - qy * tx);
 
         return rotated;
+    }
+
+    BulletTypes::Vector3 PositionFromTransform(const BulletTypes::Transform& mat) noexcept
+    {
+        return {mat[12], mat[13], mat[14]};
     }
 }

@@ -42,8 +42,10 @@ namespace AsphaltDLL
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(8));
             
-            LOCK_CURRENT_STATE_MUTEX();
-            DetourFunctions::StateManager::OnHandleGeneralInBuffer();
+            {
+                LOCK_CURRENT_STATE_MUTEX();
+                DetourFunctions::StateManager::OnHandleGeneralInBuffer();
+            }
         }
 
         RemoveHooks();
@@ -65,8 +67,8 @@ namespace AsphaltDLL
         DetourFunctions::FloatXorObfuscationGetter::SetupHook();
         DetourFunctions::FloatXorObfuscationGetter::EnableHook();
 
-        DetourFunctions::NewPhysicsFrameFunction::SetupHook();
-        DetourFunctions::NewPhysicsFrameFunction::EnableHook();
+        DetourFunctions::OnNewFrameWithPhysics::SetupHook();
+        DetourFunctions::OnNewFrameWithPhysics::EnableHook();
 
         DetourFunctions::NewBulletPhysicsTick::SetupHook();
         DetourFunctions::NewBulletPhysicsTick::EnableHook();
@@ -122,6 +124,12 @@ namespace AsphaltDLL
         DetourFunctions::OnEndRaceFunction::SetupHook();
         DetourFunctions::OnEndRaceFunction::EnableHook();
 
+        DetourFunctions::OnUpdateRaceProgress::SetupHook();
+        DetourFunctions::OnUpdateRaceProgress::EnableHook();
+
+        DetourFunctions::OnUpdateCheckpoint::SetupHook();
+        DetourFunctions::OnUpdateCheckpoint::EnableHook();
+
         DetourFunctions::RenderGUIToggle::SetupHook();
         DetourFunctions::RenderGUIToggle::EnableHook();
 
@@ -137,17 +145,29 @@ namespace AsphaltDLL
         DetourFunctions::UcrtBaseRand::SetupHook();
         DetourFunctions::UcrtBaseRand::EnableHook();
 
+        /////////////////////////////////////////////////////////////////
+        // Experimental
+        /////////////////////////////////////////////////////////////////
         //DetourFunctions::Experimental::JtlAbsolutePath::SetupHook();
         //DetourFunctions::Experimental::JtlAbsolutePath::EnableHook();
 
         //DetourFunctions::Experimental::FunctionLookup::SetupHook();
         //DetourFunctions::Experimental::FunctionLookup::EnableHook();
+
+        //DetourFunctions::Experimental::BVHBroadphaseTraversal::SetupHook();
+        //DetourFunctions::Experimental::BVHBroadphaseTraversal::EnableHook();
+
+        //DetourFunctions::Experimental::OnRaycastVehicleUpdate::SetupHook();
+        //DetourFunctions::Experimental::OnRaycastVehicleUpdate::EnableHook();
+
+        //DetourFunctions::Experimental::PhysicsWorldRaycast::SetupHook();
+        //DetourFunctions::Experimental::PhysicsWorldRaycast::EnableHook();
     }
 
     void RemoveHooks() noexcept
     {
         DetourFunctions::XInput_GetState::DisableHook();
-        DetourFunctions::NewPhysicsFrameFunction::DisableHook();
+        DetourFunctions::OnNewFrameWithPhysics::DisableHook();
         DetourFunctions::NewBulletPhysicsTick::DisableHook();
         DetourFunctions::BrakeValue::DisableHook();
         DetourFunctions::SteeringValue::DisableHook();
@@ -174,7 +194,7 @@ namespace AsphaltDLL
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
         DetourFunctions::XInput_GetState::RemoveHook();
-        DetourFunctions::NewPhysicsFrameFunction::RemoveHook();
+        DetourFunctions::OnNewFrameWithPhysics::RemoveHook();
         DetourFunctions::NewBulletPhysicsTick::RemoveHook();
         DetourFunctions::BrakeValue::RemoveHook();
         DetourFunctions::SteeringValue::RemoveHook();
