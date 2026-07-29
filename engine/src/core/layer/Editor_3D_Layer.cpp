@@ -1,6 +1,7 @@
 #include "core/layer/Editor_3D_Layer.h"
 
 //Own includes
+#include "core/utility/MathUtility.h"
 #include "core/utility/PhysicsUtility.h"
 #include "core/utility/CommonUtility.h"
 #include "core/utility/Performance.h"
@@ -29,7 +30,7 @@ namespace CoreEngine
 //////////////////////////////////////////////// 
 //---------  Internal Helpers
 //////////////////////////////////////////////// 
-    MathUtility::Ray3D Editor_3D_Layer::ScreenPointToRay(const double mouse_x, const double mouse_y) const noexcept
+    MathUtility::Ray3D Editor_3D_Layer::ScreenPointToRay(double mouse_x, double mouse_y) const noexcept
     {
         const auto [width, height] = Application::Get()->GetWindowPtr(m_handle)->GetFramebufferSize();
 
@@ -242,7 +243,7 @@ namespace CoreEngine
 
     void Editor_3D_Layer::OnImGuiRender() noexcept
     {
-        OnImGuiRender_TopNavigationBar(); // order is relevant - they rely on the last updating relevant size variables
+        //OnImGuiRender_TopNavigationBar(); // order is relevant - they rely on the last updating relevant size variables
         OnImGuiRender_LeftOptionPanel();
         OnImGuiRender_BottomOptionPanel();
         OnImGuiRender_RightOptionPanel();
@@ -359,7 +360,7 @@ namespace CoreEngine
 
         ImGui::PushStyleColor(ImGuiCol_Text, COLOR_TEXT);
         ImGui::PushStyleColor(ImGuiCol_Border, COLOR_BORDER);
-        ImGui::PushStyleColor(ImGuiCol_WindowBg, COLOR_BACKGROUND);
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, COLOR_BG);
 
         ImGui::Begin("Editor_3D_TopNavigationBar", nullptr, window_flags);
 
@@ -395,7 +396,7 @@ namespace CoreEngine
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 
         ImGui::PushStyleColor(ImGuiCol_Border, COLOR_BORDER);
-        ImGui::PushStyleColor(ImGuiCol_WindowBg, COLOR_BACKGROUND);
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, COLOR_BG);
         ImGui::PushStyleColor(ImGuiCol_ResizeGrip,        COLOR_TRANSPARENT);
         ImGui::PushStyleColor(ImGuiCol_ResizeGripHovered, COLOR_TRANSPARENT);
         ImGui::PushStyleColor(ImGuiCol_ResizeGripActive,  COLOR_TRANSPARENT);
@@ -556,6 +557,12 @@ namespace CoreEngine
                     float speed = controller->GetMoveSpeed();
                     ImGui::SliderFloat(":Speed ", &speed, 0.1f, MAX_CAMERA_SPEED);
                     controller->SetMoveSpeed(speed);
+                    float sens = controller->GetSensitivity();
+                    ImGui::SliderFloat(":Sensitivity", &sens, 0.05f, 0.5f);
+                    controller->SetSensitivity(sens);
+                    bool only_look_if_mouse = controller->GetOnlyLookAroundIfRightMouse();
+                    ImGui::Checkbox("Right Mouse to Look", &only_look_if_mouse);
+                    controller->SetOnlyLookAroundIfRightMouse(only_look_if_mouse);
                 }
 
                 if (m_camera_controller->GetType() == Basic_CameraController::Type::OrbitalCam)
@@ -690,7 +697,7 @@ namespace CoreEngine
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 
         ImGui::PushStyleColor(ImGuiCol_Border, COLOR_BORDER);
-        ImGui::PushStyleColor(ImGuiCol_WindowBg, COLOR_BACKGROUND);
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, COLOR_BG);
         ImGui::PushStyleColor(ImGuiCol_ResizeGrip,        COLOR_TRANSPARENT);
         ImGui::PushStyleColor(ImGuiCol_ResizeGripHovered, COLOR_TRANSPARENT);
         ImGui::PushStyleColor(ImGuiCol_ResizeGripActive,  COLOR_TRANSPARENT);
@@ -1109,13 +1116,18 @@ namespace CoreEngine
                     m_selected_object_state.m_object_ptr->SetScale(scale);
                 }
 
+
                 ImGui::Unindent();
             }  
 
             if (ImGui::CollapsingHeader("Render") && m_selected_object_state.m_object_ptr->m_render_model)
             {
                 ImGui::Indent();
-                Basic_Model* model = m_selected_object_state.m_object_ptr->m_render_model.get();
+                const Basic_Model* model = m_selected_object_state.m_object_ptr->m_render_model.get();
+                const MathUtility::AABB aabb = model->GetWorldSpaceAABB();
+                const auto min = aabb.min();
+                const auto max = aabb.max();
+                ImGui::Text("AABB: \nMIN[%f, %f, %f] \nMAX[%f, %f, %f]", min.x, min.y, min.z, max.x, max.y, max.z);
                 ImGui::Checkbox("Highlight AABB", &m_selected_object_state.m_highlight_aabb_box);
                 ImGui::Text("Meshes: %zu", model->GetMeshVectorConstReference().size());
                 ImGui::TextUnformatted(("Scale: " + CommonUtility::GlmVec3ToString(model->GetScale())).c_str());
@@ -1211,7 +1223,7 @@ namespace CoreEngine
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 
         ImGui::PushStyleColor(ImGuiCol_Border, COLOR_BORDER);
-        ImGui::PushStyleColor(ImGuiCol_WindowBg, COLOR_BACKGROUND);
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, COLOR_BG);
         ImGui::PushStyleColor(ImGuiCol_ResizeGrip,        COLOR_TRANSPARENT);
         ImGui::PushStyleColor(ImGuiCol_ResizeGripHovered, COLOR_TRANSPARENT);
         ImGui::PushStyleColor(ImGuiCol_ResizeGripActive,  COLOR_TRANSPARENT);

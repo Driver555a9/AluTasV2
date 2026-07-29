@@ -14,9 +14,9 @@ namespace AsphaltTas
     {
     public:
         ScopeLockedAccess(std::mutex& m, T& v) : m_lock(m), m_value(v) {}
-        T& Get() { return m_value; }
-        T* operator->() { return &m_value; }
-        T& operator*() { return m_value; }
+        [[nodiscard]] T& Get() { return m_value; }
+        [[nodiscard]] T* operator->() { return &m_value; }
+        [[nodiscard]] T& operator*() { return m_value; }
 
         ScopeLockedAccess(const ScopeLockedAccess&)            = delete;
         ScopeLockedAccess& operator=(const ScopeLockedAccess&) = delete;
@@ -38,17 +38,19 @@ namespace AsphaltTas
     {  
         void UpdateCurrentCommunicationState() noexcept;
 
-        ScopeLockedAccess<std::optional<ComDllOut::DllStateOut>> GetDllStateOutLockResultRef() noexcept;
-        ScopeLockedAccess<ComDllIn::DllReplayInputIn> GetDllReplayInputInRef() noexcept;
-        ScopeLockedAccess<ComDllIn::DllGeneralCommandsIn> GetDllGeneralCommandsInRef() noexcept;
+        [[nodiscard]] ScopeLockedAccess<std::optional<ComDllOut::DllStateOut>> GetDllStateOutLockResultRef() noexcept;
+        [[nodiscard]] ScopeLockedAccess<ComDllIn::DllReplayInputIn> GetDllReplayInputInRef() noexcept;
+        [[nodiscard]] ScopeLockedAccess<ComDllIn::DllGeneralCommandsIn> GetDllGeneralCommandsInRef() noexcept;
 
-        std::optional<ComDllOut::DllStateOut> GetDllStateOutCopy() noexcept;
-        ComDllIn::DllReplayInputIn GetDllReplayInputsInCopy() noexcept;
-        ComDllIn::DllGeneralCommandsIn GetDllGeneralCommandsInCopy() noexcept;
+        [[nodiscard]] std::optional<ComDllOut::DllStateOut> GetDllStateOutCopy() noexcept;
+        [[nodiscard]] ComDllIn::DllReplayInputIn GetDllReplayInputsInCopy() noexcept;
+        [[nodiscard]] ComDllIn::DllGeneralCommandsIn GetDllGeneralCommandsInCopy() noexcept;
 
         void InjectIntoGame();
         void EjectFromGame();
         [[nodiscard]] bool IsInjected() noexcept;
+
+        [[nodiscard]] std::optional<std::string> GetGameDirectoryPath() noexcept;
 
         constexpr char g_dll_name_char[]       = "AsphaltToolDLL.dll";
         constexpr wchar_t g_dll_name_wchar_t[] = L"AsphaltToolDLL.dll";

@@ -13,12 +13,12 @@ namespace CoreEngine
         { 
             NONE = 0, 
             
-            PATH_MODEL, 
+            FILE_PATH_MODEL, 
             PRIMITIVE_BOX, 
             PRIMITIVE_SPHERE, 
             POINTS_MODEL, 
 
-            FIRST = PATH_MODEL, 
+            FIRST = FILE_PATH_MODEL, 
             LAST  = POINTS_MODEL
         };
 

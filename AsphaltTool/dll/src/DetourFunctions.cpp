@@ -2,9 +2,10 @@
 #include "DetourFunctions.h"
 #include "AsphaltDLL.h"
 #include "AsphaltDLLUtility.h"
-
+#include "Tests.h"
 #include "BulletTypes.h"
 #include "Communication.h"
+#include "BulletSerializer.h"
 
 #include <atomic>
 #include <basetsd.h>
@@ -20,6 +21,7 @@
 #include <ios>
 #include <minwinbase.h>
 #include <ostream>
+#include <ranges>
 #include <utility>
 #include <algorithm>
 #include <vector>
@@ -239,6 +241,7 @@ namespace AsphaltDLL
                         GameDLLState::g_current_state.m_meta_data.m_apply_game_target_fps_interval_override = meta_cmd.m_apply_game_target_fps_interval_override;
                         GameDLLState::g_current_state.m_meta_data.m_speed_up_pre_race_cinematic             = meta_cmd.m_speed_up_pre_race_cinematic;   
                         GameDLLState::g_current_state.m_meta_data.m_force_accomplish_target_fps_interval    = meta_cmd.m_force_accomplish_target_fps_interval;
+                        GameDLLState::g_current_state.m_meta_data.m_dump_track_request_id                   = meta_cmd.m_dump_track_request_id;
                     }
 
                     if (racer_cmd.m_command_type == ComDllIn::CommandType::ExecuteCommand)
@@ -454,6 +457,22 @@ namespace AsphaltDLL
                     GameDLLState::g_current_state.m_replay_inputs.m_race_frame_tick++;
                 }
             }
+
+            // Does not lock, caller must lock
+            bool OnExportTrack() noexcept
+            {
+                const std::vector<BVHBroadphaseTraversal::DumpedNode> leaves = BVHBroadphaseTraversal::DumpAllLeaves();
+
+                if (leaves.empty()) return false;
+
+                const std::vector<std::pair<BulletTypes::CollisionObject*, bool>> objects = std::ranges::to<std::vector>(leaves 
+                    | std::ranges::views::transform([](const BVHBroadphaseTraversal::DumpedNode& e) -> std::pair<BulletTypes::CollisionObject*, bool> 
+                    { return {e.m_broadphase_proxy->m_client_body, e.m_is_from_static_tree}; }));
+            
+                BulletTypes::Serializer::SerializeObjectsToFile(objects, Communication::DLL_DUMPED_TRACK_FILE_NAME);
+
+                return true;
+            }
         }
 
         namespace MainLoopNewFrameDispatcher
@@ -493,7 +512,6 @@ namespace AsphaltDLL
                             iterations = 10'000;
                             current_mode = FrameExecutionMode::IntroCinematicSkip;
                         }
-  
                         else if (GameDLLState::g_current_state.m_meta_data.m_force_accomplish_target_fps_interval)
                         {
                             current_mode = is_replay ? FrameExecutionMode::AccumulatorReplayFastForward : FrameExecutionMode::AccumulatorNormalRace;
@@ -529,6 +547,24 @@ namespace AsphaltDLL
                         }
                     }
 
+                    // Export track if requested
+                    {
+                        LOCK_CURRENT_STATE_MUTEX();
+                        if (GameDLLState::g_current_state.m_meta_data.m_dump_track_request_id > GameDLLState::g_current_state.m_meta_data.m_last_completed_dump_request_id
+                        && (GameDLLState::g_current_state.m_meta_data.m_race_status_state == Communication::DllOut::RaceStatusState::IN_RACE 
+                        || GameDLLState::g_current_state.m_meta_data.m_race_status_state == Communication::DllOut::RaceStatusState::IN_PRE_RACE_CINEMATIC))
+                        {
+                            if (StateManager::OnExportTrack())
+                            {
+                                GameDLLState::g_current_state.m_meta_data.m_last_completed_dump_request_id = GameDLLState::g_current_state.m_meta_data.m_dump_track_request_id; 
+                            }
+                            else 
+                            {
+                                //DLL_ERROR_PRINT("Failed to export track, despite request.");
+                            }
+                        }
+                    }
+
                     for (std::uint32_t i = 0; i < iterations; ++i)
                     {
                         RealMainLoopNewFrameDispatcherCall(rcx, rdx);
@@ -537,7 +573,6 @@ namespace AsphaltDLL
                         {
                             continue; 
                         }
-
                         LOCK_CURRENT_STATE_MUTEX();
                         if (current_mode == FrameExecutionMode::IntroCinematicSkip)
                         {
@@ -587,7 +622,7 @@ namespace AsphaltDLL
 
                 uintptr_t* Detour_OnNewFrameWithPhysics(void* p_this, uintptr_t* p_out_delta_micros, uintptr_t* p_in_delta_micros)
                 {
-                    // We skip this frame entirely if requested
+                    // We skip this frame entirely if requested after replay end
                     if (g_ticks_left_to_skip > 0)
                     {
                         g_ticks_left_to_skip--;
@@ -626,7 +661,6 @@ namespace AsphaltDLL
                             GameDLLState::g_current_state.m_racer_state.m_gear = *reinterpret_cast<uint32_t*>(gear_addr);
                             constexpr uintptr_t OFFSET_GEAR_TO_RPM = 0x118;
                             GameDLLState::g_current_state.m_racer_state.m_rpm = *reinterpret_cast<float*>(gear_addr + OFFSET_GEAR_TO_RPM);
-
                         }
                         StateManager::OnEndTick();
                     }
@@ -670,148 +704,10 @@ namespace AsphaltDLL
                     {
                         LOCK_CURRENT_STATE_MUTEX();
                         GameDLLState::g_current_state.m_resolved_addresses.m_physics_world_instance_address = p_this;
+
+                        Tests::DebugDumpPhysicsWorldObjects("deubug_world_dump.txt");
                     }
 
-                    /////////////////////////////
-                    // EXPERIMENTAL
-                    /////////////////////////////
-                    if (bool TEST_RAYCAST = false) 
-                    {
-                        using namespace DetourFunctions::Experimental::PhysicsWorldRaycast;
-
-                        BulletTypes::Vector3 ray_start {};
-                        BulletTypes::Vector3 ray_end {};
-
-                        {
-                            LOCK_CURRENT_STATE_MUTEX();
-                            auto trans = std::bit_cast<BulletTypes::Transform>(GameDLLState::g_current_state.m_racer_state.m_racer_transform_mat4x4);
-                            const BulletTypes::Vector3        racer_pos           = Utility::PositionFromTransform(trans);
-                            const BulletTypes::Quaternion     racer_rotation      = Utility::RotationFromTransform(trans);
-                            const BulletTypes::Vector3        world_space_forward = Utility::RotateVectorByQuaternion(racer_rotation, { 0.0f, 1.0f, 0.0f});
-                            const BulletTypes::Vector3        world_space_up      = Utility::RotateVectorByQuaternion(racer_rotation, { 0.0f, 0.0f, 1.0f}); 
-                            
-                            ray_start = racer_pos + world_space_forward * 2.0f  + world_space_up * 1.0f;
-                            ray_end   = racer_pos + world_space_forward * 10.0f + world_space_up * 1.0f;
-                        }
-
-                        uint16_t layer_mask = 0xFFFF;
-                        uint16_t flags      = 0xFFFF;
-
-                        BulletTypes::RaycastOutput output = SpoofCallToCastRay(ray_start, ray_end, layer_mask, flags);
-
-                        DLL_INFO_LOG
-                        (
-                            "\nHas Hit : " << output.m_has_hit
-                            << "\nBody*   : " << std::hex << output.m_hit_body_ptr << std::dec
-                            << "\nNormal  : " << output.m_hit_normal.x   << ", " << output.m_hit_normal.y << ", " << output.m_hit_normal.z
-                            << "\nPosition: " << output.m_hit_position.x << ", " << output.m_hit_position.y << ", " << output.m_hit_position.z
-                            << "\nActi-fil: " << output.m_activation_filter
-                            << "\nUnknown4: " << output.m_unkown_4
-                            << "\nUnknown8: " << output.m_unkown_8
-                        );
-                    }
-
-                    if (bool TEST_TRAVERSAL = false) 
-                    {
-                        static int counter = 0;
-                        if (counter++ == 1)
-                        {
-                            const auto leaves = Experimental::BVHBroadphaseTraversal::DumpAllLeaves();
-                            std::ofstream log("collision_dump.txt", std::ios::out | std::ios::trunc);
-
-                            for (size_t i = 0; i < leaves.size(); ++i)
-                            {
-                                const Experimental::BVHBroadphaseTraversal::DumpedNode& leaf = leaves[i];
-
-                                log << "==================================================\n";
-                                log << "LEAF " << i << "\n";
-                                log << "==================================================\n";
-
-                                log << "BroadphaseProxy: " << leaf.m_broadphase_proxy << "\n";
-
-                                log << "Leaf AABB Min: " 
-                                    << leaf.m_aabb_min.x << ", "
-                                    << leaf.m_aabb_min.y << ", "
-                                    << leaf.m_aabb_min.z << "\n";
-
-                                log << "Leaf AABB Max: "
-                                    << leaf.m_aabb_max.x << ", "
-                                    << leaf.m_aabb_max.y << ", "
-                                    << leaf.m_aabb_max.z << "\n\n";
-
-
-                                if (!leaf.m_broadphase_proxy)
-                                {
-                                    log << "NULL PROXY\n\n";
-                                    continue;
-                                }
-
-                                const BulletTypes::BroadphaseProxy& proxy =*leaf.m_broadphase_proxy;
-                                log << "--- BroadphaseProxy ---\n";
-                                log << "client_body: "  << proxy.m_client_body << "\n";
-                                log << "filter_group: " << proxy.m_collision_filter_group << "\n";
-                                log << "filter_mask: "  << proxy.m_collision_filter_mask << "\n";
-                                log << "unique_id: " << proxy.m_unique_id << "\n";
-                                log << "AABB Min: " << proxy.m_aabb_min.ToString() << "\n";
-                                log << "AABB Max: " << proxy.m_aabb_max.ToString() << "\n\n";
-
-                                if (!proxy.m_client_body)
-                                {
-                                    log << "NULL COLLISION OBJECT\n\n";
-                                    continue;
-                                }
-
-                                const BulletTypes::CollisionObject& object = *proxy.m_client_body;
-                                log << "--- CollisionObject ---\n";
-                                log << std::hex << std::showbase;
-                                log << "vtable: " << object.m_vtable_ptr << "\n";
-                                log << "broadphase_proxy_ptr: " << object.m_broadphase_proxy_ptr << "\n";
-                                log << "collision_shape_ptr: " << object.m_collision_shape_ptr << "\n";
-                                log << "root_collision_shape_ptr: "<< object.m_root_collision_shape_ptr << "\n";
-                                log << "extensionPointer: " << object.m_extensionPointer << "\n";
-                                log << std::dec << std::noshowbase;
-                                log << "\nTransforms:\n";
-                                log << "World:\n" << object.m_transform_matrix.ToString()<< "\n";
-                                log << "Interpolation World:\n" << object.m_interpolation_world_transform.ToString() << "\n";
-                                log << "\nVectors:\n";
-                                log << "Linear Velocity: " << object.m_interpolation_linear_velocity.ToString() << "\n";
-                                log << "Angular Velocity: "<< object.m_interpolation_angular_velocity.ToString() << "\n";
-                                log << "Anisotropic Friction: " << object.m_anisotropic_friction.ToString()<< "\n";
-                                log << "\nFlags:\n";
-                                log << "has_anisotropic_friction: " << object.m_has_anisotropic_friction << "\n";
-                                log << "collision_flags: " << object.m_collision_flags << "\n";
-                                log << "island_tag_1: " << object.m_island_tag_1 << "\n";
-                                log << "activation_state: " << object.m_activation_state_1 << "\n";
-                                log << "internal_type: " << object.m_internal_type << "\n";
-                                log << "\nMaterial:\n";
-                                log << "friction: " << object.m_friction << "\n";
-                                log << "restitution: " << object.m_restitution << "\n";
-                                log << "rolling_friction: " << object.m_rolling_friction << "\n";
-                                log << "spinning_friction: " << object.m_spinning_friction << "\n";
-                                log << "\nUser:\n";
-                                log << "user_object_pointer: "<< object.m_user_object_pointer << "\n";
-                                log << "user_index: "<< object.m_user_index << "\n";
-                                log << "user_index_2: "<< object.m_user_index_2 << "\n";
-                                log << "user_index_3: " << object.m_user_index_3 << "\n";
-                                log << "\nCCD:\n";
-                                log << "hit_fraction: " << object.m_hit_fraction << "\n";
-                                log << "ccd_swept_sphere_radius: " << object.m_ccd_swept_sphere_radius << "\n";
-                                log << "ccd_motion_threshold: " << object.m_ccd_motion_threshold << "\n";
-                                log << "\nCollision Filtering:\n";
-                                log << "check_collide_with: " << object.m_check_collide_with << "\n";
-                                log << "objects_without_collision_check size: " << object.m_objects_without_collision_check.m_size << "\n";
-                                log << "objects_without_collision_check capacity: "<< object.m_objects_without_collision_check.m_capacity << "\n";
-                                log << "\nDebug Color:\n";
-                                log << object.m_custom_debug_color_RGB.ToString() << "\n";
-
-                                const BulletTypes::CollisionShapeData& shape = *object.m_collision_shape_ptr;
-                                log << std::hex << "\nCollisionShape Vtable: " << shape.m_vtable_ptr << std::dec << "\n Shape Type: " << shape.m_v10_type << "\n";
-                                
-                                if ((i % 10) == 0) log.flush();
-                            }
-                            log.close();
-                        }
-                    }
                     return RealNewBulletPhysicsTickCall(p_this, p_delta_time, p_passthrough);
                 }
             }
@@ -965,7 +861,7 @@ namespace AsphaltDLL
 
                 void REROUTE_FUNCTION Detour_AcceleratorValue(void* p_this, float* p_pass_through) noexcept
                 {
-                    // Function modifies the value, so we must run it prior to modifying the value
+                    // Function modifies our value, so we must run it prior to modifying the value afterwards
                     RealAcceleratorValueCall(p_this, p_pass_through);   
                     float* accelerator_value = reinterpret_cast<float*>(reinterpret_cast<uintptr_t>(p_this) + 0x1D0);
 
@@ -2209,6 +2105,105 @@ namespace AsphaltDLL
             HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire);}
         }
 
+        namespace BVHBroadphaseTraversal
+        {
+            namespace
+            {
+                std::atomic<HookState> g_hook_state = HookState::NotInPlace;
+                LPVOID g_real_function_address = nullptr;
+
+                typedef void (__fastcall *BVHTraverse_t)(uintptr_t ctx_bvh, uintptr_t root_node, float* ray_origin, uintptr_t unused_a4, float* inv_ray_dir,
+                                                        int* axis_signs, float max_distance, float* offset_min, float* offset_max, uintptr_t* callback_ctx );
+
+                BVHTraverse_t RealBVHTraverseCall = nullptr;
+
+                void REROUTE_FUNCTION Detour_BVHTraverse(uintptr_t ctx_bvh, uintptr_t root_node, float* ray_origin, uintptr_t unused_a4, float* inv_ray_dir, 
+                                                            int* axis_signs, float max_distance, float* offset_min, float* offset_max, uintptr_t* callback_ctx) noexcept
+                {
+                    const uintptr_t ret_address = std::bit_cast<uintptr_t>(_ReturnAddress());
+                    {
+                        LOCK_CURRENT_STATE_MUTEX();
+                        if (_Implementation::GetMainGameModule() + 0x635EBF0 == ret_address)
+                        {
+                            GameDLLState::g_current_state.m_resolved_addresses.m_bvh_root_node_static_objects = root_node;
+                        }
+                        else if (_Implementation::GetMainGameModule() + 0x635EBAE == ret_address) 
+                        {
+                            GameDLLState::g_current_state.m_resolved_addresses.m_bvh_root_node_dynamic_objects = root_node;
+                        }
+                    }
+                    RealBVHTraverseCall(ctx_bvh, root_node, ray_origin, unused_a4, inv_ray_dir, axis_signs, max_distance, offset_min, offset_max, callback_ctx);
+                }
+
+                std::vector<DumpedNode> _DumpAllLeaves(void* root_node, bool from_normal_tree) noexcept
+                {
+                    if (!root_node) return {};
+                    std::vector<void*> stack;
+                    std::vector<DumpedNode> out;
+                    stack.push_back(root_node);
+
+                    while (!stack.empty())
+                    {
+                        auto* node = reinterpret_cast<uint8_t*>(stack.back());
+                        stack.pop_back();
+
+                        float* min = reinterpret_cast<float*>(node + 0x00);
+                        float* max = reinterpret_cast<float*>(node + 0x10);
+                        int64_t child0 = *reinterpret_cast<int64_t*>(node + 0x28);
+                        int64_t child1 = *reinterpret_cast<int64_t*>(node + 0x30);
+
+                        if (child1 != 0)
+                        {
+                            stack.push_back(reinterpret_cast<void*>(child0));
+                            stack.push_back(reinterpret_cast<void*>(child1));
+                        }
+                        else
+                        {
+                            out.push_back({ reinterpret_cast<decltype(DumpedNode::m_broadphase_proxy)>(child0),
+                                            {min[0],min[1],min[2]},
+                                            {max[0],max[1],max[2]}, from_normal_tree});
+
+                        }
+                    }
+                    return out;
+                }
+            }
+
+            // Does not lock - caller to lock
+            std::vector<DumpedNode> DumpAllLeaves() noexcept 
+            {
+                void* root = nullptr;
+                constexpr bool FROM_STATIC_TREE = true;
+                {
+                    //LOCK_CURRENT_STATE_MUTEX();
+                    root = std::bit_cast<void*>(GameDLLState::g_current_state.m_resolved_addresses.m_bvh_root_node_static_objects);
+                }
+                if (root == nullptr) return {};
+                std::vector<DumpedNode> v1 = _DumpAllLeaves(root, FROM_STATIC_TREE);
+                {
+                    //LOCK_CURRENT_STATE_MUTEX();
+                    root = std::bit_cast<void*>(GameDLLState::g_current_state.m_resolved_addresses.m_bvh_root_node_dynamic_objects);
+                }
+                if (root == nullptr) return v1;
+                std::vector<DumpedNode> v2 = _DumpAllLeaves(root, !FROM_STATIC_TREE);
+                v1.insert(v1.end(), v2.begin(), v2.end());
+                return v1;
+            }
+
+            bool SetupHook() noexcept
+            {
+                constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x635DC18; 
+
+                return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_BVHTraverse),
+                    &g_real_function_address, reinterpret_cast<LPVOID*>(&RealBVHTraverseCall), g_hook_state);
+            }
+
+            bool RemoveHook() noexcept { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }
+            bool EnableHook() noexcept { return _Implementation::EnableHook(g_real_function_address, g_hook_state); }
+            bool DisableHook() noexcept { return _Implementation::DisableHook(g_real_function_address, g_hook_state); }
+            HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire); }
+        }
+
 
         namespace Experimental 
         {
@@ -2225,9 +2220,7 @@ namespace AsphaltDLL
                     int64_t REROUTE_FUNCTION Detour_JtlAbsolutePath(int64_t a1, const char* a2)
                     {
                         int64_t real_ret = RealJtlAbsolutePathCall(a1, a2);
-
-                        DLL_INFO_LOG("RCX : 0x" << std::hex << a1 << std::dec << "\nPath: " << a2);
-
+                        //DLL_INFO_LOG("RCX : 0x" << std::hex << a1 << std::dec << "\nPath: " << a2);
                         return real_ret;
                     }
                 } 
@@ -2269,94 +2262,6 @@ namespace AsphaltDLL
                     return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_FunctionLookup), 
                         &g_real_function_address, reinterpret_cast<LPVOID*>(&RealFunctionLookupCall), g_hook_state
                     );
-                }
-
-                bool RemoveHook() noexcept { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }
-                bool EnableHook() noexcept { return _Implementation::EnableHook(g_real_function_address, g_hook_state); }
-                bool DisableHook() noexcept { return _Implementation::DisableHook(g_real_function_address, g_hook_state); }
-                HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire); }
-            }
-
-            namespace BVHBroadphaseTraversal
-            {
-                namespace
-                {
-                    std::atomic<HookState> g_hook_state = HookState::NotInPlace;
-                    LPVOID g_real_function_address = nullptr;
-
-                    typedef void (__fastcall *BVHTraverse_t)(uintptr_t ctx_bvh, uintptr_t root_node, float* ray_origin, uintptr_t unused_a4, float* inv_ray_dir,
-                                                            int* axis_signs, float max_distance, float* offset_min, float* offset_max, uintptr_t* callback_ctx );
-
-                    BVHTraverse_t RealBVHTraverseCall = nullptr;
-
-                    void REROUTE_FUNCTION Detour_BVHTraverse(uintptr_t ctx_bvh, uintptr_t root_node, float* ray_origin, uintptr_t unused_a4, float* inv_ray_dir, 
-                                                             int* axis_signs, float max_distance, float* offset_min, float* offset_max, uintptr_t* callback_ctx) noexcept
-                    {
-                        const uintptr_t ret_address = std::bit_cast<uintptr_t>(_ReturnAddress());
-                        {
-                            LOCK_CURRENT_STATE_MUTEX();
-                            if (_Implementation::GetMainGameModule() + 0x635EBF0 == ret_address) // collision objects
-                            {
-                                GameDLLState::g_current_state.m_resolved_addresses.m_bvh_root_node_objects = root_node;
-                            }
-                            /*else if (_Implementation::GetMainGameModule() + 0x635EBAE == ret_address)
-                            {
-                                // Unclear what this tree does
-                            }*/
-                        }
-                        RealBVHTraverseCall(ctx_bvh, root_node, ray_origin, unused_a4, inv_ray_dir, axis_signs, max_distance, offset_min, offset_max, callback_ctx);
-                    }
-
-                    std::vector<DumpedNode> _DumpAllLeaves(void* root_node) noexcept
-                    {
-                        if (!root_node) return {};
-                        std::vector<void*> stack;
-                        std::vector<DumpedNode> out;
-                        stack.push_back(root_node);
-
-                        while (!stack.empty())
-                        {
-                            auto* node = reinterpret_cast<uint8_t*>(stack.back());
-                            stack.pop_back();
-
-                            float* min = reinterpret_cast<float*>(node + 0x00);
-                            float* max = reinterpret_cast<float*>(node + 0x10);
-                            int64_t child0 = *reinterpret_cast<int64_t*>(node + 0x28);
-                            int64_t child1 = *reinterpret_cast<int64_t*>(node + 0x30);
-
-                            if (child1 != 0)
-                            {
-                                stack.push_back(reinterpret_cast<void*>(child0));
-                                stack.push_back(reinterpret_cast<void*>(child1));
-                            }
-                            else
-                            {
-                                out.push_back({ reinterpret_cast<decltype(DumpedNode::m_broadphase_proxy)>(child0),
-                                                {min[0],min[1],min[2]},
-                                                {max[0],max[1],max[2]} });
-                            }
-                        }
-                        return out;
-                    }
-                }
-
-                std::vector<DumpedNode> DumpAllLeaves() noexcept 
-                {
-                    void* root = nullptr;
-                    {
-                        LOCK_CURRENT_STATE_MUTEX();
-                        root = std::bit_cast<void*>(GameDLLState::g_current_state.m_resolved_addresses.m_bvh_root_node_objects);
-                    }
-                    if (root == nullptr) return {};
-                    return _DumpAllLeaves(root);
-                }
-
-                bool SetupHook() noexcept
-                {
-                    constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x635DC18; 
-
-                    return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_BVHTraverse),
-                        &g_real_function_address, reinterpret_cast<LPVOID*>(&RealBVHTraverseCall), g_hook_state);
                 }
 
                 bool RemoveHook() noexcept { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }
@@ -2442,7 +2347,7 @@ namespace AsphaltDLL
 
                     int64_t no_filter_dummy = 0;
 
-                    static_assert(sizeof(start) == 16, "Must never not be 16-aligned");
+                    static_assert(sizeof(start) == 16 && sizeof(end) == 16, "Must never not be 16-aligned");
 
                     RealPhysicsWorldRaycastCall(world, &result, start.Data(), end.Data(), static_cast<int16_t>(layer_mask), 
                                                    static_cast<int16_t>(query_flags), &no_filter_dummy);

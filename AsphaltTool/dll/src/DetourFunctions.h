@@ -407,6 +407,24 @@ namespace AsphaltDLL
             [[nodiscard]] HookState GetHookState() noexcept;
         }
 
+        namespace BVHBroadphaseTraversal
+        {
+            struct DumpedNode 
+            {
+                BulletTypes::BroadphaseProxy*  m_broadphase_proxy {};
+                BulletTypes::Vector3           m_aabb_min {};
+                BulletTypes::Vector3           m_aabb_max {};
+                bool                           m_is_from_static_tree {};
+            };
+
+            [[nodiscard]] std::vector<DumpedNode> DumpAllLeaves() noexcept;
+            bool SetupHook() noexcept;
+            bool RemoveHook() noexcept;
+            bool EnableHook() noexcept;
+            bool DisableHook() noexcept;
+            [[nodiscard]] HookState GetHookState() noexcept;
+        }
+
         namespace Experimental 
         {
             namespace JtlAbsolutePath
@@ -420,23 +438,6 @@ namespace AsphaltDLL
 
             namespace FunctionLookup
             {
-                bool SetupHook() noexcept;
-                bool RemoveHook() noexcept;
-                bool EnableHook() noexcept;
-                bool DisableHook() noexcept;
-                [[nodiscard]] HookState GetHookState() noexcept;
-            }
-
-            namespace BVHBroadphaseTraversal
-            {
-                struct DumpedNode 
-                {
-                    BulletTypes::BroadphaseProxy*  m_broadphase_proxy {};
-                    BulletTypes::Vector3           m_aabb_min {};
-                    BulletTypes::Vector3           m_aabb_max {};
-                };
-
-                [[nodiscard]] std::vector<DumpedNode> DumpAllLeaves() noexcept;
                 bool SetupHook() noexcept;
                 bool RemoveHook() noexcept;
                 bool EnableHook() noexcept;

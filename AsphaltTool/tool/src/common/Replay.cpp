@@ -250,7 +250,7 @@ namespace AsphaltTas
                     nlohmann::ordered_json arr = nlohmann::ordered_json::array();
                     for (size_t i{}; i < 16; i++)
                     {
-                        arr.push_back(FloatToDecimal(rs.m_racer_transform_mat4x4[i]));
+                        arr.push_back(FloatToDecimal(rs.m_racer_transform_mat4x4.At(i)));
                     }
 
                     tick[SerializeKeys::RacerStates::TRANSFORM] = arr;
@@ -306,7 +306,7 @@ namespace AsphaltTas
                     size_t k = 0;
                     for (auto v : arr)
                     {
-                        racer_state.m_racer_transform_mat4x4[k++] = DecimalToFloat(v.value());
+                        racer_state.m_racer_transform_mat4x4.At(k++) = DecimalToFloat(v.value());
                     }
                 }
     

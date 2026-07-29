@@ -1,5 +1,6 @@
 #pragma once
 //std
+#include "glm/ext/matrix_transform.hpp"
 #include <optional>
 #include <array>
 #include <string>
@@ -27,7 +28,7 @@ namespace CoreEngine
 
 		public:
 
-			explicit CameraReverseZ(const glm::vec3& position, float aspect_ratio, float fov_deg, float near_plane, glm::quat rot = glm::quat{});
+			explicit CameraReverseZ(const glm::vec3& position, float aspect_ratio, float fov_deg, float near_plane, glm::quat rot = glm::identity<glm::quat>());
 
 			[[nodiscard]] glm::mat4 CalculateCameraMatrix(const std::optional<glm::vec3>& target_to_look_at = std::nullopt) const;
 

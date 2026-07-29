@@ -32,15 +32,29 @@ namespace CoreEngine
         glEnable(GL_DEPTH_TEST);
 
         //Reverse Z matrices expected
-        glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+        glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE); 
         glDepthFunc(GL_GREATER);
         glClearDepth(0.0);
 
         glClear(GL_DEPTH_BUFFER_BIT);
     //------------------- Cull face for performance
-        glFrontFace(GL_CCW); 
-        glCullFace(GL_BACK);
-        glEnable(GL_CULL_FACE);
+        if (m_render_config.m_use_cull_face)
+        {
+            if (m_render_config.m_front_face == RenderConfig::FrontFace::CCW)
+            {
+                glFrontFace(GL_CCW); 
+            }
+            else 
+            {
+                glFrontFace(GL_CW); 
+            }
+            glCullFace(m_render_config.m_cull_back_face ? GL_BACK : GL_FRONT);
+            glEnable(GL_CULL_FACE);
+        }
+        else 
+        {
+            glDisable(GL_CULL_FACE);
+        }
 
     //-------------------  Bind buffers
         m_indirect_command_buffer.Bind();
@@ -266,5 +280,10 @@ namespace CoreEngine
     void IndirectDraw3D_RenderPipeline::RestoreShaderToDefault() noexcept
     {
         m_shader_program = Shader(s_VERTEX_SHADER_CODE, s_FRAGMENT_SHADER_CODE, nullptr, Shader::ProvidedPointers::ARE_SOURCE_CODE);
+    }
+
+    IndirectDraw3D_RenderPipeline::RenderConfig& IndirectDraw3D_RenderPipeline::GetRenderConfigRef() noexcept
+    {
+        return m_render_config;
     }
 }

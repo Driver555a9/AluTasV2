@@ -128,7 +128,7 @@ namespace CoreEngine
         //////////////////////////////////////////////// 
         //---------  Internal helper methods
         ////////////////////////////////////////////////
-        [[nodiscard]] MathUtility::Ray3D ScreenPointToRay(const double mouse_x, const double mouse_y) const noexcept;
+        [[nodiscard]] MathUtility::Ray3D ScreenPointToRay(double mouse_x, double mouse_y) const noexcept;
 
         bool OnCreateSphere(const SphereCreationData& data) noexcept;
         bool OnCreateBox(const BoxCreationData& data) noexcept;
@@ -198,7 +198,7 @@ namespace CoreEngine
         //////////////////////////////////////////////// 
         glm::vec3 m_gui_state_selected_object_input_position {0.0f};
 
-        static constexpr const float TOP_BAR_HEIGHT_RELATIVE = 0.04f;
+        static constexpr const float TOP_BAR_HEIGHT_RELATIVE = 0.00f;
 
         static constexpr const float SIDE_PANEL_DEFAULT_WIDTH_RELATIVE = 0.2f;
         static constexpr const float SIDE_PANEL_MIN_WIDTH_RELATIVE     = 0.0f;
@@ -219,19 +219,19 @@ namespace CoreEngine
         static constexpr const float MAX_FOV_DEGREES      { 120.0f  };
         static constexpr const float MIN_FOV_DEGREES      { 20.0f   };
 
-        static constexpr const ImVec4 COLOR_RED          {0.8f, 0, 0, 1.0f};
-        static constexpr const ImVec4 COLOR_GREEN        {0, 0.8f, 0, 1};
-        static constexpr const ImVec4 COLOR_BLUE         {0, 0, 0.8f, 1};
-        static constexpr const ImVec4 COLOR_ORANGE       {1.0f, 0.518f, 0.0f, 1.0f};
-        static constexpr const ImVec4 COLOR_TRANSPARENT  {0, 0, 0, 0};
+        inline static const ImVec4 COLOR_RED          = ImVec4(0.8f, 0.0f, 0.0f, 1.0f);
+        inline static const ImVec4 COLOR_GREEN        = ImVec4(0.0f, 0.8f, 0.0f, 1.0f);
+        inline static const ImVec4 COLOR_BLUE         = ImVec4(0.0f, 0.0f, 0.8f, 1.0f);
+        inline static const ImVec4 COLOR_ORANGE       = ImVec4(1.0f, 0.518f, 0.0f, 1.0f);
+        inline static const ImVec4 COLOR_TRANSPARENT  = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
 
-        static constexpr const ImVec4 COLOR_BACKGROUND   {0.02f, 0.02f, 0.02f, 1.0f};
-        static constexpr const ImVec4 COLOR_BORDER       {0.5f, 0.5f, 0.5f, 0.8f};
-        static constexpr const ImVec4 COLOR_TEXT         {1, 1, 1, 1};
+        inline static const ImVec4 COLOR_BG            = ImVec4(0.02f, 0.02f, 0.02f, 1.0f);
+        inline static const ImVec4 COLOR_BORDER        = ImVec4(0.5f, 0.5f, 0.5f, 0.8f);
+        inline static const ImVec4 COLOR_TEXT          = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
 
-        static constexpr const ImVec4 COLOR_X_AXYS      { COLOR_RED   };
-        static constexpr const ImVec4 COLOR_Y_AXYS      {0.f, 0.796f, 1.f, 1.0f};
-        static constexpr const ImVec4 COLOR_Z_AXYS      { COLOR_GREEN };
+        inline static const ImVec4 COLOR_X_AXYS      = COLOR_RED;
+        inline static const ImVec4 COLOR_Y_AXYS      = ImVec4(0.0f, 0.796f, 1.0f, 1.0f);
+        inline static const ImVec4 COLOR_Z_AXYS      = COLOR_GREEN;
     };
 
     constexpr Editor_3D_Layer::ObjectCreationFlag operator|(Editor_3D_Layer::ObjectCreationFlag lhs, Editor_3D_Layer::ObjectCreationFlag rhs) noexcept

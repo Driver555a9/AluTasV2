@@ -4,7 +4,7 @@
 #include "core/utility/Assert.h"
 #include "core/event/EventDispatcher.h"
 #include "core/event/WindowEvents.h"
-#include "core/model/PathModel.h"
+#include "core/model/FilePathModel.h"
 
 #include "memory/MemoryRW.h"
 #include "layer/GuiStyle.h"
@@ -110,7 +110,7 @@ namespace AsphaltTas
                         constexpr glm::vec3 pos = glm::vec3(0.0f);
                         constexpr glm::quat rot = glm::identity<glm::quat>();
                         constexpr glm::vec3 col = glm::vec3(1.0f);
-                        if (GhostRenderLayer::CreateCustomGhostModel<CoreEngine::PathModel>(ImGuiFileDialog::Instance()->GetFilePathName(), pos, rot, col))
+                        if (GhostRenderLayer::CreateCustomGhostModel<CoreEngine::FilePathModel>(ImGuiFileDialog::Instance()->GetFilePathName(), pos, rot, col))
                         {
                             m_current_loaded_model = ImGuiFileDialog::Instance()->GetCurrentFileName();
                         }

@@ -3,7 +3,7 @@
 //Own includes
 #include "core/model/BoxModel.h"
 #include "core/model/SphereModel.h"
-#include "core/model/PathModel.h"
+#include "core/model/FilePathModel.h"
 #include "core/model/PointsModel.h"
 
 #include "core/physics/PhysicsCar.h"
@@ -53,7 +53,7 @@ namespace CoreEngine
 
     void Scene3D_ObjectBuilder::Scene3D_ObjectBuilder::RenderModel_SetFromPath(const std::string& path, const glm::vec3& scaleFactor) noexcept
     {
-        m_render_model = std::make_unique<PathModel>(path, glm::vec3(0.0f), glm::identity<glm::quat>(), scaleFactor);
+        m_render_model = std::make_unique<FilePathModel>(path, glm::vec3(0.0f), glm::identity<glm::quat>(), scaleFactor);
     }
 
     void Scene3D_ObjectBuilder::RenderModel_SetExisting(std::unique_ptr<Basic_Model> model) noexcept { m_render_model = std::move(model); }

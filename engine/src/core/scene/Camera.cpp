@@ -25,7 +25,11 @@ namespace CoreEngine
         if(target_to_look_at.has_value())
             return glm::lookAt(m_position, target_to_look_at.value(), GetAbsoluteUp());
         else 
-            return glm::lookAt(m_position, m_position + GetForwardDirection(), GetAbsoluteUp());
+        {
+            glm::mat4 rotation    = glm::mat4_cast(glm::inverse(m_rotation));
+            glm::mat4 translation = glm::translate(glm::mat4(1.0f), -m_position);
+            return rotation * translation;
+        }
     }
 
     /// @return Reverse Z Projection matrix
@@ -52,7 +56,7 @@ namespace CoreEngine
 
     void CameraReverseZ::SetPosition(const glm::vec3& position)    noexcept { m_position     = position;  }
     void CameraReverseZ::Move(const glm::vec3& movement)		   noexcept { m_position     += movement; }
-    void CameraReverseZ::SetRotation(const glm::quat& rotation)    noexcept { m_rotation     = rotation;  }
+    void CameraReverseZ::SetRotation(const glm::quat& rotation)    noexcept { m_rotation     = glm::normalize(rotation);  }
     void CameraReverseZ::SetAspectRatio(float ratio)               noexcept { m_aspect_ratio = ratio; 	  }
     void CameraReverseZ::SetNearPlane(float nearPlane)             noexcept { m_near_plane 	 = nearPlane; }
     void CameraReverseZ::SetFovRad(float fov)                      noexcept { m_fov_rad    	 = fov;       }

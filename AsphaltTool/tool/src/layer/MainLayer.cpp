@@ -1,4 +1,5 @@
 #include "layer/MainLayer.h"
+#include <utility>
 
 #ifdef _WIN32
     #define WIN32_LEAN_AND_MEAN
@@ -26,6 +27,7 @@
 #include "layer/SpeedometerLayer.h"
 #include "layer/GhostToolLayer.h"
 #include "layer/TasInputLayer.h"
+#include "layer/TrackViewerLayer.h"
 
 //ImGUI
 #include "imgui/imgui.h"
@@ -88,84 +90,95 @@ namespace AsphaltTas
                                | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus;
 
         PUSH_SCOPED_STYLE_COLOR(ImGuiCol_WindowBg, GuiStyle::COLOR_BLACK);
-
-        PUSH_SCOPED_STYLE_VAR(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+        PUSH_SCOPED_STYLE_VAR(ImGuiStyleVar_WindowPadding, ImVec2(12.0f, 12.0f));
         PUSH_SCOPED_STYLE_VAR(ImGuiStyleVar_WindowBorderSize, 0.0f);
         PUSH_SCOPED_STYLE_VAR(ImGuiStyleVar_WindowRounding, 0.0f);
+        PUSH_SCOPED_STYLE_VAR(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 8.0f));
 
-        if (! ImGui::Begin("Asphalt Tool", nullptr, flags ))
+        if (! ImGui::Begin("Asphalt Tool", nullptr, flags))
         {
             ImGui::End();
             return;
         }
 
         std::optional<ComDllOut::DllStateOut> dll_state_copy = AsphaltDllManager::GetDllStateOutCopy();
-        
-        { // Scope to delete scoped styles
-        //////////////////////////////////////////////////////////
-        // Features
-        //////////////////////////////////////////////////////////
-            if (ImGui::CollapsingHeader("Tools", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf))
+
+        if (ImGui::BeginTabBar("MainTabBar", ImGuiTabBarFlags_None))
+        {
+            if (ImGui::BeginTabItem("Tools"))
             {
-                const auto EnterOrExitTool = [](bool instance_exists, const char* label, void (*if_instance_exists)(), void (*if_instance_does_not_exist)() ) -> void 
+                ImGui::Dummy(ImVec2(0.0f, 4.0f));
+
+                const auto DrawToolButton = [](bool instance_exists, const char* label, void (*if_instance_exists)(), void (*if_instance_does_not_exist)()) -> void 
                 {
                     PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Button, instance_exists ? GuiStyle::COLOR_RED : GuiStyle::COLOR_GREEN);
-                    if (ImGui::Button((std::string(instance_exists ? "Exit " : "Enter ") + label).c_str()))
+                    std::string button_text = (instance_exists ? "Close " : "Launch ") + std::string(label);
+                    if (ImGui::Button(button_text.c_str(), ImVec2(180.0f, 38.0f)))
                     {
                         instance_exists ? if_instance_exists() : if_instance_does_not_exist();
                     }
                 };
 
-                EnterOrExitTool(CameraToolLayer::InstanceExists(), "Camera Tool", &CameraToolLayer::DeleteInstance, &CameraToolLayer::CreateInstance);
-
-                ImGui::SameLine();
-                EnterOrExitTool(SpeedometerLayer::InstanceExists(), "Speedometer", &SpeedometerLayer::DeleteInstance, &SpeedometerLayer::CreateInstance);
-
-                //ImGui::SameLine();
-                //EnterOrExitTool(GhostToolLayer::InstanceExists(), "Ghost Tool", &GhostToolLayer::DeleteInstance, &GhostToolLayer::CreateInstance);
-
-                ImGui::SameLine();
-                EnterOrExitTool(TasInputLayer::InstanceExists(), "Tas Inputs", &TasInputLayer::DeleteInstance, &TasInputLayer::CreateInstance);
-            }   
-            
-        //////////////////////////////////////////////////////////
-        // Address state
-        //////////////////////////////////////////////////////////
-            if (ImGui::CollapsingHeader("Addresses", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf))
-            {
-                switch (GameState::GetCurrentPlatform())
+                if (ImGui::BeginTable("ToolsGrid", 2, ImGuiTableFlags_SizingFixedFit))
                 {
-                    case GameState::GamePlatform::MS:
-                    {
-                        PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, GuiStyle::COLOR_GREEN);
-                        ImGui::TextUnformatted("Platform: MS");
-                        break;
-                    }
-                    case GameState::GamePlatform::STEAM: 
-                    {
-                        PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, GuiStyle::COLOR_GREEN);
-                        ImGui::TextUnformatted("Platform: Steam");
-                        break;
-                    }
-                    default:
-                    {
-                        PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, GuiStyle::COLOR_RED);
-                        ImGui::TextUnformatted("Platform: NONE");
-                    }
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    DrawToolButton(TasInputLayer::InstanceExists(), "TAS Inputs", &TasInputLayer::DeleteInstance, &TasInputLayer::CreateInstance);
+
+                    ImGui::TableSetColumnIndex(1);
+                    DrawToolButton(TrackViewerLayer::InstanceExists(), "Track Viewer", &TrackViewerLayer::DeleteInstance, &TrackViewerLayer::CreateInstance);
+
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    DrawToolButton(CameraToolLayer::InstanceExists(), "Camera Tool", &CameraToolLayer::DeleteInstance, &CameraToolLayer::CreateInstance);
+
+                    ImGui::TableSetColumnIndex(1);
+                    DrawToolButton(SpeedometerLayer::InstanceExists(), "Speedometer", &SpeedometerLayer::DeleteInstance, &SpeedometerLayer::CreateInstance);
+
+                    ImGui::EndTable();
                 }
 
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem("Addresses"))
+            {
+                ImGui::Dummy(ImVec2(0.0f, 4.0f));
+
+                ImGui::TextUnformatted("Platform:");
                 ImGui::SameLine();
-                if (AsphaltDllManager::IsInjected())
+                const auto platform = GameState::GetCurrentPlatform();
+                if (platform == GameState::GamePlatform::STEAM)
                 {
                     PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, GuiStyle::COLOR_GREEN);
-                    ImGui::TextUnformatted("| DLL injected");
+                    ImGui::TextUnformatted("Steam");
+                }
+                else if (platform == GameState::GamePlatform::MS)
+                {
+                    PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, GuiStyle::COLOR_GREEN);
+                    ImGui::TextUnformatted("MS Store");
                 }
                 else 
                 {
                     PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, GuiStyle::COLOR_RED);
-                    ImGui::TextUnformatted("| DLL not injected");
+                    ImGui::TextUnformatted("None");
                 }
 
+                ImGui::SameLine(220.0f);
+                ImGui::TextUnformatted("DLL Status:");
+                ImGui::SameLine();
+                if (AsphaltDllManager::IsInjected())
+                {
+                    PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, GuiStyle::COLOR_GREEN);
+                    ImGui::TextUnformatted("Injected");
+                }
+                else 
+                {
+                    PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, GuiStyle::COLOR_RED);
+                    ImGui::TextUnformatted("Not Injected");
+                }
+
+                ImGui::Separator();
 
                 auto ToHex = [](uintptr_t addr) {
                     std::stringstream ss; 
@@ -173,90 +186,90 @@ namespace AsphaltTas
                     return ss.str();
                 };
 
+                struct AddressEntry { const char* name; uintptr_t addr; };
+                AddressEntry entries[] = 
                 {
-                    ImGui::TextUnformatted("Camera Base          :");
-                    ImGui::SameLine();
-                    PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, dll_state_copy.has_value() && dll_state_copy->m_resolved_addresses.m_camera_state_base_address ? GuiStyle::COLOR_GREEN : GuiStyle::COLOR_RED);
-                    ImGui::TextUnformatted(ToHex(dll_state_copy->m_resolved_addresses.m_camera_state_base_address).c_str());
+                    { "Camera Base", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_camera_state_base_address : 0 },
+                    { "Local Racer Base", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_local_racer_base_address : 0 },
+                    { "Nitro Bar Encrypted", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_nitro_bar_encrypted_address : 0 },
+                    { "Steering Struct Gear", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_steering_struct_gear_address : 0 },
+                    { "Target Frame Interval", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_game_target_fps_interval_address : 0 },
+                    { "Respawn func RCX Arg", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_respawn_func_spoofed_rcx_arg : 0 },
+                    { "Target Fps Interval", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_game_target_fps_interval_address : 0},
+                    { "Brake func RCX Arg", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_brake_func_spoofed_rcx_arg : 0},
+                    { "Nitro func RCX Arg", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_nitro_func_spoofed_rcx_arg : 0},
+                    { "Physics world instance", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_physics_world_instance_address : 0},
+                    { "BVH root dynamics", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_bvh_root_node_dynamic_objects : 0},
+                    { "BVH root statics", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_bvh_root_node_static_objects : 0},
+                    { "Gear address", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_steering_struct_gear_address : 0},
+                };
+
+                if (ImGui::BeginTable("AddressesTable", 2, ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchSame))
+                {
+                    ImGui::TableSetupColumn("Property", ImGuiTableColumnFlags_WidthFixed, 180.0f);
+                    ImGui::TableSetupColumn("Memory Address", ImGuiTableColumnFlags_WidthStretch);
+                    ImGui::TableHeadersRow();
+
+                    for (const auto& entry : entries)
+                    {
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted(entry.name);
+
+                        ImGui::TableSetColumnIndex(1);
+                        PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, entry.addr != 0 ? GuiStyle::COLOR_GREEN : GuiStyle::COLOR_RED);
+                        ImGui::TextUnformatted(ToHex(entry.addr).c_str());
+                    }
+                    ImGui::EndTable();
                 }
 
-                {
-                    ImGui::TextUnformatted("Local Racer Base     :");
-                    ImGui::SameLine();
-                    PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, dll_state_copy.has_value() && dll_state_copy->m_resolved_addresses.m_local_racer_base_address ? GuiStyle::COLOR_GREEN : GuiStyle::COLOR_RED);
-                    ImGui::TextUnformatted(ToHex(dll_state_copy->m_resolved_addresses.m_local_racer_base_address).c_str());
-                }
-
-                {
-                    ImGui::Text("Nitro Bar Encrypted  :");
-                    ImGui::SameLine();
-                    PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, dll_state_copy.has_value() && dll_state_copy->m_resolved_addresses.m_nitro_bar_encrypted_address ? GuiStyle::COLOR_GREEN : GuiStyle::COLOR_RED);
-                    ImGui::TextUnformatted(ToHex(dll_state_copy->m_resolved_addresses.m_nitro_bar_encrypted_address).c_str());
-                }
-                
-                {
-                    ImGui::Text("Stearing Struct Gear :");
-                    ImGui::SameLine();
-                    PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, dll_state_copy.has_value() && dll_state_copy->m_resolved_addresses.m_steering_struct_gear_address ? GuiStyle::COLOR_GREEN : GuiStyle::COLOR_RED);
-                    ImGui::TextUnformatted(ToHex(dll_state_copy->m_resolved_addresses.m_steering_struct_gear_address).c_str());
-                }
-
-                {
-                    ImGui::Text("Target Frame Interval:");
-                    ImGui::SameLine();
-                    PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, dll_state_copy.has_value() && dll_state_copy->m_resolved_addresses.m_game_target_fps_interval_address ? GuiStyle::COLOR_GREEN : GuiStyle::COLOR_RED);
-                    ImGui::TextUnformatted(ToHex(dll_state_copy->m_resolved_addresses.m_game_target_fps_interval_address).c_str());
-                }
-
-                {
-                    ImGui::Text("Respawn Func RCX Arg :");
-                    ImGui::SameLine();
-                    PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, dll_state_copy.has_value() && dll_state_copy->m_resolved_addresses.m_respawn_func_spoofed_rcx_arg ? GuiStyle::COLOR_GREEN : GuiStyle::COLOR_RED);
-                    ImGui::TextUnformatted(ToHex(dll_state_copy->m_resolved_addresses.m_respawn_func_spoofed_rcx_arg).c_str());
-                }
+                ImGui::EndTabItem();
             }
-            
-            if (ImGui::CollapsingHeader("Tool Performance", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf))
+
+            if (ImGui::BeginTabItem("Performance"))
             {
-                {
-                    const float fps = ImGui::GetIO().Framerate;
+                ImGui::Dummy(ImVec2(0.0f, 4.0f));
 
-                    float t = (fps - 60.0f) / (240.0f - 60.0f);
-                    t = std::clamp(t, 0.0f, 1.0f);
+                const float fps = ImGui::GetIO().Framerate;
+                float t = std::clamp((fps - 60.0f) / (240.0f - 60.0f), 0.0f, 1.0f);
+                ImVec4 color = (t < 0.5f) ? ImVec4(1.0f, t / 0.5f, 0.0f, 1.0f) : ImVec4(1.0f - ((t - 0.5f) / 0.5f), 1.0f, 0.0f, 1.0f);
 
-                    ImVec4 color;
-                    if (t < 0.5f)
-                    {
-                        color = ImVec4(1.0f, t / 0.5f, 0.0f, 1.0f);
-                    }
-                    else
-                    {
-                        color = ImVec4(1.0f - ((t - 0.5f) / 0.5f), 1.0f, 0.0f, 1.0f);
-                    }
+                ImGui::TextUnformatted("Tool FPS:");
+                ImGui::SameLine();
+                PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, color);
+                ImGui::Text("%.0f", fps);
 
-                    PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, color);
-                    ImGui::Text("Tool FPS: %.0f", fps);
-                }
-
+                ImGui::SameLine(180.0f);
                 bool vsync_is_on = CoreEngine::Application::Get()->GetVsyncIsOn();
                 if (ImGui::Checkbox("VSync", &vsync_is_on))
                 {
                     CoreEngine::Application::Get()->SetVsync(vsync_is_on);
                 }
 
-                if (ImGui::CollapsingHeader("Thread Status", ImGuiTreeNodeFlags_DefaultOpen ))
-                {
-                    auto LogThreadStatus = [](const char* name, bool is_active) -> void 
-                    {
-                        PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, is_active ? GuiStyle::COLOR_GREEN : GuiStyle::COLOR_RED);
-                        ImGui::TextUnformatted(name);
-                        ImGui::SameLine();
-                        ImGui::TextUnformatted(is_active ? "Active" : "Inactive");
-                    };
+                ImGui::Separator();
 
-                    LogThreadStatus("Dll Update Service    : ", DllStateUpdateService::GetThreadIsRunning());
-                    LogThreadStatus("Game State Watchdog   : ", GameStateWatchdogService::GetThreadIsRunning());
-                    LogThreadStatus("Mouse Input Service   : ", MouseInputService::GetThreadIsRunning());
+                if (ImGui::CollapsingHeader("Thread Status", ImGuiTreeNodeFlags_DefaultOpen))
+                {
+                    if (ImGui::BeginTable("ThreadTable", 2, ImGuiTableFlags_BordersInnerH))
+                    {
+                        ImGui::TableSetupColumn("Service", ImGuiTableColumnFlags_WidthFixed, 200.0f);
+                        ImGui::TableSetupColumn("State", ImGuiTableColumnFlags_WidthStretch);
+
+                        auto LogThreadRow = [](const char* name, bool active) {
+                            ImGui::TableNextRow();
+                            ImGui::TableSetColumnIndex(0);
+                            ImGui::TextUnformatted(name);
+                            ImGui::TableSetColumnIndex(1);
+                            PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, active ? GuiStyle::COLOR_GREEN : GuiStyle::COLOR_RED);
+                            ImGui::TextUnformatted(active ? "Active" : "Inactive");
+                        };
+
+                        LogThreadRow("DLL Update Service", DllStateUpdateService::GetThreadIsRunning());
+                        LogThreadRow("Game State Watchdog", GameStateWatchdogService::GetThreadIsRunning());
+                        LogThreadRow("Mouse Input Service", MouseInputService::GetThreadIsRunning());
+
+                        ImGui::EndTable();
+                    }
                 }
 
                 if (ImGui::CollapsingHeader("Frame Times"))
@@ -267,9 +280,13 @@ namespace AsphaltTas
                         ImGui::TextUnformatted(data.ToString().c_str());
                     }
                 }
+
+                ImGui::EndTabItem();
             }
 
+            ImGui::EndTabBar();
         }
+
         ImGui::End();
     }
 
@@ -282,7 +299,7 @@ namespace AsphaltTas
         constexpr CoreEngine::Window::WindowCreationConfig window_config
         {
             .m_title                       = "Asphalt Tool",
-            .m_relative_size               = {460.0f / 1920.0f, 500.0f / 1080.0f},
+            .m_relative_size               = {400.0f / 1920.0f, 500.0f / 1080.0f},
             .m_callback_disable_flags      = static_cast<Cdis>(Cdis::KeyCallback | Cdis::MouseButtonCallback | Cdis::MouseMovedCallback | Cdis::MouseScrollCallback),
             .m_imgui_flags                 = {},
             .m_MSAA_sample_count           = 0,

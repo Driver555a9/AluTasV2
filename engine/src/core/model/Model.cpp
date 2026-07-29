@@ -26,7 +26,7 @@ namespace CoreEngine
 
     void Basic_Model::CenterModelLocally() noexcept
     {
-        if (m_local_center == glm::vec3(0.0f))
+        /*if (m_local_center == glm::vec3(0.0f))
         {
             return;
         }
@@ -42,7 +42,7 @@ namespace CoreEngine
             mesh.SetLocalCenter(mesh.GetLocalCenter() -= m_local_center);
         }
 
-        m_local_center = glm::vec3(0.0f);
+        m_local_center = glm::vec3(0.0f);*/
     }
 
     void Basic_Model::CalculateAABBExtentsAndLocalCenter() noexcept

@@ -145,6 +145,9 @@ namespace AsphaltDLL
         DetourFunctions::UcrtBaseRand::SetupHook();
         DetourFunctions::UcrtBaseRand::EnableHook();
 
+        DetourFunctions::BVHBroadphaseTraversal::SetupHook();
+        DetourFunctions::BVHBroadphaseTraversal::EnableHook();
+
         /////////////////////////////////////////////////////////////////
         // Experimental
         /////////////////////////////////////////////////////////////////
@@ -153,9 +156,6 @@ namespace AsphaltDLL
 
         //DetourFunctions::Experimental::FunctionLookup::SetupHook();
         //DetourFunctions::Experimental::FunctionLookup::EnableHook();
-
-        //DetourFunctions::Experimental::BVHBroadphaseTraversal::SetupHook();
-        //DetourFunctions::Experimental::BVHBroadphaseTraversal::EnableHook();
 
         //DetourFunctions::Experimental::OnRaycastVehicleUpdate::SetupHook();
         //DetourFunctions::Experimental::OnRaycastVehicleUpdate::EnableHook();
@@ -190,6 +190,7 @@ namespace AsphaltDLL
         DetourFunctions::MainLoopNewFrameDispatcher::DisableHook();
         DetourFunctions::AnimationProgressFunction::DisableHook();
         DetourFunctions::UcrtBaseRand::DisableHook();
+        DetourFunctions::BVHBroadphaseTraversal::DisableHook();
 
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
@@ -217,6 +218,7 @@ namespace AsphaltDLL
         DetourFunctions::MainLoopNewFrameDispatcher::RemoveHook();
         DetourFunctions::AnimationProgressFunction::RemoveHook();
         DetourFunctions::UcrtBaseRand::RemoveHook();
+        DetourFunctions::BVHBroadphaseTraversal::RemoveHook();
     }
 
     void Initialize(HMODULE hmodule) noexcept

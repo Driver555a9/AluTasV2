@@ -4,11 +4,11 @@
 
 namespace CoreEngine
 {
-    class PathModel : public Basic_Model
+    class FilePathModel : public Basic_Model
     {
     public:
         //Throws std::runtime_error
-        explicit PathModel(const std::string& path, const glm::vec3& position, const glm::quat& rotation, const glm::vec3& natural_scale);
+        explicit FilePathModel(const std::string& path, const glm::vec3& position, const glm::quat& rotation, const glm::vec3& natural_scale);
         
         /////////////////////////////////////////////// 
         //--------- Basic Model Abstract methods

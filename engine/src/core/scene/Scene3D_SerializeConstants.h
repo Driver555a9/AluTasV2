@@ -64,7 +64,7 @@ namespace CoreEngine
             {
                 inline constexpr char const* IsBoxModel      = "r_is_box";
                 inline constexpr char const* IsSphereModel   = "r_is_sphere";
-                inline constexpr char const* IsFilePathModel = "r_is_filepath_model";
+                inline constexpr char const* IsFileFilePathModel = "r_is_filepath_model";
                 inline constexpr char const* IsPointModel    = "r_is_point_model";
             }
         }

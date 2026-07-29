@@ -43,7 +43,6 @@ namespace CoreEngine
 
             float _padding [2]; 
         };
-
         static_assert (sizeof(GPU_std430_Aligned_Data) == 80, "Expected sizeof(GPU_std430_Aligned_Data) to be 80 Bytes long");
         static_assert (sizeof(BindlessHandle) == 8, "Expected sizeof(BindlessHandle) to be 8 Bytes long");
 

@@ -5,6 +5,7 @@
 #include "core/utility/Assert.h"
 #include "layer/TasInputLayer.h"
 #include "memory/MemoryUtility.h"
+#include "common/Utility.h"
 
 #include <atomic>
 #include <mutex>
@@ -12,6 +13,7 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <filesystem>
 
 #ifdef _WIN32
     #define WIN32_LEAN_AND_MEAN
@@ -36,6 +38,27 @@ namespace AsphaltTas
         inline ComDllIn::DllGeneralCommandsIn g_dll_general_command;
         inline std::mutex g_dll_general_command_mutex;
 
+        std::wstring g_dll_path_w_string = L"";
+        std::string g_dll_path_string = "";
+
+        std::string g_game_directory_path = "";
+
+        [[nodiscard]] inline std::string WideStringToString(const std::wstring& wide) noexcept
+        {
+        #ifdef _WIN32
+            if (wide.empty()) return {};
+
+            int size = WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), -1, nullptr, 0, nullptr, nullptr);
+
+            std::string utf8(size - 1, '\0');
+
+            WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), -1,utf8.data(), size, nullptr,nullptr);
+
+            return utf8;
+        #endif 
+            return "";
+        }
+
         std::wstring ResolveFullDLLPath()
         {
             wchar_t main_exe_path[MAX_PATH];
@@ -56,6 +79,19 @@ namespace AsphaltTas
             dllName.assign(g_dll_name_char, g_dll_name_char + strlen(g_dll_name_char));
 
             return dir + dllName;
+        }
+
+        std::wstring GetProcessDirectory(HANDLE process)
+        {
+            DWORD size = 32768;
+            std::wstring exePath(size, L'\0');
+
+            if (!QueryFullProcessImageNameW(process, 0, exePath.data(), &size))
+                throw std::runtime_error("QueryFullProcessImageNameW failed");
+
+            exePath.resize(size);
+
+            return std::filesystem::path(exePath).parent_path().wstring();
         }
     }
 
@@ -145,8 +181,11 @@ namespace AsphaltTas
                 throw std::runtime_error("At AsphaltDLLState::InjectIntoGame(): OpenProcess failed");
             }
 
-            std::wstring path = ResolveFullDLLPath();
-            SIZE_T size = (path.size() + 1) * sizeof(wchar_t);
+            g_game_directory_path = WideStringToString(GetProcessDirectory(process_handle));
+
+            g_dll_path_w_string = ResolveFullDLLPath();
+            g_dll_path_string  = WideStringToString(g_dll_path_w_string);
+            SIZE_T size = (g_dll_path_w_string.size() + 1) * sizeof(wchar_t);
             LPVOID remote_buffer = VirtualAllocEx(process_handle, nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 
             if (! remote_buffer) 
@@ -155,7 +194,7 @@ namespace AsphaltTas
                 throw std::runtime_error("At AsphaltDLLState::InjectIntoGame(): VirtualAllocEx failed");
             }
 
-            if (! WriteProcessMemory(process_handle, remote_buffer, path.c_str(), size, nullptr)) 
+            if (! WriteProcessMemory(process_handle, remote_buffer, g_dll_path_w_string.c_str(), size, nullptr)) 
             {
                 VirtualFreeEx(process_handle, remote_buffer, 0, MEM_RELEASE);
                 CloseHandle(process_handle);
@@ -205,6 +244,9 @@ namespace AsphaltTas
 
             g_dll_general_command.m_write_meta_data.m_request_dll_shutdown = true;
             g_dll_general_command.m_write_meta_data.m_command_type = ComDllIn::CommandType::ExecuteCommand;
+            g_dll_path_string = "";
+            g_dll_path_w_string = L"";
+            g_game_directory_path = "";
             ComSharedMem::GetSharedState()->m_dll_in_buffer_general.PushOverwrite(g_dll_general_command);
         }
 
@@ -212,5 +254,12 @@ namespace AsphaltTas
         {
             return g_is_injected.load(std::memory_order::acquire);
         }
+
+        std::optional<std::string> GetGameDirectoryPath() noexcept
+        {
+            if (g_game_directory_path == "") return std::nullopt;
+            return g_game_directory_path;
+        }
+
     }
 }

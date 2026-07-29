@@ -36,6 +36,15 @@ namespace CoreEngine
         [[nodiscard]] Shader& GetShaderProgramReference() noexcept;
         void RestoreShaderToDefault() noexcept;
 
+        struct RenderConfig
+        {
+            enum class FrontFace {CCW, CW};
+            FrontFace m_front_face = FrontFace::CCW;
+            bool m_cull_back_face = true;
+            bool m_use_cull_face  = true;
+        };
+        RenderConfig& GetRenderConfigRef() noexcept;
+
         //////////////////////////////////////////////// 
         //---------  Copy / Move policy
         //////////////////////////////////////////////// 
@@ -71,6 +80,7 @@ namespace CoreEngine
         std::vector<GLuint>                          m_active_draw_indices;
         std::vector<glm::mat4>                       m_mesh_transforms;
         std::vector<std::shared_ptr<MaterialPBR>>    m_material_ptrs;
+        RenderConfig                                 m_render_config;
 
         //////////////////////////////////////////////// 
         //--------- GPU Side Data

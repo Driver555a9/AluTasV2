@@ -161,7 +161,7 @@ void main()
 
     vec3 V = normalize(view_direction);
 
-    vec3 ambient = baseCol.rgb * 0.1; 
+    vec3 ambient = baseCol.rgb * 0.3; 
     vec3 totalLight = vec3(0.0);
 
     for (uint i = 0; i < light_ssbo_size; i++) 

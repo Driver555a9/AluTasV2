@@ -23,11 +23,8 @@ namespace CoreEngine
         explicit Freecam_3D_Layer(Window::Handle window_handle) noexcept;
         virtual ~Freecam_3D_Layer() noexcept = default;
 
-    //------- Allowed default move
-        Freecam_3D_Layer(Freecam_3D_Layer&&) noexcept            = default;
-        Freecam_3D_Layer& operator=(Freecam_3D_Layer&&) noexcept = default;
-
-    //------- Forbidden copy from Scene3D and IndirectDraw3D_RenderingPipeline
+        Freecam_3D_Layer(Freecam_3D_Layer&&) noexcept            = delete;
+        Freecam_3D_Layer& operator=(Freecam_3D_Layer&&) noexcept = delete;
         Freecam_3D_Layer(const Freecam_3D_Layer&)            = delete;
         Freecam_3D_Layer& operator=(const Freecam_3D_Layer&) = delete;
 

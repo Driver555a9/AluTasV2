@@ -2,6 +2,8 @@
 
 #include "layer/MainLayer.h"
 
+#include "layer/TrackViewerLayer.h"
+
 int main()
 {
     constexpr CoreEngine::Application::ApplicationConfig application_config 

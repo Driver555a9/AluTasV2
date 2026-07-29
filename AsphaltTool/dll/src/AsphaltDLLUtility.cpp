@@ -101,17 +101,17 @@ namespace AsphaltDLL::Utility
 
     BulletTypes::Quaternion RotationFromTransform(const BulletTypes::Transform& mat) noexcept 
     {
-        float r00 = mat[0];  // Right.x
-        float r10 = mat[2];  // Right.y
-        float r20 = mat[1];  // Right.z
+        float r00 = mat.At(0);  // Right.x
+        float r10 = mat.At(2);  // Right.y
+        float r20 = mat.At(1);  // Right.z
 
-        float r02 = mat[4];  // Forward.x
-        float r12 = mat[6];  // Forward.y
-        float r22 = mat[5];  // Forward.z
+        float r02 = mat.At(4);  // Forward.x
+        float r12 = mat.At(6);  // Forward.y
+        float r22 = mat.At(5);  // Forward.z
 
-        float r01 = mat[8];   // Up.x
-        float r11 = mat[10];  // Up.y
-        float r21 = mat[9];   // Up.z
+        float r01 = mat.At(8);   // Up.x
+        float r11 = mat.At(10);  // Up.y
+        float r21 = mat.At(9);   // Up.z
 
         float qx, qy, qz, qw;
         float trace = r00 + r11 + r22; // Right.x + Up.y + Forward.z
@@ -177,10 +177,5 @@ namespace AsphaltDLL::Utility
         rotated.z = vz + qw * tz + (qx * ty - qy * tx);
 
         return rotated;
-    }
-
-    BulletTypes::Vector3 PositionFromTransform(const BulletTypes::Transform& mat) noexcept
-    {
-        return {mat[12], mat[13], mat[14]};
     }
 }

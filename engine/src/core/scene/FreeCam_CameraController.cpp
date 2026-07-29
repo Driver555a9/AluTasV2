@@ -19,6 +19,10 @@ namespace CoreEngine
         if (input_state.m_key_is_pressed[GLFW_KEY_D])            movement.x += 1.0f;
         if (input_state.m_key_is_pressed[GLFW_KEY_SPACE])        movement.y += 1.0f;
         if (input_state.m_key_is_pressed[GLFW_KEY_LEFT_CONTROL]) movement.y -= 1.0f;
+        if (input_state.m_key_is_pressed[GLFW_KEY_E])            m_move_speed += 100.0f * delta_time.Get();
+        if (input_state.m_key_is_pressed[GLFW_KEY_Q])            m_move_speed -= 100.0f * delta_time.Get();
+
+        m_move_speed = std::clamp(m_move_speed, 0.0f, 10000.0f);
 
         if (glm::length(movement) > 0.0f)
         {
@@ -32,7 +36,7 @@ namespace CoreEngine
     //////////////////////////////////////////////// 
     //---------  Mouse turn input
     ////////////////////////////////////////////////
-        if (! input_state.m_mouse_is_pressed[GLFW_MOUSE_BUTTON_RIGHT]) //Only turn camera while right mouse is pressed
+        if (! input_state.m_mouse_is_pressed[GLFW_MOUSE_BUTTON_RIGHT] && GetOnlyLookAroundIfRightMouse()) //Only turn camera while right mouse is pressed
             return;
 
         m_camera_yaw   -= input_state.m_mouse_move_delta.x * m_sensitivity;
@@ -40,7 +44,7 @@ namespace CoreEngine
         m_camera_pitch = std::clamp(m_camera_pitch, -89.0f, 89.0f);
 
         const glm::quat q_yaw   = glm::angleAxis(glm::radians(m_camera_yaw), glm::vec3(0, 1, 0));
-        const glm::vec3 right  = q_yaw * glm::vec3(1, 0, 0); 
+        const glm::vec3 right   = q_yaw * glm::vec3(1, 0, 0); 
         const glm::quat q_pitch = glm::angleAxis(glm::radians(m_camera_pitch), right);
 
         const glm::quat rotation = q_pitch * q_yaw;
@@ -75,5 +79,15 @@ namespace CoreEngine
     void FreeCam_CameraController::SetSensitivity(float sensitivity) noexcept
     {
         m_sensitivity = sensitivity;
+    }
+
+    bool FreeCam_CameraController::GetOnlyLookAroundIfRightMouse() const noexcept
+    {
+        return m_only_look_around_if_right_mouse_pressed;
+    }
+
+    void FreeCam_CameraController::SetOnlyLookAroundIfRightMouse(bool toggle) noexcept
+    {
+        m_only_look_around_if_right_mouse_pressed = toggle;
     }
 }

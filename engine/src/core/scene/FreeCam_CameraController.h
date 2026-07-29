@@ -18,8 +18,12 @@ namespace CoreEngine
         void SetMoveSpeed(const float speed) noexcept;
         void SetSensitivity(const float sensitivity) noexcept;
 
+        [[nodiscard]] bool GetOnlyLookAroundIfRightMouse() const noexcept;
+        void SetOnlyLookAroundIfRightMouse(bool toggle) noexcept;
+
     protected:
-        float m_move_speed     {15.0f};
-        float m_sensitivity    {0.1f};
+        float m_move_speed     {150.0f};
+        float m_sensitivity    {0.15f};
+        bool  m_only_look_around_if_right_mouse_pressed = true;
     };
 }

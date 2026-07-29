@@ -175,7 +175,7 @@ namespace AsphaltTas
                     ImGui::Text("Replay: %zu", i);
                     ImGui::SameLine();
                     
-                    constexpr uint32_t max_name_len = 30;
+                    constexpr uint32_t max_name_len = 60;
                     std::string name = replay.GetName();
                     name.resize(max_name_len);
 

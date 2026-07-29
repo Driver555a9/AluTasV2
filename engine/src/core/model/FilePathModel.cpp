@@ -1,4 +1,4 @@
-#include "core/model/PathModel.h"
+#include "core/model/FilePathModel.h"
 
 //Assimp
 #include <assimp/Importer.hpp>
@@ -13,7 +13,7 @@
 
 namespace CoreEngine
 {
-    PathModel::PathModel(const std::string& path, const glm::vec3& position, const glm::quat& rotation, const glm::vec3& natural_scale) 
+    FilePathModel::FilePathModel(const std::string& path, const glm::vec3& position, const glm::quat& rotation, const glm::vec3& natural_scale) 
     : m_file_path(path), m_natural_scale_factor(natural_scale)
     {
         Assimp::Importer importer;
@@ -39,29 +39,29 @@ namespace CoreEngine
         CenterModelLocally();
     }
 
-    std::unique_ptr<Basic_Model> PathModel::Copy() const noexcept
+    std::unique_ptr<Basic_Model> FilePathModel::Copy() const noexcept
     {
-        return std::make_unique<PathModel>(*this);
+        return std::make_unique<FilePathModel>(*this);
     }
 
-    Basic_Model::ModelType PathModel::GetModelType() const noexcept
+    Basic_Model::ModelType FilePathModel::GetModelType() const noexcept
     {
-        return Basic_Model::ModelType::PATH_MODEL;
+        return Basic_Model::ModelType::FILE_PATH_MODEL;
     }
 
-    std::string PathModel::GetFilePath() const noexcept
+    std::string FilePathModel::GetFilePath() const noexcept
     {
         return m_file_path;
     }
 
-    glm::vec3 PathModel::GetNaturalScaleFactor() const noexcept
+    glm::vec3 FilePathModel::GetNaturalScaleFactor() const noexcept
     {
         return m_natural_scale_factor;
     }
 
-    Mesh PathModel::GetMeshFromAi(const std::string& model_file_path, const aiMesh* mesh, const aiScene* scene, const glm::vec3& natural_scale) noexcept
+    Mesh FilePathModel::GetMeshFromAi(const std::string& model_file_path, const aiMesh* mesh, const aiScene* scene, const glm::vec3& natural_scale) noexcept
     {
-        ENGINE_ASSERT(mesh && scene && "At PathModel::GetMeshFromAi(): Mesh and Scene must not be nullptr");
+        ENGINE_ASSERT(mesh && scene && "At FilePathModel::GetMeshFromAi(): Mesh and Scene must not be nullptr");
         //////////////////////////////////////////////// 
         //---------  Extract geometry
         //////////////////////////////////////////////// 
@@ -106,9 +106,9 @@ namespace CoreEngine
         return Mesh{ std::move(vertices), std::move(indices), material };
     }
 
-    std::shared_ptr<MaterialPBR> PathModel::ExtractMaterial(const std::string& model_file_path, const aiMaterial* aiMat, const aiScene* scene) noexcept
+    std::shared_ptr<MaterialPBR> FilePathModel::ExtractMaterial(const std::string& model_file_path, const aiMaterial* aiMat, const aiScene* scene) noexcept
     {
-        ENGINE_ASSERT(aiMat && scene && "At PathModel::ExtractMaterial(): Material and Scene must not be nullptr");
+        ENGINE_ASSERT(aiMat && scene && "At FilePathModel::ExtractMaterial(): Material and Scene must not be nullptr");
         std::shared_ptr<MaterialPBR> material = std::make_shared<MaterialPBR>();
 
         /////////////////////////////////////////////// 

@@ -62,7 +62,6 @@ namespace AsphaltDLL
 
         [[nodiscard]] BulletTypes::Quaternion RotationFromTransform(const BulletTypes::Transform& mat) noexcept;
         [[nodiscard]] BulletTypes::Vector3 RotateVectorByQuaternion(const BulletTypes::Quaternion& q, const BulletTypes::Vector3& v) noexcept;
-        [[nodiscard]] BulletTypes::Vector3 PositionFromTransform(const BulletTypes::Transform& mat) noexcept;
                 
         namespace ColorCodes
         {

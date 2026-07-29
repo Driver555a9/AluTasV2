@@ -38,6 +38,8 @@ namespace Communication
         SKIP_RACE_COUNT_DOWN = 1 << 1
     };
 
+    constexpr char DLL_DUMPED_TRACK_FILE_NAME[] = "objects.TRACK";
+
     namespace DllOut
     {
         struct RecordedReplayInputData 
@@ -130,7 +132,8 @@ namespace Communication
             uintptr_t m_brake_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
             uintptr_t m_steer_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
             uintptr_t m_respawn_func_spoofed_rcx_arg       = NO_VALID_RESOLVED_ADDRESS;
-            uintptr_t m_bvh_root_node_objects              = NO_VALID_RESOLVED_ADDRESS;
+            uintptr_t m_bvh_root_node_static_objects       = NO_VALID_RESOLVED_ADDRESS;
+            uintptr_t m_bvh_root_node_dynamic_objects      = NO_VALID_RESOLVED_ADDRESS; // ramps, nitro bottles etc
 
             void ResetAll() noexcept
             {
@@ -145,10 +148,11 @@ namespace Communication
                 m_brake_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
                 m_steer_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
                 m_respawn_func_spoofed_rcx_arg       = NO_VALID_RESOLVED_ADDRESS;
-                m_bvh_root_node_objects              = NO_VALID_RESOLVED_ADDRESS;
+                m_bvh_root_node_static_objects       = NO_VALID_RESOLVED_ADDRESS;
+                m_bvh_root_node_dynamic_objects      = NO_VALID_RESOLVED_ADDRESS;
             }
         };
-        static_assert(sizeof(ResolvedAddresses) == 11 * sizeof(uintptr_t), "No packing should occur");
+        static_assert(sizeof(ResolvedAddresses) == 12 * sizeof(uintptr_t), "No packing should occur");
 
         struct XInputState 
         {
@@ -167,6 +171,7 @@ namespace Communication
         {
             IN_MENU, IN_RACE, IN_LOADING_SCREEN, IN_PRE_RACE_CINEMATIC
         };
+
         struct DllStateMetaData 
         {
             ReplayMode m_replay_mode_status                 = ReplayMode::Inactive;
@@ -176,16 +181,18 @@ namespace Communication
             SkipAnimationFlags m_skip_animation_flags       = SkipAnimationFlags::SKIP_NONE; // Deprecated, prefer m_speed_up_pre_race_cinematic
             std::uint32_t m_replay_speed_factor             = 1;
             std::uint32_t m_on_replay_end_skip_tick_count   = 0;
+            std::uint32_t m_dump_track_request_id           = 0; // While dump request > last_completed_dump, objects.TRACK will be dumped
+            std::uint32_t m_last_completed_dump_request_id  = 0;
             RaceStatusState m_race_status_state             = RaceStatusState::IN_MENU;
             bool m_apply_physics_interval_override          = false;
             bool m_gui_is_hidden                            = false;
             bool m_apply_game_target_fps_interval_override  = false;
             bool m_speed_up_pre_race_cinematic              = false;
             bool m_force_accomplish_target_fps_interval     = true;
-            uint8_t __ignore_padding__[6];
+            uint8_t __ignore_padding__[6];  
         };
-        static_assert(sizeof(DllStateMetaData) == sizeof(ReplayMode) + 4 * sizeof(std::uint32_t) + sizeof(float) + sizeof(SkipAnimationFlags) +
-                            + 12 * sizeof(bool), "No packing should occur");
+        static_assert(sizeof(DllStateMetaData) == sizeof(ReplayMode) + 6 * sizeof(std::uint32_t) + sizeof(float) + sizeof(SkipAnimationFlags) + sizeof(RaceStatusState)
+                            + 11 * sizeof(bool), "No packing should occur");
 
         struct DllStateOut
         {   
@@ -317,16 +324,17 @@ namespace Communication
             SkipAnimationFlags m_skip_animation_flags       = SkipAnimationFlags::SKIP_NONE;
             std::uint32_t m_replay_speed_factor             = 1;
             std::uint32_t m_on_replay_end_skip_tick_count   = 0; 
+            std::uint32_t m_dump_track_request_id           = 0;       // This must be greater than out states index for dump to happen
             bool m_apply_physics_interval_override          = false;   // true changes game behaviour
             bool m_request_dll_shutdown                     = false;   // Alternative to extern C func RequestShutdown call
             bool m_hide_gui                                 = false;
             bool m_apply_game_target_fps_interval_override  = false;
             bool m_speed_up_pre_race_cinematic              = false;
             bool m_force_accomplish_target_fps_interval     = true;
-            uint8_t __ignore_padding__[6];
+            uint8_t __ignore__padding__[2];
         };
-        static_assert(sizeof(WriteMetaData) == sizeof(CommandType) + sizeof(ReplayMode) + 4 * sizeof(std::uint32_t) + sizeof(float) + sizeof(SkipAnimationFlags) +
-                                           12 * sizeof(bool), "No packing should occur");
+        static_assert(sizeof(WriteMetaData) == sizeof(CommandType) + sizeof(ReplayMode) + 5 * sizeof(std::uint32_t) + sizeof(float) + sizeof(SkipAnimationFlags) +
+                                           8 * sizeof(bool), "No packing should occur");
 
         struct DllGeneralCommandsIn
         {

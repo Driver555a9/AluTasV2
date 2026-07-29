@@ -5,7 +5,7 @@
 
 #include "core/model/BoxModel.h"
 #include "core/model/SphereModel.h"
-#include "core/model/PathModel.h"
+#include "core/model/FilePathModel.h"
 #include "core/model/PointsModel.h"
 
 #include "core/physics/PhysicsCar.h"
@@ -57,12 +57,12 @@ namespace CoreEngine
             const auto& scale_json      = render_json.at(_SerializeKey::Render::Scale);
             const glm::vec3 scale       { scale_json.at("x").get<float>(), scale_json.at("y").get<float>(), scale_json.at("z").get<float>() };
 
-            if (model_type == _SerializeKey::Render::Value::IsFilePathModel)
+            if (model_type == _SerializeKey::Render::Value::IsFileFilePathModel)
             {
                 const std::string path         = render_json.at(_SerializeKey::Render::FilePath).get<std::string>();
                 const auto& natural_scale_json = render_json.at(_SerializeKey::Render::NaturalScale);
                 const glm::vec3 natural_scale  { natural_scale_json.at("x").get<float>(), natural_scale_json.at("y").get<float>(), natural_scale_json.at("z").get<float>() };
-                m_render_model = std::make_unique<PathModel>(path, position, rotation, natural_scale);
+                m_render_model = std::make_unique<FilePathModel>(path, position, rotation, natural_scale);
                 m_render_model->SetScale(scale);
             }
             else if (model_type == _SerializeKey::Render::Value::IsBoxModel)
@@ -414,11 +414,11 @@ namespace CoreEngine
             const glm::vec3 scale = m_render_model->GetScale();
             json_obj[_SerializeKey::Render::Root][_SerializeKey::Render::Scale]    = {{"x", scale.x}, {"y", scale.y}, {"z", scale.z}};
 
-            if (m_render_model->GetModelType() == Basic_Model::ModelType::PATH_MODEL)
+            if (m_render_model->GetModelType() == Basic_Model::ModelType::FILE_PATH_MODEL)
             {
-                const PathModel* path_model   = static_cast<PathModel*>(m_render_model.get());
+                const FilePathModel* path_model   = static_cast<FilePathModel*>(m_render_model.get());
                 const glm::vec3 natural_scale = path_model->GetNaturalScaleFactor(); // Computed once on CPU unpon load
-                json_obj[_SerializeKey::Render::Root][_SerializeKey::Render::Type]         = _SerializeKey::Render::Value::IsFilePathModel;
+                json_obj[_SerializeKey::Render::Root][_SerializeKey::Render::Type]         = _SerializeKey::Render::Value::IsFileFilePathModel;
                 json_obj[_SerializeKey::Render::Root][_SerializeKey::Render::FilePath]     = path_model->GetFilePath();
                 json_obj[_SerializeKey::Render::Root][_SerializeKey::Render::NaturalScale] = {{"x", natural_scale.x}, {"y", natural_scale.y}, {"z", natural_scale.z}};
             }

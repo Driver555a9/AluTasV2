@@ -51,6 +51,7 @@ namespace CoreEngine
                 //////////////////////////////////////////////// 
                 //--------- Updating
                 //////////////////////////////////////////////// 
+                glfwMakeContextCurrent(wls->m_window_ptr->GetGLFWwindow());
                 {
                     ENGINE_PERFORMANCE_MEASURE_SCOPE_TIME( wls->m_window_ptr->GetTitle() + std::string(" : OnUpdate()     ") );
                     for (std::unique_ptr<Basic_Layer>& layer : wls->m_layer_stack)
