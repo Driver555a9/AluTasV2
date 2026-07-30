@@ -42,6 +42,7 @@ namespace CoreEngine
             FrontFace m_front_face = FrontFace::CCW;
             bool m_cull_back_face = true;
             bool m_use_cull_face  = true;
+            bool m_frustum_cull   = true;
         };
         RenderConfig& GetRenderConfigRef() noexcept;
 

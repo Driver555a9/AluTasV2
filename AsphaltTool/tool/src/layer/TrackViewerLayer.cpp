@@ -146,9 +146,8 @@ namespace AsphaltTas
     void TrackViewerLayer::LoadTrackFromFile(const std::string& path) noexcept
     {
         m_selected_object_state.m_object_ptr = nullptr;
-        std::vector<BulletTypes::Serializer::ExtractedObject> object_list = BulletTypes::Serializer::DeserializeObjectsFromFile(path);
-
         m_scene.ClearAllSceneObjects();
+        std::vector<BulletTypes::Serializer::ExtractedObject> object_list = BulletTypes::Serializer::DeserializeObjectsFromFile(path);
 
         const auto ConvertVector3ToGlm = [](const BulletTypes::UnalignedVector3& vec) -> glm::vec3
         {
@@ -421,6 +420,8 @@ namespace AsphaltTas
 
             RenderShapeAtTransform(object.m_root_shape.get(), object.m_collision_object_info.m_world_transform, object.m_collision_object_info.m_collision_flags,"");
         }
+
+        m_pipeline.SetSceneData(m_scene.GetRenderModelVector(), m_scene.GetLightVectorConstRef());
     }
 
     void TrackViewerLayer::OnImGuiRender_LeftOptionPanel() noexcept

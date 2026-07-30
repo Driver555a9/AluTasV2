@@ -219,7 +219,7 @@ namespace CoreEngine
                 const GLuint mesh_indices_count  = mesh.GetIndicesConstReference().size();
                 const GLuint mesh_vertices_count = mesh.GetVerticesConstReference().size();
 
-                if (MathUtility::AABBIsInFrustum(MathUtility::ExtractProjectionPlanesFromVP(view_projection), world_space_aabb))
+                if (!m_render_config.m_frustum_cull || MathUtility::AABBIsInFrustum(MathUtility::ExtractProjectionPlanesFromVP(view_projection), world_space_aabb))
                 {
                     //Create draw command
                     DrawElementsIndirectCommand cmd;
