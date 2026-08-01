@@ -320,15 +320,16 @@ namespace AsphaltTas
                 }
     
                 racer_state.m_nitro_bar_value = DecimalToFloat(rs[SerializeKeys::RacerStates::NITRO_BAR].value());
-                racer_state_cache.push_back(racer_state);
 
                 if (replay_version >= ReplayVersion::VERSION_3)
                 {
                     racer_state.m_race_progress_percentage = DecimalToFloat(rs[SerializeKeys::RacerStates::RACE_PROGRESS].value());
-                    racer_state.m_rpm  = DecimalToFloat(rs[SerializeKeys::RacerStates::CAR_RPM].value());
+                    racer_state.m_rpm        = DecimalToFloat(rs[SerializeKeys::RacerStates::CAR_RPM].value());
                     racer_state.m_checkpoint = rs[SerializeKeys::RacerStates::CP].get_uint32();
                     racer_state.m_gear       = rs[SerializeKeys::RacerStates::GEAR].get_uint32();
                 }
+
+                racer_state_cache.push_back(racer_state);
             }
         }
     

@@ -501,6 +501,20 @@ namespace AsphaltDLL
 
                     {
                         LOCK_CURRENT_STATE_MUTEX();
+
+                        if (GameDLLState::g_current_state.m_meta_data.m_dump_track_request_id > GameDLLState::g_current_state.m_meta_data.m_last_completed_dump_request_id
+                        && (GameDLLState::g_current_state.m_meta_data.m_race_status_state == Communication::DllOut::RaceStatusState::IN_RACE 
+                         || GameDLLState::g_current_state.m_meta_data.m_race_status_state == Communication::DllOut::RaceStatusState::IN_PRE_RACE_CINEMATIC))
+                        {
+                            if (StateManager::OnExportTrack())
+                            {
+                                GameDLLState::g_current_state.m_meta_data.m_last_completed_dump_request_id = GameDLLState::g_current_state.m_meta_data.m_dump_track_request_id; 
+                            }
+                            else 
+                            {
+                                //DLL_ERROR_PRINT("Failed to export track, despite request.");
+                            }
+                        }
                         
                         const auto status = GameDLLState::g_current_state.m_meta_data.m_race_status_state;
                         const bool speed_up_cin = GameDLLState::g_current_state.m_meta_data.m_speed_up_pre_race_cinematic;
@@ -544,24 +558,6 @@ namespace AsphaltDLL
                         {
                             iterations   = speed_factor;
                             current_mode = FrameExecutionMode::StandardFallback;
-                        }
-                    }
-
-                    // Export track if requested
-                    {
-                        LOCK_CURRENT_STATE_MUTEX();
-                        if (GameDLLState::g_current_state.m_meta_data.m_dump_track_request_id > GameDLLState::g_current_state.m_meta_data.m_last_completed_dump_request_id
-                        && (GameDLLState::g_current_state.m_meta_data.m_race_status_state == Communication::DllOut::RaceStatusState::IN_RACE 
-                        || GameDLLState::g_current_state.m_meta_data.m_race_status_state == Communication::DllOut::RaceStatusState::IN_PRE_RACE_CINEMATIC))
-                        {
-                            if (StateManager::OnExportTrack())
-                            {
-                                GameDLLState::g_current_state.m_meta_data.m_last_completed_dump_request_id = GameDLLState::g_current_state.m_meta_data.m_dump_track_request_id; 
-                            }
-                            else 
-                            {
-                                //DLL_ERROR_PRINT("Failed to export track, despite request.");
-                            }
                         }
                     }
 
@@ -705,7 +701,11 @@ namespace AsphaltDLL
                         LOCK_CURRENT_STATE_MUTEX();
                         GameDLLState::g_current_state.m_resolved_addresses.m_physics_world_instance_address = p_this;
 
-                        Tests::DebugDumpPhysicsWorldObjects("deubug_world_dump.txt");
+                       //Tests::DebugDumpPhysicsWorldObjects("deubug_world_dump.txt");
+                       //if (GameDLLState::g_current_state.m_replay_inputs.m_race_frame_tick == 50)
+                       {
+                         //   Tests::ChangeMaterialsTest();
+                       }
                     }
 
                     return RealNewBulletPhysicsTickCall(p_this, p_delta_time, p_passthrough);

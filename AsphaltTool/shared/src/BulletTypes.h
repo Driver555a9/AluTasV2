@@ -87,7 +87,7 @@ namespace BulletTypes
     {
         UnalignedVector4 m_basis[3];
         UnalignedVector4 m_origin;
-
+        UnalignedTransform() noexcept : m_basis({1, 0, 0}, {0, 1, 0}, {0, 0, 1}), m_origin(0, 0, 0) {}
         UnalignedVector4& operator[](size_t col) noexcept { assert(col < 4); return (col < 3) ? m_basis[col] : m_origin; }
         const UnalignedVector4& operator[](size_t col) const noexcept { assert(col < 4);  return (col < 3) ? m_basis[col] : m_origin; }
         float& At(size_t flat_index) noexcept { assert(flat_index < 16); return reinterpret_cast<float*>(this)[flat_index]; }
@@ -114,7 +114,7 @@ namespace BulletTypes
     {
         Vector4 m_basis[3];
         Vector4 m_origin;
-        
+        Transform() noexcept : m_basis({1, 0, 0}, {0, 1, 0}, {0, 0, 1}), m_origin(0, 0, 0) {}
         Vector4& operator[](size_t col) noexcept{ assert(col < 4); return (col < 3) ? m_basis[col] : m_origin; }
         const Vector4& operator[](size_t col) const noexcept { assert(col < 4); return (col < 3) ? m_basis[col] : m_origin; }
         float& At(size_t flat_index) noexcept { assert(flat_index < 16); return reinterpret_cast<float*>(this)[flat_index]; }
@@ -168,7 +168,7 @@ namespace BulletTypes
         uint8_t m_unknown[4];
         T*      m_data;
         bool    m_owns_memory;
-        uint8_t m_tailPad[7]; 
+        uint8_t m_tail_pad[7]; 
         T& operator[](int32_t i) { assert(i < m_size && m_size >= 0); return m_data[i]; }
         const T& operator[](int32_t i) const { assert(i < m_size && m_size >= 0); return m_data[i]; }
     };
@@ -661,7 +661,7 @@ namespace BulletTypes
         AlignedObjectArray<Key>   m_key_array;
     };
 
-    struct btTriangleInfo
+    struct TriangleInfo
     {
         int   m_flags;
         float m_edge_V0V1_angle;
@@ -669,7 +669,7 @@ namespace BulletTypes
         float m_edge_V2V0_angle;
     };
 
-    using InternalTriangleInfoMap = HashMap<int, btTriangleInfo>;
+    using InternalTriangleInfoMap = HashMap<int, TriangleInfo>;
 
     struct TriangleInfoMap : public InternalTriangleInfoMap
     {
@@ -767,7 +767,7 @@ namespace BulletTypes
 
     struct alignas(16) CompoundShape : public CollisionShape // USED IN GAME
     {
-        uint8_t m_padd[4]; // Verify this
+        uint8_t m_padd[4];
         AlignedObjectArray<CompoundShapeChild> m_children;
         Vector3 m_local_aabb_min;
         Vector3 m_local_aabb_max;
@@ -855,7 +855,7 @@ namespace BulletTypes
         int                 m_update_revision;
         Vector3             m_custom_debug_color_RGB;
 
-        void setCollisionShape(CollisionShape * collision_shape) noexcept
+        void SetCollisionShape(CollisionShape* collision_shape) noexcept
         {
             using Fn = void(*)(CollisionObject* p_this, CollisionShape* shape);
             reinterpret_cast<Fn*>(m_vtable_ptr)[2](this, collision_shape);
@@ -867,12 +867,12 @@ namespace BulletTypes
 
     struct alignas(16) BroadphaseProxy
     {
-        CollisionObject*       m_client_body {}; // btCollisionObject or Rigidbody
-        int                    m_collision_filter_group;
-        int                    m_collision_filter_mask;
-        int                    m_unique_id;
-        Vector3   m_aabb_min;
-        Vector3   m_aabb_max;
+        CollisionObject*  m_client_body {};
+        int               m_collision_filter_group;
+        int               m_collision_filter_mask;
+        int               m_unique_id;
+        Vector3           m_aabb_min;
+        Vector3           m_aabb_max;
     };
     static_assert(offsetof(BroadphaseProxy, m_aabb_min) == 0x20);
     static_assert(offsetof(BroadphaseProxy, m_aabb_max) == 0x30);

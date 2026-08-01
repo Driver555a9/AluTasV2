@@ -129,24 +129,6 @@ namespace BulletTypes
                         const unsigned char* tri_mat_ptr = cache.triangle_material_base + (triangle_index * cache.triangle_material_stride);
 
                         material_index = static_cast<decltype(material_index)>(*tri_mat_ptr);
-                        // switch gives incorrect results - check why? - Actual type is PHY_INTEGER, but we mustn't inerpret it this way
-                        /*switch (cache.triangle_type)
-                        {
-                            case PHY_INTEGER:
-                                material_index = static_cast<decltype(material_index)>(*reinterpret_cast<const int32_t*>(tri_mat_ptr));
-                                break;
-
-                            case PHY_SHORT:
-                                material_index = static_cast<decltype(material_index)>(*reinterpret_cast<const int16_t*>(tri_mat_ptr));
-                                break;
-
-                            case PHY_UCHAR:
-                                material_index = static_cast<decltype(material_index)>(*tri_mat_ptr);
-                                break;
-
-                            default:
-                                break;
-                        }*/
                     }
                 }
 
@@ -218,7 +200,7 @@ namespace BulletTypes
         struct ScaledTriangleMeshExtractedShape : public BasicExtractedShape
         {
             UnalignedVector3 m_scale;
-            std::unique_ptr<MultiMatExtractedShape> m_internal_triangle_shape; // Update this if adding materials to MultiMatExtractedShape & if find other internal types
+            std::unique_ptr<MultiMatExtractedShape> m_internal_triangle_shape; // Update this if we find other internal types
             ScaledTriangleMeshExtractedShape()  : BasicExtractedShape(BroadphaseNativeTypes::SCALED_TRIANGLE_MESH_SHAPE_PROXYTYPE) {}
         };
 

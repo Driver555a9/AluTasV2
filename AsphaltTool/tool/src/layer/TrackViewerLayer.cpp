@@ -9,7 +9,6 @@
 
 #include "core/application/Application.h"
 #include "core/layer/Editor_3D_Layer.h"
-#include "core/layer/Freecam_3D_Layer.h"
 #include "core/model/BoxModel.h"
 #include "core/model/Light.h"
 #include "core/model/Mesh.h"
@@ -29,7 +28,6 @@
 #include "glfw/glfw3.h"
 
 #include <cstdint>
-#include <exception>
 #include <filesystem>
 #include <memory>
 #include <sstream>
@@ -85,6 +83,7 @@ namespace AsphaltTas
         LoadColorDefFromFile("trackview.COLORDEF");
 
         m_pipeline.GetRenderConfigRef().m_use_cull_face = false;
+        m_draw_lines_pipeline.SetLineThicknessFactor(10.0f);
     }
 
     TrackViewerLayer::~TrackViewerLayer() noexcept { s_instance = nullptr; } 
