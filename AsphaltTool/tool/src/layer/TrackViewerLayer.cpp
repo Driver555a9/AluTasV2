@@ -2,6 +2,7 @@
 #include "common/RacerState.h"
 #include "Communication.h"
 #include "common/Replay.h"
+#include "core/model/Model.h"
 #include "core/scene/CameraController.h"
 #include "layer/GuiStyle.h"
 #include "globalstate/AsphaltDllManager.h"
@@ -27,6 +28,7 @@
 #include "imgui.h"
 #include "imgui/ImGuiFileDialog.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
@@ -134,14 +136,7 @@ namespace AsphaltTas
 
         if (m_replay_draw_line_pipeline.GetAmountLineVertices() == 0) return;
 
-        if (m_camera.HasCachedCameraMatrix())
-        {
-            m_replay_draw_line_pipeline.SetCameraData(m_camera.GetLastCachedCameraMatrix());
-        }
-        else 
-        {
-            m_replay_draw_line_pipeline.SetCameraData(m_camera.CalculateCameraMatrix());
-        }
+        m_replay_draw_line_pipeline.SetCameraData(m_camera.GetCameraMatrix());
         m_replay_draw_line_pipeline.Render();
     }
 
@@ -158,7 +153,9 @@ namespace AsphaltTas
     void TrackViewerLayer::LoadTrackFromFile(const std::string& path) noexcept
     {
         m_selected_object_state.m_object_ptr = nullptr;
+        m_hide_non_triangle_meshes = true;
         m_scene.ClearAllSceneObjects();
+        
         std::vector<BulletTypes::Serializer::ExtractedObject> object_list = BulletTypes::Serializer::DeserializeObjectsFromFile(path);
 
         const auto ConvertVector3ToGlm = [](const BulletTypes::UnalignedVector3& vec) -> glm::vec3
@@ -280,7 +277,7 @@ namespace AsphaltTas
             {
                 case BulletTypes::BroadphaseNativeTypes::BOX_SHAPE_PROXYTYPE:
                 {
-                    /*const auto* box_shape = static_cast<const BulletTypes::Serializer::BoxExtractedShape*>(shape);
+                    const auto* box_shape = static_cast<const BulletTypes::Serializer::BoxExtractedShape*>(shape);
                     const glm::vec3 half_extents = ConvertVector3ToGlm(box_shape->m_implicit_shape_dimensions);
 
                     std::stringstream ss;
@@ -291,17 +288,17 @@ namespace AsphaltTas
                     const glm::vec3 color = m_color_defs[COLOR_DEFS_INDEX_BOX];
 
                     CoreEngine::Scene3D_ObjectBuilder builder = m_scene.CreateObjectBuilder();
-                    builder.RenderModel_SetExisting(std::make_unique<CoreEngine::BoxModel>(half_extents, position, rotation, COLOR_BOX));
+                    builder.RenderModel_SetExisting(std::make_unique<CoreEngine::BoxModel>(half_extents, position, rotation, color));
                     builder.SetPosition(position);
                     builder.SetRotation(rotation);
                     builder.SetName(ss.str());
-                    m_scene.AddObjectFromBuilder(std::move(builder)); */
+                    m_scene.AddObjectFromBuilder(std::move(builder)); 
                     return;
                 }
 
                 case BulletTypes::BroadphaseNativeTypes::SPHERE_SHAPE_PROXYTYPE:
                 {
-                    /*const auto* sphere_shape = static_cast<const BulletTypes::Serializer::SphereExtractedShape*>(shape);
+                    const auto* sphere_shape = static_cast<const BulletTypes::Serializer::SphereExtractedShape*>(shape);
                     const glm::vec3 half_extents = ConvertVector3ToGlm(sphere_shape->m_implicit_shape_dimensions);
 
                     std::stringstream ss;
@@ -312,11 +309,11 @@ namespace AsphaltTas
                     const glm::vec3 color = m_color_defs[COLOR_DEFS_INDEX_SPHERE];
 
                     CoreEngine::Scene3D_ObjectBuilder builder = m_scene.CreateObjectBuilder();
-                    builder.RenderModel_SetExisting(std::make_unique<CoreEngine::SphereModel>(half_extents.x, position, rotation, COLOR_SPHERE));
+                    builder.RenderModel_SetExisting(std::make_unique<CoreEngine::SphereModel>(half_extents.x, position, rotation, color));
                     builder.SetPosition(position);
                     builder.SetRotation(rotation);
                     builder.SetName(ss.str());
-                    m_scene.AddObjectFromBuilder(std::move(builder));*/
+                    m_scene.AddObjectFromBuilder(std::move(builder));
                     return; 
                 }
 
@@ -651,17 +648,22 @@ namespace AsphaltTas
         if (ImGui::CollapsingHeader("Render", ImGuiTreeNodeFlags_DefaultOpen))
         {
             ImGui::Indent();
-            
-            bool vsync_now = CoreEngine::Application::Get()->GetVsyncIsOn();
-            if (ImGui::Checkbox("Toggle Vsync", &vsync_now))
-            {
-               CoreEngine:: Application::Get()->SetVsync(vsync_now);
-            }
 
             if (ImGui::Checkbox("Render GUI", &m_render_gui))
             {
                 OnSetRenderGUI(m_render_gui);
             } 
+
+            if (ImGui::Checkbox("Hide Boxes", &m_hide_non_triangle_meshes))
+            {
+                OnHideNonTrianglemeshObjects(m_hide_non_triangle_meshes);
+            }
+
+            bool vsync_now = CoreEngine::Application::Get()->GetVsyncIsOn();
+            if (ImGui::Checkbox("Toggle Vsync", &vsync_now))
+            {
+               CoreEngine:: Application::Get()->SetVsync(vsync_now);
+            }
 
             ImGui::Unindent();
         }
@@ -1209,6 +1211,23 @@ namespace AsphaltTas
 
         glfwSetInputMode(CoreEngine::Application::Get()->GetWindowPtr(m_handle)->GetGLFWwindow(), GLFW_CURSOR, m_render_gui ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
         m_ignore_next_mouse_deltas = 5;
+    }
+
+    void TrackViewerLayer::OnHideNonTrianglemeshObjects(bool hide) noexcept
+    {
+        m_hide_non_triangle_meshes = hide;
+
+        const glm::vec3 offset = hide ? glm::vec3(1'000'000.0f) : glm::vec3(-1'000'000.0f);
+
+        auto& objects = m_scene.GetSceneObjectsRef();
+
+        for (auto& obj : objects)
+        {
+            if (obj->m_render_model && obj->m_render_model->GetModelType() != CoreEngine::Basic_Model::ModelType::POINTS_MODEL)
+            {
+                obj->SetPosition(obj->GetPosition() + offset);
+            }
+        }
     }
 
     void TrackViewerLayer::CreateInstance() noexcept

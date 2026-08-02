@@ -128,7 +128,7 @@ namespace
                 m_camera.SetFovRad(camera_state_now.GetFovRadians());
 
                 m_render_pipeline.SetGhostData(s_ghost_model.get());
-                m_render_pipeline.SetCameraData(m_camera.CalculateCameraMatrix(), m_camera.GetPosition());
+                m_render_pipeline.SetCameraData(m_camera.GetCameraMatrix(), m_camera.GetPosition());
                 m_render_pipeline.Render();
             } 
             catch (...) 
