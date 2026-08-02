@@ -1,6 +1,5 @@
 #pragma once
 
-#include "core/model/Model.h"
 #include "core/rendering/Texture.h"
 #include "core/rendering/RenderBuffers.h"
 #include "core/rendering/Shader.h"

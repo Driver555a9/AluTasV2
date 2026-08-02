@@ -1,6 +1,7 @@
 #include "layer/TrackViewerLayer.h"
+#include "common/RacerState.h"
 #include "Communication.h"
-#include "GLFW/glfw3.h"
+#include "common/Replay.h"
 #include "core/scene/CameraController.h"
 #include "layer/GuiStyle.h"
 #include "globalstate/AsphaltDllManager.h"
@@ -25,11 +26,11 @@
 #include "glm/ext/vector_float3.hpp"
 #include "imgui.h"
 #include "imgui/ImGuiFileDialog.h"
-#include "glfw/glfw3.h"
 
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <ranges>
 #include <string>
@@ -82,7 +83,7 @@ namespace AsphaltTas
 
         LoadColorDefFromFile("trackview.COLORDEF");
 
-        m_pipeline.GetRenderConfigRef().m_use_cull_face = false;
+        m_indirect_pipeline.GetRenderConfigRef().m_use_cull_face = false;
         m_draw_lines_pipeline.SetLineThicknessFactor(10.0f);
     }
 
@@ -130,6 +131,18 @@ namespace AsphaltTas
     void TrackViewerLayer::OnRender() noexcept 
     {
         Editor_3D_Layer::OnRender();
+
+        if (m_replay_draw_line_pipeline.GetAmountLineVertices() == 0) return;
+
+        if (m_camera.HasCachedCameraMatrix())
+        {
+            m_replay_draw_line_pipeline.SetCameraData(m_camera.GetLastCachedCameraMatrix());
+        }
+        else 
+        {
+            m_replay_draw_line_pipeline.SetCameraData(m_camera.CalculateCameraMatrix());
+        }
+        m_replay_draw_line_pipeline.Render();
     }
 
     void TrackViewerLayer::OnImGuiRender() noexcept 
@@ -420,7 +433,7 @@ namespace AsphaltTas
             RenderShapeAtTransform(object.m_root_shape.get(), object.m_collision_object_info.m_world_transform, object.m_collision_object_info.m_collision_flags,"");
         }
 
-        m_pipeline.SetSceneData(m_scene.GetRenderModelVector(), m_scene.GetLightVectorConstRef());
+        m_indirect_pipeline.SetSceneData(m_scene.GetRenderModelVector(), m_scene.GetLightVectorConstRef());
     }
 
     void TrackViewerLayer::OnImGuiRender_LeftOptionPanel() noexcept
@@ -469,6 +482,23 @@ namespace AsphaltTas
                 }
             }
 
+            {
+                PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Button, GuiStyle::COLOR_GREEN);
+                if (ImGui::Button("Load Replay"))
+                {
+                    ImGuiFileDialog::Instance()->OpenDialog("LoadReplayForTrackViewKey", "Load Replay", ".REPLAY");
+                }
+            }
+
+            {
+                PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Button, GuiStyle::COLOR_RED);
+                ImGui::SameLine();
+                if (ImGui::Button("Clear Replay"))
+                {
+                    LoadReplay(std::nullopt);
+                }
+            }
+
             if (ImGuiFileDialog::Instance()->Display("LoadTrackKey"))
             {
                 if (ImGuiFileDialog::Instance()->IsOk())
@@ -491,6 +521,20 @@ namespace AsphaltTas
                 }
                 ImGuiFileDialog::Instance()->Close();
             }
+
+            if (ImGuiFileDialog::Instance()->Display("LoadReplayForTrackViewKey"))
+            {
+                if (ImGuiFileDialog::Instance()->IsOk())
+                {
+                    Replay replay = Replay::DeserializeReplayFromFile(ImGuiFileDialog::Instance()->GetFilePathName());
+                    if (replay.IsValid() && replay.GetAmountFrames() > 0) 
+                    {
+                        LoadReplay(std::move(replay));
+                    }
+                }
+                ImGuiFileDialog::Instance()->Close();
+            }
+
 
             if (ImGui::CollapsingHeader("Objects", ImGuiTreeNodeFlags_DefaultOpen))
             {
@@ -708,6 +752,65 @@ namespace AsphaltTas
         }
         data.shrink_to_fit();
         m_color_defs = std::move(data);
+    }
+
+    void TrackViewerLayer::LoadReplay(std::optional<Replay> replay) noexcept
+    {
+        m_current_replay = replay;
+
+        auto replay_path = [&replay]() -> std::vector<CoreEngine::DrawLines3D_RenderPipeline::LineVertex> 
+        {
+            if (!replay.has_value()) return {};
+
+            const std::vector<Replay::Frame>& frames = replay->GetFrameVectorConstReference();
+            std::vector<CoreEngine::DrawLines3D_RenderPipeline::LineVertex> out;
+            out.reserve(frames.size() * 2);
+
+            const auto HSVtoRGB = [](float h, float s, float v) -> glm::vec3 
+            {
+                h = fmod(h, 360.0f);
+                float c = v * s;
+                float x = c * (1 - fabs(fmod(h / 60.0f, 2) - 1));
+                float m = v - c;
+                glm::vec3 rgb;
+                if (h < 60)       rgb = {c, x, 0};
+                else if (h < 120) rgb = {x, c, 0};
+                else if (h < 180) rgb = {0, c, x};
+                else if (h < 240) rgb = {0, x, c};
+                else if (h < 300) rgb = {x, 0, c};
+                else              rgb = {c, 0, x};
+                return rgb + glm::vec3(m);
+            }; 
+
+            float rainbow_length = 60.0f;
+            float distance_accum = 0.0f;
+
+            for (size_t i = 0; i < frames.size() - 1; ++i)
+            {
+                const glm::vec3 p0 = RacerState(frames[i].m_recorded_racer_state).GetPositionOpenGL_XYZ();
+                const glm::vec3 p1 = RacerState(frames[i+1].m_recorded_racer_state).GetPositionOpenGL_XYZ();
+
+                /*const float segment_length = glm::length(p1 - p0);
+                distance_accum += segment_length;
+
+                const float hue0 = fmod(distance_accum / rainbow_length * 360.0f, 360.0f);
+                const float hue1 = fmod((distance_accum + segment_length) / rainbow_length * 360.0f, 360.0f);
+
+                const glm::vec3 color0 = HSVtoRGB(hue0, 1.0f, 1.0f);
+                const glm::vec3 color1 = HSVtoRGB(hue1, 1.0f, 1.0f); */
+
+                const glm::vec3 color0 (1.0f);
+                const glm::vec3 color1 (1.0f);
+
+                out.emplace_back(p0, color0);
+                out.emplace_back(p1, color1);
+            }
+
+            return out;
+        }();
+
+        m_replay_draw_line_pipeline.SetLineData(std::move(replay_path));
+        m_replay_draw_line_pipeline.SetLineThicknessFactor(100.0f);
     }
 
     void TrackViewerLayer::OnImGuiRender_RightOptionPanel() noexcept

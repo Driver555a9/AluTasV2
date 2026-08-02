@@ -1,7 +1,6 @@
 #pragma once
 
 //own includes
-#include "core/model/Model.h"
 #include "core/rendering/Texture.h"
 #include "core/rendering/RenderBuffers.h"
 #include "core/rendering/Shader.h"
@@ -35,10 +34,10 @@ namespace CoreEngine
         void SetLineData(std::vector<LineVertex> line_vertices) noexcept;
 
         void SetLineThicknessFactor(float thickness) noexcept;
-        [[nodiscard]] float GetLineThicknessFactor() const noexcept;
+        [[nodiscard]] float GetLineThicknessFactor() const noexcept; 
 
         void ClearAllLines() noexcept;
-
+        [[nodiscard]] size_t GetAmountLineVertices() const noexcept;
         void Render() noexcept;
 
     //////////////////////////////////////////////// 
@@ -46,12 +45,6 @@ namespace CoreEngine
     ////////////////////////////////////////////////
         explicit DrawLines3D_RenderPipeline() noexcept;
         ~DrawLines3D_RenderPipeline() noexcept = default;
-
-    //////////////////////////////////////////////// 
-    //---------  Move is allowed
-    ////////////////////////////////////////////////
-        explicit DrawLines3D_RenderPipeline(DrawLines3D_RenderPipeline&&)  noexcept  = default;
-        DrawLines3D_RenderPipeline& operator=(DrawLines3D_RenderPipeline&&) noexcept = default;
 
     protected:
         static constexpr const char* s_VERTEX_SHADER_CODE = 

@@ -1,12 +1,14 @@
 #include "core/scene/Camera.h"
 
 //own
+#include "core/utility/Assert.h"
 #include "core/utility/CommonUtility.h"
 #include "core/utility/MathUtility.h"
+#include <optional>
 
 namespace CoreEngine
 {
-    CameraReverseZ::CameraReverseZ(const glm::vec3& position, const float aspect_ratio, const float fov_deg, const float near_plane, glm::quat rot)
+    CameraReverseZ::CameraReverseZ(const glm::vec3& position, const float aspect_ratio, const float fov_deg, const float near_plane, glm::quat rot) noexcept
         :   m_position(position),
             m_rotation(rot),
             m_aspect_ratio(aspect_ratio),
@@ -15,12 +17,14 @@ namespace CoreEngine
     {}
 
     /// @return Returns reverse Z View-Projection matrix
-    glm::mat4 CameraReverseZ::CalculateCameraMatrix(const std::optional<glm::vec3>& target_to_look_at) const
+    glm::mat4 CameraReverseZ::CalculateCameraMatrix(const std::optional<glm::vec3>& target_to_look_at) const noexcept 
     {
-        return CalculateProjectionMatrix() * CalculateViewMatrix(target_to_look_at);
+        m_cached_matrix = CalculateProjectionMatrix() * CalculateViewMatrix(target_to_look_at);
+        m_has_cached_matrix = true;
+        return m_cached_matrix;
     }
 
-    glm::mat4 CameraReverseZ::CalculateViewMatrix(const std::optional<glm::vec3>& target_to_look_at) const 
+    glm::mat4 CameraReverseZ::CalculateViewMatrix(const std::optional<glm::vec3>& target_to_look_at) const noexcept  
     {
         if(target_to_look_at.has_value())
             return glm::lookAt(m_position, target_to_look_at.value(), GetAbsoluteUp());
@@ -33,7 +37,7 @@ namespace CoreEngine
     }
 
     /// @return Reverse Z Projection matrix
-    glm::mat4 CameraReverseZ::CalculateProjectionMatrix() const 
+    glm::mat4 CameraReverseZ::CalculateProjectionMatrix() const noexcept 
     {
         const float f = 1.0f / tan(m_fov_rad * 0.5f);
 
@@ -54,17 +58,19 @@ namespace CoreEngine
         return MathUtility::ExtractProjectionPlanesFromVP(CalculateCameraMatrix(target_to_look_at));
     }
 
-    void CameraReverseZ::SetPosition(const glm::vec3& position)    noexcept { m_position     = position;  }
-    void CameraReverseZ::Move(const glm::vec3& movement)		   noexcept { m_position     += movement; }
-    void CameraReverseZ::SetRotation(const glm::quat& rotation)    noexcept { m_rotation     = glm::normalize(rotation);  }
-    void CameraReverseZ::SetAspectRatio(float ratio)               noexcept { m_aspect_ratio = ratio; 	  }
-    void CameraReverseZ::SetNearPlane(float nearPlane)             noexcept { m_near_plane 	 = nearPlane; }
-    void CameraReverseZ::SetFovRad(float fov)                      noexcept { m_fov_rad    	 = fov;       }
-    void CameraReverseZ::SetFovDeg(float fov) 		               noexcept { m_fov_rad = glm::radians(fov); }
+    void CameraReverseZ::SetPosition(const glm::vec3& position)    noexcept { m_position     = position;                 InvalidateCache(); }
+    void CameraReverseZ::Move(const glm::vec3& movement)		   noexcept { m_position     += movement;                InvalidateCache(); }
+    void CameraReverseZ::SetRotation(const glm::quat& rotation)    noexcept { m_rotation     = glm::normalize(rotation); InvalidateCache(); }
+    void CameraReverseZ::SetAspectRatio(float ratio)               noexcept { m_aspect_ratio = ratio;                    InvalidateCache(); }
+    void CameraReverseZ::SetNearPlane(float nearPlane)             noexcept { m_near_plane 	 = nearPlane;                InvalidateCache(); }
+    void CameraReverseZ::SetFovRad(float fov)                      noexcept { m_fov_rad    	 = fov;                      InvalidateCache(); }
+    void CameraReverseZ::SetFovDeg(float fov) 		               noexcept { m_fov_rad      = glm::radians(fov);        InvalidateCache(); }
 
     glm::vec3 CameraReverseZ::GetForwardDirection()  const noexcept { return m_rotation * glm::vec3(0.0f, 0.0f, -1.0f); }
     glm::vec3 CameraReverseZ::GetRightDirection()    const noexcept { return m_rotation * glm::vec3(1.0f, 0.0f, 0.0f);  }
 
+    glm::mat4 CameraReverseZ::GetLastCachedCameraMatrix() const noexcept { ENGINE_ASSERT(HasCachedCameraMatrix() && "No cached matrix avaiable"); return m_cached_matrix; }
+	bool CameraReverseZ::HasCachedCameraMatrix() const noexcept { return m_has_cached_matrix; }
     glm::vec3 CameraReverseZ::GetPosition() const noexcept { return m_position; 	}
     glm::quat CameraReverseZ::GetRotation() const noexcept { return m_rotation; 	}
     float CameraReverseZ::GetNearPlane()    const noexcept { return m_near_plane;   }
@@ -72,4 +78,6 @@ namespace CoreEngine
     float CameraReverseZ::GetFovDeg()       const noexcept { return glm::degrees(m_fov_rad); }	
     float CameraReverseZ::GetAspectRatio()  const noexcept { return m_aspect_ratio; }
     std::string CameraReverseZ::ToString()  const noexcept { return "Pos: " + CommonUtility::GlmVec3ToString(m_position) + "\nRot: " + CommonUtility::GlmQuatToString(m_rotation); }
+
+    void CameraReverseZ::InvalidateCache() noexcept { m_has_cached_matrix = false; }
 }

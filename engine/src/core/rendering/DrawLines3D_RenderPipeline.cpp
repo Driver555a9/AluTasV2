@@ -73,6 +73,11 @@ namespace CoreEngine
         m_culled_draw_vertices.clear();
     }
 
+    size_t DrawLines3D_RenderPipeline::GetAmountLineVertices() const noexcept
+    {
+        return m_line_vertices.size();
+    }
+
     void DrawLines3D_RenderPipeline::Render() noexcept
     {
         const std::vector<LineVertex>& draw_data = m_culled_draw_vertices.empty() ? m_line_vertices : m_culled_draw_vertices;

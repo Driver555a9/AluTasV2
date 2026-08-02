@@ -1,4 +1,6 @@
+#include "common/Replay.h"
 #include "core/layer/Editor_3D_Layer.h"
+#include "core/rendering/DrawLines3D_RenderPipeline.h"
 #include <cstddef>
 #include <cstdint>
 
@@ -21,12 +23,15 @@ namespace AsphaltTas
 
         void LoadTrackFromFile(const std::string& path) noexcept;
         void LoadColorDefFromFile(const std::string& path) noexcept;
+        void LoadReplay(std::optional<Replay> replay) noexcept;
 
         static void CreateInstance() noexcept;
         [[nodiscard]] static bool InstanceExists() noexcept;
         static void DeleteInstance() noexcept;
         
     private:
+        std::optional<AsphaltTas::Replay> m_current_replay;
+        CoreEngine::DrawLines3D_RenderPipeline m_replay_draw_line_pipeline;
         std::string m_next_track_path = "";
         uint32_t m_ignore_next_mouse_deltas = 0;
         bool m_has_to_move_track_file = false;

@@ -41,16 +41,24 @@ namespace CoreEngine
         m_input_state.m_mouse_move_delta         = {0, 0};
         m_input_state.m_mouse_wheel_scroll_delta = 0.0;
         
-        //---- Frame camera matrix
-        const glm::mat4 cam_matrix = m_camera.CalculateCameraMatrix();
+        //---- Camera matrix
+        glm::mat4 cam_matrix;
+        if (m_camera.HasCachedCameraMatrix())
+        {
+            cam_matrix = m_camera.GetLastCachedCameraMatrix();
+        }
+        else 
+        {
+            cam_matrix = m_camera.CalculateCameraMatrix();
+        }
 
         //---- If an object was added / deleted, Update the entire data - else just update transformations
-        if (m_scene.GetAndResetObjectVecChangeFlag())  { m_pipeline.SetSceneData(m_scene.GetRenderModelVector(), m_scene.GetLightVectorConstRef()); } 
-        else                                           { m_pipeline.UpdateModelTransforms(m_scene.GetRenderModelVector(), cam_matrix); }
+        if (m_scene.GetAndResetObjectVecChangeFlag())  { m_indirect_pipeline.SetSceneData(m_scene.GetRenderModelVector(), m_scene.GetLightVectorConstRef()); } 
+        else                                           { m_indirect_pipeline.UpdateModelTransforms(m_scene.GetRenderModelVector(), cam_matrix); }
 
-        if (m_scene.GetAndResetLightVecChangeFlag())   { m_pipeline.SetLightData(m_scene.GetLightVectorConstRef()); } 
+        if (m_scene.GetAndResetLightVecChangeFlag())   { m_indirect_pipeline.SetLightData(m_scene.GetLightVectorConstRef()); } 
 
-        m_pipeline.SetCameraData(cam_matrix, m_camera.GetPosition());
+        m_indirect_pipeline.SetCameraData(cam_matrix, m_camera.GetPosition());
         m_bt_debug_draw_pipeline.SetCameraMatrixAndFrustumCull(cam_matrix);
     }
 
@@ -69,7 +77,7 @@ namespace CoreEngine
 
     void Freecam_3D_Layer::OnRender() noexcept
     {
-        m_pipeline.Render();
+        m_indirect_pipeline.Render();
 
         if (m_draw_bullet_debug)
         {
@@ -97,7 +105,7 @@ namespace CoreEngine
         ImGui::SliderFloat(":Fov ", &fov, 20.0f, 120.0f);
         m_camera.SetFovDeg(fov);
         
-        ImGui::Text( ("-----Camera----\n" + m_camera.ToString() + "\n---------------").c_str());
+        ImGui::Text("%s", ("-----Camera----\n" + m_camera.ToString() + "\n---------------").c_str());
 
         ImGui::End();   
     }

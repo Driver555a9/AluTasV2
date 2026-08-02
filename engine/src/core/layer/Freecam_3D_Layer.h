@@ -39,7 +39,7 @@ namespace CoreEngine
         CameraReverseZ m_camera;
         Scene3D m_scene;
 
-        IndirectDraw3D_RenderPipeline   m_pipeline{};
+        IndirectDraw3D_RenderPipeline   m_indirect_pipeline{};
         BulletDebugDraw_RenderPipeline  m_bt_debug_draw_pipeline{};
 
         std::unique_ptr<Basic_CameraController> m_camera_controller = nullptr;

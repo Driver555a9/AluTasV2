@@ -1,7 +1,6 @@
 #pragma once
 
 //own includes
-#include "core/model/Model.h"
 #include "core/rendering/Texture.h"
 #include "core/rendering/RenderBuffers.h"
 #include "core/rendering/Shader.h"
@@ -42,10 +41,6 @@ namespace CoreEngine
         public:
 
             explicit FlatQuadImage_RenderPipeline(const char* texture_path, const std::array<GLfloat, 24>& custom_quad = s_DEFAULT_QUAD) noexcept;
-
-//----------------- Move is allowed
-            explicit FlatQuadImage_RenderPipeline(FlatQuadImage_RenderPipeline&&)   noexcept = default;
-            FlatQuadImage_RenderPipeline& operator=(FlatQuadImage_RenderPipeline&&) noexcept = default;
 
 //----------------- No copying allowed
             FlatQuadImage_RenderPipeline(const FlatQuadImage_RenderPipeline&)            = delete;

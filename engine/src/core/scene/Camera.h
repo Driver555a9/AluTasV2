@@ -1,5 +1,6 @@
 #pragma once
 //std
+#include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/matrix_transform.hpp"
 #include <optional>
 #include <array>
@@ -15,46 +16,52 @@ namespace CoreEngine
 {
 	class CameraReverseZ 
 	{
-		private:
-			constexpr static inline glm::vec3 s_UP 	= glm::vec3(0.0f, 1.0f, 0.0f);
+	public:
 
-			glm::vec3 m_position;
-			glm::quat m_rotation;
+		explicit CameraReverseZ(const glm::vec3& position, float aspect_ratio, float fov_deg, float near_plane, glm::quat rot = glm::identity<glm::quat>()) noexcept;
 
-			float m_aspect_ratio;
-			float m_near_plane;
-			float m_far_plane;
-			float m_fov_rad;
+		[[nodiscard]] glm::mat4 CalculateCameraMatrix(const std::optional<glm::vec3>& target_to_look_at = std::nullopt) const noexcept;
 
-		public:
+		[[nodiscard]] glm::mat4 CalculateViewMatrix(const std::optional<glm::vec3>& target_to_look_at = std::nullopt) const noexcept;
+		[[nodiscard]] glm::mat4 CalculateProjectionMatrix() const noexcept;
 
-			explicit CameraReverseZ(const glm::vec3& position, float aspect_ratio, float fov_deg, float near_plane, glm::quat rot = glm::identity<glm::quat>());
+		[[nodiscard]] std::array<glm::vec4, 5> GetViewProjPlanes(const std::optional<glm::vec3>& target_to_look_at) const noexcept;
 
-			[[nodiscard]] glm::mat4 CalculateCameraMatrix(const std::optional<glm::vec3>& target_to_look_at = std::nullopt) const;
+		void SetPosition(const glm::vec3& position)    noexcept;
+		void Move(const glm::vec3& movement)		   noexcept;
+		void SetRotation(const glm::quat& rotation)    noexcept;
+		void SetAspectRatio(float ratio)         	   noexcept;
+		void SetNearPlane(float nearPlane)       	   noexcept;
+		void SetFovRad(float fov)                	   noexcept;
+		void SetFovDeg(float fov) 		       		   noexcept;
 
-			[[nodiscard]] glm::mat4 CalculateViewMatrix(const std::optional<glm::vec3>& target_to_look_at = std::nullopt) const;
-			[[nodiscard]] glm::mat4 CalculateProjectionMatrix() const;
+		[[nodiscard]] glm::mat4 GetLastCachedCameraMatrix() const noexcept;
+		[[nodiscard]] bool HasCachedCameraMatrix() const noexcept;
+		[[nodiscard]] glm::vec3 GetForwardDirection()  const noexcept;
+		[[nodiscard]] glm::vec3 GetRightDirection()    const noexcept;
+		[[nodiscard]] glm::vec3 GetPosition() const noexcept;
+		[[nodiscard]] glm::quat GetRotation() const noexcept;
+		[[nodiscard]] float GetNearPlane()    const noexcept;
+		[[nodiscard]] float GetFovRad()       const noexcept;
+		[[nodiscard]] float GetFovDeg()       const noexcept;
+		[[nodiscard]] float GetAspectRatio()  const noexcept;
+		[[nodiscard]] std::string ToString()  const noexcept;
 
-			[[nodiscard]] std::array<glm::vec4, 5> GetViewProjPlanes(const std::optional<glm::vec3>& target_to_look_at) const noexcept;
+		[[nodiscard]] constexpr inline static glm::vec3 GetAbsoluteUp() { return s_UP; }
 
-			void SetPosition(const glm::vec3& position)    noexcept;
-			void Move(const glm::vec3& movement)		   noexcept;
-			void SetRotation(const glm::quat& rotation)    noexcept;
-			void SetAspectRatio(float ratio)         	   noexcept;
-			void SetNearPlane(float nearPlane)       	   noexcept;
-			void SetFovRad(float fov)                	   noexcept;
-			void SetFovDeg(float fov) 		       		   noexcept;
+	private:
+		void InvalidateCache() noexcept;
+		constexpr static inline glm::vec3 s_UP 	= glm::vec3(0.0f, 1.0f, 0.0f);
 
-			[[nodiscard]] glm::vec3 GetForwardDirection()  const noexcept;
-			[[nodiscard]] glm::vec3 GetRightDirection()    const noexcept;
-			[[nodiscard]] glm::vec3 GetPosition() const noexcept;
-			[[nodiscard]] glm::quat GetRotation() const noexcept;
-			[[nodiscard]] float GetNearPlane()    const noexcept;
-			[[nodiscard]] float GetFovRad()       const noexcept;
-			[[nodiscard]] float GetFovDeg()       const noexcept;
-			[[nodiscard]] float GetAspectRatio()  const noexcept;
-			[[nodiscard]] std::string ToString()  const noexcept;
+		glm::vec3 m_position;
+		glm::quat m_rotation;
 
-			[[nodiscard]] constexpr inline static glm::vec3 GetAbsoluteUp() { return s_UP; }
+		mutable glm::mat4 m_cached_matrix;
+		mutable bool m_has_cached_matrix;
+
+		float m_aspect_ratio;
+		float m_near_plane;
+		float m_far_plane;
+		float m_fov_rad;
 	};
 }
