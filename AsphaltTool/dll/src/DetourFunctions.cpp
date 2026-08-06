@@ -1501,25 +1501,29 @@ namespace AsphaltDLL
                 {
                     const char ret = RealFinalRacerTransformWriterCall(a1, a2, a3);
 
-                    if (GameDLLState::g_current_state.m_resolved_addresses.m_local_racer_base_address == NO_VALID_RESOLVED_ADDRESS) 
                     {
-                        return ret;
-                    }
-
-                    if (GameDLLState::g_replay_current_frame_inputs.has_value())
-                    {
-                        const auto base            = GameDLLState::g_current_state.m_resolved_addresses.m_local_racer_base_address;
-                        const auto inputs   = GameDLLState::g_replay_current_frame_inputs.value();
-                        BulletTypes::UnalignedTransform* curr_trans = reinterpret_cast<BulletTypes::UnalignedTransform*>(base + ComDllIn::WriteRacerState::OFFSET_TRANSFORM);
-                        BulletTypes::UnalignedVector3* curr_velo    = reinterpret_cast<BulletTypes::UnalignedVector3*>(base + ComDllIn::WriteRacerState::OFFSET_VELOCITY);
-
-                        if (*curr_trans != inputs.m_racer_transform_mat4x4 || *curr_velo != inputs.m_racer_velocity_vec3)
+                        LOCK_CURRENT_STATE_MUTEX();
+                        if (GameDLLState::g_current_state.m_resolved_addresses.m_local_racer_base_address == NO_VALID_RESOLVED_ADDRESS) 
                         {
-                            //DLL_INFO_LOG("Transform / Velocity missmatch at tick: " << inputs.m_race_frame_tick << " - Overriden with replay data.");
-                            std::memcpy(curr_trans->Data(), inputs.m_racer_transform_mat4x4.Data(), sizeof(inputs.m_racer_transform_mat4x4));
-                            std::memcpy(curr_velo->Data(), inputs.m_racer_velocity_vec3.Data(), sizeof(inputs.m_racer_velocity_vec3));
+                            return ret;
                         }
 
+                        if (GameDLLState::g_replay_current_frame_inputs.has_value() 
+                        && ! (GameDLLState::g_replay_current_frame_inputs->m_skip_override_flags & ComDllIn::DllReplayInputIn::SkipOverride::TRANSFORM_FORCED))
+                        {
+                            const auto base            = GameDLLState::g_current_state.m_resolved_addresses.m_local_racer_base_address;
+                            const auto inputs   = GameDLLState::g_replay_current_frame_inputs.value();
+                            BulletTypes::UnalignedTransform* curr_trans = reinterpret_cast<BulletTypes::UnalignedTransform*>(base + ComDllIn::WriteRacerState::OFFSET_TRANSFORM);
+                            BulletTypes::UnalignedVector3* curr_velo    = reinterpret_cast<BulletTypes::UnalignedVector3*>(base + ComDllIn::WriteRacerState::OFFSET_VELOCITY);
+
+                            if (*curr_trans != inputs.m_racer_transform_mat4x4 || *curr_velo != inputs.m_racer_velocity_vec3)
+                            {
+                                //DLL_INFO_LOG("Transform / Velocity missmatch at tick: " << inputs.m_race_frame_tick << " - Overriden with replay data.");
+                                std::memcpy(curr_trans->Data(), inputs.m_racer_transform_mat4x4.Data(), sizeof(inputs.m_racer_transform_mat4x4));
+                                std::memcpy(curr_velo->Data(), inputs.m_racer_velocity_vec3.Data(), sizeof(inputs.m_racer_velocity_vec3));
+                            }
+
+                        }
                     }
 
                     return ret;

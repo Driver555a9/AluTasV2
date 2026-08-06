@@ -264,7 +264,8 @@ namespace Communication
                 ACCELERATOR      = 1 << 3, 
                 BARREL_ANGULAR   = 1 << 4, 
                 BARREL_RBX       = 1 << 5,
-                RESPAWN_BUTTON   = 1 << 6
+                RESPAWN_BUTTON   = 1 << 6,
+                TRANSFORM_FORCED = 1 << 7
             };
             SkipOverride m_skip_override_flags = SkipOverride::NONE;
 
