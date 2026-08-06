@@ -154,7 +154,7 @@ namespace AsphaltTas
     void TrackViewerLayer::LoadTrackFromFile(const std::string& path) noexcept
     {
         m_selected_object_state.m_object_ptr = nullptr;
-        m_hide_non_triangle_meshes = true;
+        m_show_non_triangle_meshes = true;
         m_scene.ClearAllSceneObjects();
         
         std::vector<BulletTypes::Serializer::ExtractedObject> object_list = BulletTypes::Serializer::DeserializeObjectsFromFile(path);
@@ -655,9 +655,9 @@ namespace AsphaltTas
                 OnSetRenderGUI(m_render_gui);
             } 
 
-            if (ImGui::Checkbox("Hide Boxes", &m_hide_non_triangle_meshes))
+            if (ImGui::Checkbox("Show Boxes", &m_show_non_triangle_meshes))
             {
-                OnHideNonTrianglemeshObjects(m_hide_non_triangle_meshes);
+                OnShowNonTrianglemeshObjects(m_show_non_triangle_meshes);
             }
 
             bool vsync_now = CoreEngine::Application::Get()->GetVsyncIsOn();
@@ -1215,11 +1215,11 @@ namespace AsphaltTas
         m_ignore_next_mouse_deltas = 5;
     }
 
-    void TrackViewerLayer::OnHideNonTrianglemeshObjects(bool hide) noexcept
+    void TrackViewerLayer::OnShowNonTrianglemeshObjects(bool show) noexcept
     {
-        m_hide_non_triangle_meshes = hide;
+        m_show_non_triangle_meshes = show;
 
-        const glm::vec3 offset = hide ? glm::vec3(1'000'000.0f) : glm::vec3(-1'000'000.0f);
+        const glm::vec3 offset = show ? glm::vec3(1'000'000.0f) : glm::vec3(-1'000'000.0f);
 
         auto& objects = m_scene.GetSceneObjectsRef();
 

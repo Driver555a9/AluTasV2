@@ -36,7 +36,7 @@ namespace AsphaltTas
         uint32_t m_ignore_next_mouse_deltas = 0;
         bool m_has_to_move_track_file = false; 
         bool m_render_gui = true;
-        bool m_hide_non_triangle_meshes = false; // This is a hack that just moves the other objects
+        bool m_show_non_triangle_meshes = false; // This is a hack that just moves the other objects
 
         constexpr static size_t COLOR_DEFS_INDEX_RAMPS     = 0;
         constexpr static size_t COLOR_DEFS_INDEX_DYNAMICS  = 1;
@@ -77,7 +77,7 @@ namespace AsphaltTas
         };
 
         void OnSetRenderGUI(bool on) noexcept;
-        void OnHideNonTrianglemeshObjects(bool hide) noexcept;
+        void OnShowNonTrianglemeshObjects(bool show) noexcept;
 
         // Prevent editor layer from selecting or moving objects
         [[nodiscard]] virtual bool OnMousePressed(CoreEngine::MousePressedEvent& e)   noexcept override 
