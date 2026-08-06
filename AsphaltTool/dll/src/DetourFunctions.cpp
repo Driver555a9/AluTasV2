@@ -393,9 +393,8 @@ namespace AsphaltDLL
                     return;
                 }
 
-                static const uintptr_t module = reinterpret_cast<uintptr_t>(GetModuleHandleW(L"Asphalt9_Steam_x64_rtl.exe"));
                 static const std::vector<uintptr_t> pointerchain_1 = {0x06EE14E0, 0xFC8};
-                fps_addr = Utility::SafeResolvePointerChain(module, pointerchain_1) + 0xC9C;
+                fps_addr = Utility::SafeResolvePointerChain(_Implementation::GetMainGameModule(), pointerchain_1) + 0xC9C;
 
                 if (! Utility::SafeDereference(reinterpret_cast<uint32_t*>(fps_addr)))
                 {
@@ -2029,10 +2028,11 @@ namespace AsphaltDLL
                 typedef void (*AnimationProgressFunction_t)(uintptr_t rcx, int64_t* rdx);
                 AnimationProgressFunction_t RealAnimationProgressFunctionCall = nullptr;
 
-                constexpr std::array<std::pair<Communication::SkipAnimationFlags, int64_t>, 4> banned_durations {
+                constexpr std::array<std::pair<Communication::SkipAnimationFlags, int64_t>, 5> banned_durations {
                     std::pair<Communication::SkipAnimationFlags, int64_t>{Communication::SkipAnimationFlags::SKIP_RACE_INTRO,        8217000},
                     std::pair<Communication::SkipAnimationFlags, int64_t>{Communication::SkipAnimationFlags::SKIP_RACE_INTRO,        1945000},
                     std::pair<Communication::SkipAnimationFlags, int64_t>{Communication::SkipAnimationFlags::SKIP_RACE_INTRO,        5500000},
+                    std::pair<Communication::SkipAnimationFlags, int64_t>{Communication::SkipAnimationFlags::SKIP_RACE_INTRO,        3366666},
                     std::pair<Communication::SkipAnimationFlags, int64_t>{Communication::SkipAnimationFlags::SKIP_RACE_COUNT_DOWN,   2000000}
                 };
 
