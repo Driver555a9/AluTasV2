@@ -835,10 +835,12 @@ namespace BulletTypes
         inline void SerializeObjectsToFile(const std::vector<std::pair<CollisionObject*, bool>>& objects, const std::string& path)
         {
             std::ofstream out(path.c_str(), std::ios::binary);
-            if (!out) 
+            if (!out.is_open()) 
             {
                 std::cerr << "Could not Serialize because of failure to open or create: " << path << std::endl;
+                return;
             }
+
             SerializeObjectsToStream(out, objects);
             out.close();
         }

@@ -387,15 +387,25 @@ namespace AsphaltDLL
             // No mutex lock, caller must lock
             void OnTryResolveFpsTargetIntervalPointer() noexcept
             {
-                if (GameDLLState::g_current_state.m_resolved_addresses.m_game_target_fps_interval_address != NO_VALID_RESOLVED_ADDRESS)
+                auto& fps_addr = GameDLLState::g_current_state.m_resolved_addresses.m_game_target_fps_interval_address;
+                if (fps_addr != NO_VALID_RESOLVED_ADDRESS)
                 {
                     return;
                 }
 
                 static const uintptr_t module = reinterpret_cast<uintptr_t>(GetModuleHandleW(L"Asphalt9_Steam_x64_rtl.exe"));
                 static const std::vector<uintptr_t> pointerchain_1 = {0x06EE14E0, 0xFC8};
-                GameDLLState::g_current_state.m_resolved_addresses.m_game_target_fps_interval_address = Utility::SafeResolvePointerChain(module, pointerchain_1) + 0xC9C;
-                GameDLLState::g_current_state.m_meta_data.m_game_target_fps_interval_micros = *reinterpret_cast<uint32_t*>(GameDLLState::g_current_state.m_resolved_addresses.m_game_target_fps_interval_address);
+                fps_addr = Utility::SafeResolvePointerChain(module, pointerchain_1) + 0xC9C;
+
+                if (! Utility::SafeDereference(reinterpret_cast<uint32_t*>(fps_addr)))
+                {
+                    fps_addr = NO_VALID_RESOLVED_ADDRESS;
+                }
+
+                if (fps_addr != NO_VALID_RESOLVED_ADDRESS)
+                {
+                    GameDLLState::g_current_state.m_meta_data.m_game_target_fps_interval_micros = *reinterpret_cast<uint32_t*>(GameDLLState::g_current_state.m_resolved_addresses.m_game_target_fps_interval_address);
+                }
             }
 
             // No mutex lock, caller must lock
@@ -492,17 +502,16 @@ namespace AsphaltDLL
             bool OnExportTrack() noexcept
             {
                 const std::vector<BVHBroadphaseTraversal::DumpedNode> leaves = BVHBroadphaseTraversal::DumpAllLeaves();
-
                 if (leaves.empty())
                 {
                     DLL_ERROR_PRINT("OnExportTrack(): Empty leaves after BVH traversal.");
                     return false;
                 }
+                DLL_INFO_LOG("Serializing " << leaves.size() << " leaves to objects.TRACK");
 
                 const std::vector<std::pair<BulletTypes::CollisionObject*, bool>> objects = std::ranges::to<std::vector>(leaves 
                     | std::ranges::views::transform([](const BVHBroadphaseTraversal::DumpedNode& e) -> std::pair<BulletTypes::CollisionObject*, bool> 
                     { return {e.m_broadphase_proxy->m_client_body, e.m_is_from_static_tree}; }));
-            
                 BulletTypes::Serializer::SerializeObjectsToFile(objects, Communication::DLL_DUMPED_TRACK_FILE_NAME);
 
                 return true;
@@ -550,7 +559,7 @@ namespace AsphaltDLL
                             }
                             else 
                             {
-                                //DLL_ERROR_PRINT("Failed to export track, despite request.");
+                                DLL_ERROR_PRINT("Failed to export track, despite request.");
                             }
                         }
                         
