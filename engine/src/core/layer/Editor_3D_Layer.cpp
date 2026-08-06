@@ -215,15 +215,7 @@ namespace CoreEngine
     {
         Freecam_3D_Layer::OnRender();
     
-        glm::mat4 cam_matrix;
-        if (m_camera.HasCachedCameraMatrix())
-        {
-            cam_matrix = m_camera.GetLastCachedCameraMatrix();
-        }
-        else 
-        {
-            cam_matrix = m_camera.CalculateCameraMatrix();
-        }
+        const glm::mat4 cam_matrix = m_camera.GetCameraMatrix();
 
         if (m_selected_object_state.m_object_ptr && m_selected_object_state.m_highlight_aabb_box)
         {

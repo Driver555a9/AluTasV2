@@ -64,22 +64,26 @@ namespace BulletTypes
     struct UnalignedVector4 
     { 
         float x{}, y{}, z{}, w{}; 
-        [[nodiscard]] float* Data() { return &x; }
-        [[nodiscard]] const float* Data() const { return &x; }
-        float& operator[](size_t i) { assert(i < 4); return reinterpret_cast<float*>(this)[i]; }
-        const float& operator[](size_t i) const { assert(i < 4); return reinterpret_cast<const float*>(this)[i]; }
-        [[nodiscard]] std::string ToString() const { return std::format("({:.3f}, {:.3f}, {:.3f}, {:.3f})", x, y, z, w); }
+        [[nodiscard]] float* Data() noexcept { return &x; }
+        [[nodiscard]] const float* Data() const noexcept { return &x; }
+        float& operator[](size_t i) noexcept { assert(i < 4); return reinterpret_cast<float*>(this)[i]; }
+        const float& operator[](size_t i) const noexcept { assert(i < 4); return reinterpret_cast<const float*>(this)[i]; }
+        [[nodiscard]] bool operator==(const UnalignedVector4& other) const noexcept { return x == other.x && y == other.y && z == other.z && w == other.w; }
+        [[nodiscard]] bool operator!=(const UnalignedVector4& other) const noexcept { return !(*this == other); }
+        [[nodiscard]] std::string ToString() const noexcept { return std::format("({:.3f}, {:.3f}, {:.3f}, {:.3f})", x, y, z, w); }
     };
     static_assert(sizeof(UnalignedVector4) == 16);
 
     struct alignas(16) Vector4 
     { 
         float x{}, y{}, z{}, w{}; 
-        [[nodiscard]] float* Data() { return &x; }
-        [[nodiscard]] const float* Data() const { return &x; }
-        float& operator[](size_t i) { assert(i < 4); return reinterpret_cast<float*>(this)[i]; }
-        const float& operator[](size_t i) const { assert(i < 4); return reinterpret_cast<const float*>(this)[i]; }
-        [[nodiscard]] std::string ToString() const { return std::format("({:.3f}, {:.3f}, {:.3f}, {:.3f})", x, y, z, w); }
+        [[nodiscard]] float* Data() noexcept { return &x; }
+        [[nodiscard]] const float* Data() const noexcept { return &x; }
+        float& operator[](size_t i) noexcept { assert(i < 4); return reinterpret_cast<float*>(this)[i]; }
+        const float& operator[](size_t i) const noexcept { assert(i < 4); return reinterpret_cast<const float*>(this)[i]; }
+        [[nodiscard]] bool operator==(const Vector4& other) const noexcept { return x == other.x && y == other.y && z == other.z && w == other.w; }
+        [[nodiscard]] bool operator!=(const Vector4& other) const noexcept { return !(*this == other); }
+        [[nodiscard]] std::string ToString() const noexcept { return std::format("({:.3f}, {:.3f}, {:.3f}, {:.3f})", x, y, z, w); }
     };
     static_assert(sizeof(Vector4) == 16);
 
@@ -94,7 +98,12 @@ namespace BulletTypes
         const float& At(size_t flat_index) const noexcept { assert(flat_index < 16); return reinterpret_cast<const float*>(this)[flat_index]; }
         float* Data() noexcept { return reinterpret_cast<float*>(this); }
         const float* Data() const noexcept { return reinterpret_cast<const float*>(this); }
-        [[nodiscard]] std::string ToString() const
+        [[nodiscard]] bool operator==(const UnalignedTransform& other) const noexcept
+        { 
+            return m_basis[0] == other.m_basis[0] && m_basis[1] == other.m_basis[1] && m_basis[2] == other.m_basis[2] && m_origin == other.m_origin;
+        }
+        [[nodiscard]] bool operator!=(const UnalignedTransform& other) const noexcept { return !(*this == other); }
+        [[nodiscard]] std::string ToString() const noexcept
         {
             return std::format(
                 "[{:.3f}, {:.3f}, {:.3f}, {:.3f}, "
@@ -121,7 +130,12 @@ namespace BulletTypes
         const float& At(size_t flat_index) const noexcept { assert(flat_index < 16); return reinterpret_cast<const float*>(this)[flat_index]; }
         float* Data() noexcept { return reinterpret_cast<float*>(this); }
         const float* Data() const noexcept { return reinterpret_cast<const float*>(this); }
-        [[nodiscard]] std::string ToString() const
+        [[nodiscard]] bool operator==(const Transform& other) const noexcept
+        { 
+            return m_basis[0] == other.m_basis[0] && m_basis[1] == other.m_basis[1] && m_basis[2] == other.m_basis[2] && m_origin == other.m_origin;
+        }
+        [[nodiscard]] bool operator!=(const Transform& other) const noexcept { return !(*this == other); }
+        [[nodiscard]] std::string ToString() const noexcept
         {
             return std::format(
                 "[{:.3f}, {:.3f}, {:.3f}, {:.3f}, "

@@ -20,13 +20,14 @@ namespace CoreEngine
 
 		explicit CameraReverseZ(const glm::vec3& position, float aspect_ratio, float fov_deg, float near_plane, glm::quat rot = glm::identity<glm::quat>()) noexcept;
 
-		[[nodiscard]] glm::mat4 CalculateCameraMatrix(const std::optional<glm::vec3>& target_to_look_at = std::nullopt) const noexcept;
+		[[nodiscard]] glm::mat4 GetCameraMatrix() const noexcept;
 
-		[[nodiscard]] glm::mat4 CalculateViewMatrix(const std::optional<glm::vec3>& target_to_look_at = std::nullopt) const noexcept;
+		[[nodiscard]] glm::mat4 CalculateViewMatrix() const noexcept;
 		[[nodiscard]] glm::mat4 CalculateProjectionMatrix() const noexcept;
 
-		[[nodiscard]] std::array<glm::vec4, 5> GetViewProjPlanes(const std::optional<glm::vec3>& target_to_look_at) const noexcept;
+		[[nodiscard]] std::array<glm::vec4, 5> GetViewProjPlanes() const noexcept;
 
+		void SetTarget(std::optional<glm::vec3> target) noexcept;
 		void SetPosition(const glm::vec3& position)    noexcept;
 		void Move(const glm::vec3& movement)		   noexcept;
 		void SetRotation(const glm::quat& rotation)    noexcept;
@@ -36,6 +37,7 @@ namespace CoreEngine
 		void SetFovDeg(float fov) 		       		   noexcept;
 
 		[[nodiscard]] glm::mat4 GetLastCachedCameraMatrix() const noexcept;
+		[[nodiscard]] std::optional<glm::vec3> GetTarget() const noexcept;
 		[[nodiscard]] bool HasCachedCameraMatrix() const noexcept;
 		[[nodiscard]] glm::vec3 GetForwardDirection()  const noexcept;
 		[[nodiscard]] glm::vec3 GetRightDirection()    const noexcept;
@@ -52,6 +54,8 @@ namespace CoreEngine
 	private:
 		void InvalidateCache() noexcept;
 		constexpr static inline glm::vec3 s_UP 	= glm::vec3(0.0f, 1.0f, 0.0f);
+
+		std::optional<glm::vec3> m_target;
 
 		glm::vec3 m_position;
 		glm::quat m_rotation;

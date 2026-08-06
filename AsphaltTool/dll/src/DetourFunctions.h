@@ -23,12 +23,12 @@ namespace AsphaltDLL
         }
 
         ////////////////////////////////////////////
-        // This function runs on the games main thread
+        // This function called from the games main thread
         // Dispatches logic for new frame (including Physics worker thread)
         // On this same thread runs camera and cp logic
         // May not be used for replay entry point, because this function runs even in menus
         ////////////////////////////////////////////
-        namespace MainLoopNewFrameDispatcher
+        namespace NewLogicTickDispatcher
         {
             bool SetupHook() noexcept;
             bool RemoveHook() noexcept;
@@ -165,7 +165,7 @@ namespace AsphaltDLL
         // Function updates transform of car
         // [rcx] = local racer base pointer
         ///////////////////////////////////////
-        namespace RacerTransformUpdate
+        namespace LocalRacerAccessPoint
         {
             bool SetupHook() noexcept;
             bool RemoveHook() noexcept;
@@ -176,7 +176,7 @@ namespace AsphaltDLL
 
         ///////////////////////////////////////
         // Function useful for deducing local racer struct;
-        // RacerTransformUpdate() may be called with multiple dynamic objects
+        // LocalRacerAccessPoint() may be called with multiple dynamic objects
         ///////////////////////////////////////
         namespace GetLocalRacerStruct
         {
@@ -219,6 +219,18 @@ namespace AsphaltDLL
         }
 
         namespace BarrelYawStabilization
+        {
+            bool SetupHook() noexcept;
+            bool RemoveHook() noexcept;
+            bool EnableHook() noexcept;
+            bool DisableHook() noexcept;
+            [[nodiscard]] HookState GetHookState() noexcept;
+        }
+
+        ///////////////////////////////////////
+        // Indeterministic function that writes to racer transform
+        ///////////////////////////////////////
+        namespace FinalRacerTransformWriter
         {
             bool SetupHook() noexcept;
             bool RemoveHook() noexcept;
@@ -382,6 +394,28 @@ namespace AsphaltDLL
             [[nodiscard]] HookState GetHookState() noexcept;
         }
 
+        ///////////////////////////////////////////
+        // In actuality one of the first functions starting new frame
+        // DT here can be changed and seems to only affect UI animation
+        ///////////////////////////////////////////
+        namespace SpeedUpUIAnimations
+        {
+            bool SetupHook() noexcept;
+            bool RemoveHook() noexcept;
+            bool EnableHook() noexcept;
+            bool DisableHook() noexcept;
+            [[nodiscard]] HookState GetHookState() noexcept;
+        }
+
+        ///////////////////////////////////////////
+        // Getter to look if paused (no logic update)
+        ///////////////////////////////////////////
+        namespace IsPaused
+        {
+            [[nodiscard]] bool GetIsPaused() noexcept;
+        }
+
+
         ////////////////////////////////////////////
         // XInputGetState() gives controller state
         ////////////////////////////////////////////
@@ -427,7 +461,7 @@ namespace AsphaltDLL
 
         namespace Experimental 
         {
-            namespace JtlAbsolutePath
+            namespace InitiateNewFrame
             {
                 bool SetupHook() noexcept;
                 bool RemoveHook() noexcept;
@@ -436,8 +470,30 @@ namespace AsphaltDLL
                 [[nodiscard]] HookState GetHookState() noexcept;
             }
 
-            namespace FunctionLookup
+            namespace NewFrameSubscriberList
             {
+                bool SetupHook() noexcept;
+                bool RemoveHook() noexcept;
+                bool EnableHook() noexcept;
+                bool DisableHook() noexcept;
+                [[nodiscard]] HookState GetHookState() noexcept;
+            }
+
+            namespace MainFpsLimiter
+            {
+                bool SetupHook() noexcept;
+                bool RemoveHook() noexcept;
+                bool EnableHook() noexcept;
+                bool DisableHook() noexcept;
+                [[nodiscard]] HookState GetHookState() noexcept;
+            }
+
+            namespace QueryPerformanceCounterHook
+            {
+                void AdvanceVirtualTime(int64_t micros) noexcept;
+                void SyncToRealTime() noexcept;
+                int64_t GetRealTimeMicros() noexcept;
+                void Initialize() noexcept;
                 bool SetupHook() noexcept;
                 bool RemoveHook() noexcept;
                 bool EnableHook() noexcept;
@@ -464,6 +520,5 @@ namespace AsphaltDLL
                 [[nodiscard]] HookState GetHookState() noexcept;
             }
         }
-
     }
 }

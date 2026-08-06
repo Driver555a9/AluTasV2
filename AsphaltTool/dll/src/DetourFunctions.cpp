@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <basetsd.h>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 
@@ -22,6 +23,8 @@
 #include <minwinbase.h>
 #include <ostream>
 #include <ranges>
+#include <synchapi.h>
+#include <thread>
 #include <utility>
 #include <algorithm>
 #include <vector>
@@ -195,6 +198,18 @@ namespace AsphaltDLL
                 auto& in_buff = shared->m_dll_in_buffer_general;
                 ComDllIn::DllGeneralCommandsIn command;
 
+                if (shared->m_non_negotiable_communication_version != Communication::CURRENT_NON_NEGOTIABLE_COMMUNICATION_VERSION)
+                {
+                    static bool once = false;
+                    if (!once)
+                    {
+                        DLL_ERROR_PRINT("Non negotiable communication version missmatch: Expected: " << Communication::CURRENT_NON_NEGOTIABLE_COMMUNICATION_VERSION
+                                     << " Actual: " << shared->m_non_negotiable_communication_version << " Commands ignored.");
+                        once = true; 
+                    }
+                    return;
+                }
+
                 while (in_buff.TryPop(command))
                 {
                     const ComDllIn::WriteMetaData& meta_cmd = command.m_write_meta_data;
@@ -216,32 +231,27 @@ namespace AsphaltDLL
                             OnNewFrameWithPhysics::QueueSkipSubsequentTicks(GameDLLState::g_current_state.m_meta_data.m_on_replay_end_skip_tick_count);
                         }
                         
-                        if (GameDLLState::g_current_state.m_resolved_addresses.m_game_target_fps_interval_address != NO_VALID_RESOLVED_ADDRESS)
+                        auto& curr_meta = GameDLLState::g_current_state.m_meta_data;
+                            
+                        curr_meta.m_physics_interval                        = meta_cmd.m_physics_interval;
+                        curr_meta.m_fixed_frame_interval_micros             = std::clamp<uint32_t>(meta_cmd.m_fixed_frame_interval_micros, 4167, 33'333);
+                        curr_meta.m_game_target_fps_interval_micros         = std::clamp<uint32_t>(meta_cmd.m_game_target_fps_interval_micros, 200, 66'666);
+                        curr_meta.m_replay_mode_status                      = meta_cmd.m_replay_mode;
+                        curr_meta.m_apply_physics_interval_override         = meta_cmd.m_apply_physics_interval_override; 
+                        curr_meta.m_gui_is_hidden                           = meta_cmd.m_hide_gui;
+                        curr_meta.m_skip_animation_flags                    = meta_cmd.m_skip_animation_flags;
+                        curr_meta.m_replay_speed_factor                     = meta_cmd.m_replay_speed_factor;
+                        curr_meta.m_on_replay_end_skip_tick_count           = meta_cmd.m_on_replay_end_skip_tick_count;  
+                        curr_meta.m_speed_up_pre_race_cinematic             = meta_cmd.m_speed_up_pre_race_cinematic;   
+                        curr_meta.m_dump_track_request_id                   = meta_cmd.m_dump_track_request_id;
+                        curr_meta.m_speed_up_gui_animations                 = meta_cmd.m_speed_up_gui_animations;
+
+                        const auto& resolved_addresses = GameDLLState::g_current_state.m_resolved_addresses;
+
+                        if (resolved_addresses.m_game_target_fps_interval_address != NO_VALID_RESOLVED_ADDRESS)
                         {
-                            if (meta_cmd.m_apply_game_target_fps_interval_override)
-                            {
-                                *reinterpret_cast<uint32_t*>(GameDLLState::g_current_state.m_resolved_addresses.m_game_target_fps_interval_address) = meta_cmd.m_game_target_fps_interval_micros;
-                                // We only update here if we actually overrode the target fps. Default should be original game fps
-                                GameDLLState::g_current_state.m_meta_data.m_game_target_fps_interval_micros = meta_cmd.m_game_target_fps_interval_micros;
-                            }
+                            *reinterpret_cast<uint32_t*>(resolved_addresses.m_game_target_fps_interval_address) = curr_meta.m_game_target_fps_interval_micros;
                         }
-                        else if (meta_cmd.m_apply_game_target_fps_interval_override)
-                        {
-                            //DLL_ERROR_PRINT("Failed to apply game target fps interval override because address is not resolved");
-                        }
-                       
-                        GameDLLState::g_current_state.m_meta_data.m_physics_interval                        = meta_cmd.m_physics_interval;
-                        GameDLLState::g_current_state.m_meta_data.m_fixed_frame_interval_micros             = meta_cmd.m_fixed_frame_interval_micros;
-                        GameDLLState::g_current_state.m_meta_data.m_replay_mode_status                      = meta_cmd.m_replay_mode;
-                        GameDLLState::g_current_state.m_meta_data.m_apply_physics_interval_override         = meta_cmd.m_apply_physics_interval_override; 
-                        GameDLLState::g_current_state.m_meta_data.m_gui_is_hidden                           = meta_cmd.m_hide_gui;
-                        GameDLLState::g_current_state.m_meta_data.m_skip_animation_flags                    = meta_cmd.m_skip_animation_flags;
-                        GameDLLState::g_current_state.m_meta_data.m_replay_speed_factor                     = meta_cmd.m_replay_speed_factor;
-                        GameDLLState::g_current_state.m_meta_data.m_on_replay_end_skip_tick_count           = meta_cmd.m_on_replay_end_skip_tick_count;  
-                        GameDLLState::g_current_state.m_meta_data.m_apply_game_target_fps_interval_override = meta_cmd.m_apply_game_target_fps_interval_override;
-                        GameDLLState::g_current_state.m_meta_data.m_speed_up_pre_race_cinematic             = meta_cmd.m_speed_up_pre_race_cinematic;   
-                        GameDLLState::g_current_state.m_meta_data.m_force_accomplish_target_fps_interval    = meta_cmd.m_force_accomplish_target_fps_interval;
-                        GameDLLState::g_current_state.m_meta_data.m_dump_track_request_id                   = meta_cmd.m_dump_track_request_id;
                     }
 
                     if (racer_cmd.m_command_type == ComDllIn::CommandType::ExecuteCommand)
@@ -325,10 +335,14 @@ namespace AsphaltDLL
             // No mutex lock, caller must lock
             void OnTryResolveNitroRCXArgPointer() noexcept
             {
-                if (GameDLLState::g_current_state.m_resolved_addresses.m_nitro_func_spoofed_rcx_arg != NO_VALID_RESOLVED_ADDRESS)
+                const auto status = GameDLLState::g_current_state.m_meta_data.m_race_status_state;
+
+                if (GameDLLState::g_current_state.m_resolved_addresses.m_nitro_func_spoofed_rcx_arg != NO_VALID_RESOLVED_ADDRESS
+                || ! (status == ComDllOut::RaceStatusState::IN_PRE_RACE_CINEMATIC || status == ComDllOut::RaceStatusState::IN_RACE))
                 {
                     return;
                 }
+                
 
                 /////////////////////////////////////////////////
                 // Use the pointer chains to try and resolve nitro argument pointer
@@ -349,7 +363,10 @@ namespace AsphaltDLL
 
             void OnTryResolveRespawnButtonRCXArgPointer() noexcept
             {
-                if (GameDLLState::g_current_state.m_resolved_addresses.m_respawn_func_spoofed_rcx_arg != NO_VALID_RESOLVED_ADDRESS)
+                const auto status = GameDLLState::g_current_state.m_meta_data.m_race_status_state;
+                
+                if (GameDLLState::g_current_state.m_resolved_addresses.m_nitro_func_spoofed_rcx_arg != NO_VALID_RESOLVED_ADDRESS
+                || ! (status == ComDllOut::RaceStatusState::IN_PRE_RACE_CINEMATIC || status == ComDllOut::RaceStatusState::IN_RACE))
                 {
                     return;
                 }
@@ -398,7 +415,20 @@ namespace AsphaltDLL
 
                 const uint32_t current_tick = GameDLLState::g_current_state.m_replay_inputs.m_race_frame_tick;
                 const auto replay_mode= GameDLLState::g_current_state.m_meta_data.m_replay_mode_status;
-                auto& replay_buffer = ComSharedMem::GetSharedState()->m_dll_in_buffer_input_replay;
+                ComSharedMem::SharedState* shared = ComSharedMem::GetSharedState();
+                auto& replay_buffer = shared->m_dll_in_buffer_input_replay;
+
+                if (shared->m_non_negotiable_communication_version != Communication::CURRENT_NON_NEGOTIABLE_COMMUNICATION_VERSION)
+                {
+                    static bool once = false;
+                    if (!once)
+                    {
+                        DLL_ERROR_PRINT("Non negotiable communication version missmatch: Expected: " << Communication::CURRENT_NON_NEGOTIABLE_COMMUNICATION_VERSION
+                                     << " Actual: " << shared->m_non_negotiable_communication_version << " Replay Inputs ignored.");
+                        once = true; 
+                    }
+                    return;
+                }
 
                 if (replay_mode == Communication::ReplayMode::ActiveBlockThread)
                 {
@@ -463,7 +493,11 @@ namespace AsphaltDLL
             {
                 const std::vector<BVHBroadphaseTraversal::DumpedNode> leaves = BVHBroadphaseTraversal::DumpAllLeaves();
 
-                if (leaves.empty()) return false;
+                if (leaves.empty())
+                {
+                    DLL_ERROR_PRINT("OnExportTrack(): Empty leaves after BVH traversal.");
+                    return false;
+                }
 
                 const std::vector<std::pair<BulletTypes::CollisionObject*, bool>> objects = std::ranges::to<std::vector>(leaves 
                     | std::ranges::views::transform([](const BVHBroadphaseTraversal::DumpedNode& e) -> std::pair<BulletTypes::CollisionObject*, bool> 
@@ -475,17 +509,17 @@ namespace AsphaltDLL
             }
         }
 
-        namespace MainLoopNewFrameDispatcher
+        namespace NewLogicTickDispatcher
         {
             namespace
             {
                 std::atomic<HookState> g_hook_state = HookState::NotInPlace;
                 LPVOID g_real_function_address = nullptr;
 
-                typedef void (*MainLoopNewFrameDispatcher_t)(uintptr_t rcx, uintptr_t rdx);
-                MainLoopNewFrameDispatcher_t RealMainLoopNewFrameDispatcherCall = nullptr;
+                typedef void (*NewLogicTickDispatcher_t)(uintptr_t rcx, uintptr_t rdx);
+                NewLogicTickDispatcher_t RealNewLogicTickDispatcherCall = nullptr;
 
-                void REROUTE_FUNCTION Detour_MainLoopNewFrameDispatcher(uintptr_t rcx, uintptr_t rdx)
+                void REROUTE_FUNCTION Detour_NewLogicTickDispatcher(uintptr_t rcx, uintptr_t rdx)
                 {
                     std::uint32_t iterations = 0;
                     
@@ -494,13 +528,17 @@ namespace AsphaltDLL
                         StandardFallback,
                         IntroCinematicSkip,
                         AccumulatorNormalRace,
-                        AccumulatorReplayFastForward
+                        AccumulatorReplayFastForward,
+                        IsPausedOnlyOneTick
                     };
                     
                     FrameExecutionMode current_mode = FrameExecutionMode::StandardFallback;
 
                     {
                         LOCK_CURRENT_STATE_MUTEX();
+
+                        GameDLLState::g_current_state.m_resolved_addresses.m_is_paused_func_spoofed_rcx_arg = reinterpret_cast<uintptr_t*>(rcx)[26];
+                        GameDLLState::g_current_state.m_meta_data.m_is_currently_paused = IsPaused::GetIsPaused();
 
                         if (GameDLLState::g_current_state.m_meta_data.m_dump_track_request_id > GameDLLState::g_current_state.m_meta_data.m_last_completed_dump_request_id
                         && (GameDLLState::g_current_state.m_meta_data.m_race_status_state == Communication::DllOut::RaceStatusState::IN_RACE 
@@ -519,14 +557,20 @@ namespace AsphaltDLL
                         const auto status = GameDLLState::g_current_state.m_meta_data.m_race_status_state;
                         const bool speed_up_cin = GameDLLState::g_current_state.m_meta_data.m_speed_up_pre_race_cinematic;
                         const bool is_replay = (GameDLLState::g_current_state.m_meta_data.m_replay_mode_status != Communication::ReplayMode::Inactive);
-                        const uint32_t speed_factor = is_replay ? GameDLLState::g_current_state.m_meta_data.m_replay_speed_factor : 1;
+                        const uint32_t replay_speed = GameDLLState::g_current_state.m_meta_data.m_replay_speed_factor;
+                        const uint32_t speed_factor = is_replay ? replay_speed : 1;
 
-                        if (status == ComDllOut::RaceStatusState::IN_PRE_RACE_CINEMATIC && speed_up_cin)
+                        if (IsPaused::GetIsPaused())
+                        {
+                            iterations   = 1;
+                            current_mode = FrameExecutionMode::IsPausedOnlyOneTick;
+                        }
+                        else if (status == ComDllOut::RaceStatusState::IN_PRE_RACE_CINEMATIC && speed_up_cin)
                         {
                             iterations = 10'000;
                             current_mode = FrameExecutionMode::IntroCinematicSkip;
                         }
-                        else if (GameDLLState::g_current_state.m_meta_data.m_force_accomplish_target_fps_interval)
+                        else
                         {
                             current_mode = is_replay ? FrameExecutionMode::AccumulatorReplayFastForward : FrameExecutionMode::AccumulatorNormalRace;
 
@@ -543,27 +587,21 @@ namespace AsphaltDLL
 
                             if (target_interval > 0)
                             {
-                                while (accumulator >= target_interval)
-                                {
-                                    iterations++;
-                                    accumulator -= target_interval;
-                                }
+                                const int64_t ticks = accumulator / target_interval;
+
+                                iterations += static_cast<int>(ticks);
+                                accumulator -= ticks * target_interval;
                             }
-                            else 
+                            else
                             {
                                 iterations = 1;
                             }
-                        }
-                        else
-                        {
-                            iterations   = speed_factor;
-                            current_mode = FrameExecutionMode::StandardFallback;
                         }
                     }
 
                     for (std::uint32_t i = 0; i < iterations; ++i)
                     {
-                        RealMainLoopNewFrameDispatcherCall(rcx, rdx);
+                        RealNewLogicTickDispatcherCall(rcx, rdx);
 
                         if (current_mode == FrameExecutionMode::AccumulatorNormalRace || current_mode == FrameExecutionMode::StandardFallback)
                         {
@@ -593,8 +631,8 @@ namespace AsphaltDLL
             {
                 constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x4CF180; 
 
-                return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_MainLoopNewFrameDispatcher), 
-                    &g_real_function_address, reinterpret_cast<LPVOID*>(&RealMainLoopNewFrameDispatcherCall), g_hook_state);
+                return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_NewLogicTickDispatcher), 
+                    &g_real_function_address, reinterpret_cast<LPVOID*>(&RealNewLogicTickDispatcherCall), g_hook_state);
             }
 
             bool RemoveHook() noexcept { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }
@@ -651,6 +689,7 @@ namespace AsphaltDLL
 
                     {
                         LOCK_CURRENT_STATE_MUTEX();
+
                         if (GameDLLState::g_current_state.m_resolved_addresses.m_steering_struct_gear_address != NO_VALID_RESOLVED_ADDRESS)
                         {
                             const auto gear_addr = GameDLLState::g_current_state.m_resolved_addresses.m_steering_struct_gear_address;
@@ -703,12 +742,14 @@ namespace AsphaltDLL
 
                        //Tests::DebugDumpPhysicsWorldObjects("deubug_world_dump.txt");
                        //if (GameDLLState::g_current_state.m_replay_inputs.m_race_frame_tick == 50)
-                       {
+                       //{
                          //   Tests::ChangeMaterialsTest();
-                       }
+                       //}
                     }
 
-                    return RealNewBulletPhysicsTickCall(p_this, p_delta_time, p_passthrough);
+                    void* ret = RealNewBulletPhysicsTickCall(p_this, p_delta_time, p_passthrough);
+
+                    return ret;
                 }
             }
 
@@ -1081,7 +1122,7 @@ namespace AsphaltDLL
             }
         }
 
-        namespace RacerTransformUpdate
+        namespace LocalRacerAccessPoint
         {
             namespace
             {
@@ -1091,7 +1132,7 @@ namespace AsphaltDLL
                 typedef void (REROUTE_FUNCTION* UpdateTransform_t)(uintptr_t transform_rcx, uintptr_t rdx, uintptr_t r8, uintptr_t r9);
                 UpdateTransform_t RealUpdateTransformCall = nullptr;
 
-                void REROUTE_FUNCTION Detour_RacerTransformUpdate(uintptr_t transform_rcx, uintptr_t rdx, uintptr_t r8, uintptr_t r9) noexcept
+                void REROUTE_FUNCTION Detour_LocalRacerAccessPoint(uintptr_t transform_rcx, uintptr_t rdx, uintptr_t r8, uintptr_t r9) noexcept
                 {
                     RealUpdateTransformCall(transform_rcx, rdx, r8, r9);
 
@@ -1141,7 +1182,7 @@ namespace AsphaltDLL
             bool SetupHook() noexcept
             {
                 constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x636FAA4; 
-                return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_RacerTransformUpdate), 
+                return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_LocalRacerAccessPoint), 
                     &g_real_function_address, reinterpret_cast<LPVOID*>(&RealUpdateTransformCall), g_hook_state
                 );
             }
@@ -1446,6 +1487,57 @@ namespace AsphaltDLL
             HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire); }
         }
 
+        namespace FinalRacerTransformWriter
+        {
+            namespace
+            {
+                std::atomic<HookState> g_hook_state = HookState::NotInPlace;
+                LPVOID g_real_function_address = nullptr;
+
+                using FinalRacerTransformWriter = char(*)(__m128** a1, int64_t* a2, int a3);
+                FinalRacerTransformWriter RealFinalRacerTransformWriterCall = nullptr;
+
+                char REROUTE_FUNCTION Detour_FinalRacerTransformWriter(__m128** a1, int64_t* a2, int a3)
+                {
+                    const char ret = RealFinalRacerTransformWriterCall(a1, a2, a3);
+
+                    if (GameDLLState::g_current_state.m_resolved_addresses.m_local_racer_base_address == NO_VALID_RESOLVED_ADDRESS) 
+                    {
+                        return ret;
+                    }
+
+                    if (GameDLLState::g_replay_current_frame_inputs.has_value())
+                    {
+                        const auto base            = GameDLLState::g_current_state.m_resolved_addresses.m_local_racer_base_address;
+                        const auto inputs   = GameDLLState::g_replay_current_frame_inputs.value();
+                        BulletTypes::UnalignedTransform* curr_trans = reinterpret_cast<BulletTypes::UnalignedTransform*>(base + ComDllIn::WriteRacerState::OFFSET_TRANSFORM);
+                        BulletTypes::UnalignedVector3* curr_velo    = reinterpret_cast<BulletTypes::UnalignedVector3*>(base + ComDllIn::WriteRacerState::OFFSET_VELOCITY);
+
+                        if (*curr_trans != inputs.m_racer_transform_mat4x4 || *curr_velo != inputs.m_racer_velocity_vec3)
+                        {
+                            //DLL_INFO_LOG("Transform / Velocity missmatch at tick: " << inputs.m_race_frame_tick << " - Overriden with replay data.");
+                            std::memcpy(curr_trans->Data(), inputs.m_racer_transform_mat4x4.Data(), sizeof(inputs.m_racer_transform_mat4x4));
+                            std::memcpy(curr_velo->Data(), inputs.m_racer_velocity_vec3.Data(), sizeof(inputs.m_racer_velocity_vec3));
+                        }
+
+                    }
+
+                    return ret;
+                }
+            }
+
+            bool SetupHook() noexcept
+            {
+                constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x636FDE0;
+                return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_FinalRacerTransformWriter),
+                    &g_real_function_address, reinterpret_cast<LPVOID*>(&RealFinalRacerTransformWriterCall), g_hook_state);
+            }
+            bool RemoveHook() noexcept  { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }
+            bool EnableHook() noexcept  { return _Implementation::EnableHook(g_real_function_address, g_hook_state); }
+            bool DisableHook() noexcept { return _Implementation::DisableHook(g_real_function_address, g_hook_state); }
+            HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire); }
+        }
+
         namespace OnWreck
         {
             namespace
@@ -1528,27 +1620,27 @@ namespace AsphaltDLL
             std::atomic<HookState> g_hook_state = HookState::NotInPlace;
             LPVOID g_real_function_address = nullptr;
 
-            typedef void (REROUTE_FUNCTION* OnRespawnButtonPressed_t)(uintptr_t rcx, uint32_t rdx);
-            OnRespawnButtonPressed_t RealOnRespawnButtonPressedCall = nullptr;
+            using OnRespawnButtonPressed_t = uintptr_t(__fastcall*)(uintptr_t rcx);
+            OnRespawnButtonPressed_t RealOnRespawnButtonPressedCall = nullptr;  
 
-            void REROUTE_FUNCTION Detour_OnRespawnButtonPressed(uintptr_t rcx, uint32_t rdx) noexcept
+            uintptr_t REROUTE_FUNCTION Detour_OnRespawnButtonPressed(uintptr_t rcx) noexcept
             {
                 const void* ret_addr = _ReturnAddress();
-                RealOnRespawnButtonPressedCall(rcx, rdx);
                 constexpr uintptr_t STATIC_OFFSET_CALLER = 0x5B5D0C;
                 const uintptr_t expected_return_address  = _Implementation::GetMainGameModule() + STATIC_OFFSET_CALLER;
 
-                if (reinterpret_cast<uintptr_t>(ret_addr) != expected_return_address) // Not called by respawn button call site
+                uintptr_t real_ret = RealOnRespawnButtonPressedCall(rcx);
+
+                if (reinterpret_cast<uintptr_t>(ret_addr) == expected_return_address)
                 {
-                    return;
+                    LOCK_CURRENT_STATE_MUTEX();
+                    if (rcx == GameDLLState::g_current_state.m_resolved_addresses.m_respawn_func_spoofed_rcx_arg)
+                    {
+                        GameDLLState::g_current_state.m_replay_inputs.m_respawn_button_press = true;
+                    } 
                 }
 
-                LOCK_CURRENT_STATE_MUTEX();
-
-                if (rcx == GameDLLState::g_current_state.m_resolved_addresses.m_respawn_func_spoofed_rcx_arg && rdx == 1)
-                {
-                    GameDLLState::g_current_state.m_replay_inputs.m_respawn_button_press = true;
-                }
+                return real_ret;
             }
         }
 
@@ -1565,8 +1657,15 @@ namespace AsphaltDLL
                 return;
             }
             
-            RealOnRespawnButtonPressedCall(GameDLLState::g_current_state.m_resolved_addresses.m_respawn_func_spoofed_rcx_arg, 1);
-            GameDLLState::g_current_state.m_replay_inputs.m_respawn_button_press = true;
+            __try 
+            {
+                RealOnRespawnButtonPressedCall(GameDLLState::g_current_state.m_resolved_addresses.m_respawn_func_spoofed_rcx_arg);
+                GameDLLState::g_current_state.m_replay_inputs.m_respawn_button_press = true;
+            } 
+            __except (EXCEPTION_EXECUTE_HANDLER)
+            {
+
+            }
         }
 
         bool SetupHook() noexcept
@@ -1992,6 +2091,67 @@ namespace AsphaltDLL
             HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire); }
         }
 
+        namespace SpeedUpUIAnimations
+        {
+            namespace
+            {
+                std::atomic<HookState> g_hook_state = HookState::NotInPlace;
+                LPVOID g_real_function_address = nullptr;
+
+                using SpeedUpUIAnimations_t = uintptr_t (*)(uintptr_t a1, uint64_t ui_dt, uint64_t a3);
+                SpeedUpUIAnimations_t RealSpeedUpUIAnimationsCall = nullptr;
+
+                uintptr_t REROUTE_FUNCTION Detour_SpeedUpUIAnimations(uintptr_t a1, uint64_t ui_dt, uint64_t a3)
+                {
+                    {
+                        LOCK_CURRENT_STATE_MUTEX();
+                        if (GameDLLState::g_current_state.m_meta_data.m_speed_up_gui_animations)
+                        {
+                            if (GameDLLState::g_current_state.m_meta_data.m_race_status_state == Communication::DllOut::RaceStatusState::IN_RACE)
+                            {
+                                if (IsPaused::GetIsPaused())
+                                {
+                                    ui_dt *= 8;
+                                }
+                            }
+                            else 
+                            {
+                                ui_dt *= 8;
+                            }
+                        }
+                    }
+                    return RealSpeedUpUIAnimationsCall(a1, ui_dt, a3);
+                }
+            }
+
+            bool SetupHook() noexcept
+            {
+                constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x255290;
+                return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_SpeedUpUIAnimations),
+                        &g_real_function_address, reinterpret_cast<LPVOID*>(&RealSpeedUpUIAnimationsCall), g_hook_state);
+            }
+
+            bool RemoveHook() noexcept  { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }
+            bool EnableHook() noexcept  { return _Implementation::EnableHook(g_real_function_address, g_hook_state); }
+            bool DisableHook() noexcept { return _Implementation::DisableHook(g_real_function_address, g_hook_state); }
+            HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire); }
+        }
+
+        namespace IsPaused
+        {
+            bool GetIsPaused() noexcept
+            {
+                if (GameDLLState::g_current_state.m_resolved_addresses.m_is_paused_func_spoofed_rcx_arg == NO_VALID_RESOLVED_ADDRESS)
+                {
+                    return false;
+                }
+                using Fn = uint64_t(*)(uintptr_t rcx);
+                Fn func = reinterpret_cast<Fn>(_Implementation::GetMainGameModule() + 0x4BACA0);
+
+                return static_cast<bool>(func(GameDLLState::g_current_state.m_resolved_addresses.m_is_paused_func_spoofed_rcx_arg));
+            }
+        }
+
         namespace XInput_GetState
         {
             namespace
@@ -2175,13 +2335,11 @@ namespace AsphaltDLL
                 void* root = nullptr;
                 constexpr bool FROM_STATIC_TREE = true;
                 {
-                    //LOCK_CURRENT_STATE_MUTEX();
                     root = std::bit_cast<void*>(GameDLLState::g_current_state.m_resolved_addresses.m_bvh_root_node_static_objects);
                 }
                 if (root == nullptr) return {};
                 std::vector<DumpedNode> v1 = _DumpAllLeaves(root, FROM_STATIC_TREE);
                 {
-                    //LOCK_CURRENT_STATE_MUTEX();
                     root = std::bit_cast<void*>(GameDLLState::g_current_state.m_resolved_addresses.m_bvh_root_node_dynamic_objects);
                 }
                 if (root == nullptr) return v1;
@@ -2204,68 +2362,204 @@ namespace AsphaltDLL
             HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire); }
         }
 
-
         namespace Experimental 
         {
-            namespace JtlAbsolutePath
+            namespace PacingState
+            {
+                inline std::atomic<bool> g_should_render = true;
+                inline int64_t g_last_time_micros = 0;
+                inline int64_t g_accumulator_micros = 0;
+
+                inline void SetShouldRender(bool render) noexcept
+                {
+                    g_should_render.store(render, std::memory_order_relaxed);
+                }
+                inline bool GetShouldRender() noexcept
+                {
+                    return g_should_render.load(std::memory_order_relaxed);
+                }
+            }
+
+            namespace QueryPerformanceCounterHook
             {
                 namespace
                 {
                     std::atomic<HookState> g_hook_state = HookState::NotInPlace;
                     LPVOID g_real_function_address = nullptr;
 
-                    typedef int64_t (*JtlAbsolutePath_t)(int64_t a1, const char* a2);
-                    JtlAbsolutePath_t RealJtlAbsolutePathCall = nullptr;
+                    typedef BOOL(WINAPI* QueryPerformanceCounter_t)(LARGE_INTEGER* value);
+                    QueryPerformanceCounter_t RealQueryPerformanceCounterCall = nullptr;
 
-                    int64_t REROUTE_FUNCTION Detour_JtlAbsolutePath(int64_t a1, const char* a2)
+                    LARGE_INTEGER g_virtual_qpc{ 0 };
+                    LARGE_INTEGER g_qpc_frequency{ 0 };
+                    bool g_initialized = false;
+                    std::mutex g_time_mutex;
+
+                    BOOL WINAPI Detour_QueryPerformanceCounter(LARGE_INTEGER* value) noexcept
                     {
-                        int64_t real_ret = RealJtlAbsolutePathCall(a1, a2);
-                        //DLL_INFO_LOG("RCX : 0x" << std::hex << a1 << std::dec << "\nPath: " << a2);
-                        return real_ret;
+                        if (!value) return FALSE;
+
+                        std::lock_guard<std::mutex> lock(g_time_mutex);
+
+                        if (!g_initialized)
+                        {
+                            return RealQueryPerformanceCounterCall(value);
+                        }
+
+                        *value = g_virtual_qpc;
+                        return TRUE;
                     }
-                } 
+                }
+
+                void Initialize() noexcept
+                {
+                    if (!g_initialized && RealQueryPerformanceCounterCall)
+                    {
+                        QueryPerformanceFrequency(&g_qpc_frequency);
+                        RealQueryPerformanceCounterCall(&g_virtual_qpc);
+                        g_initialized = true;
+                    }
+                }
+
+                void AdvanceVirtualTime(int64_t micros) noexcept
+                {
+                    std::lock_guard<std::mutex> lock(g_time_mutex);
+                    if (!g_initialized) return;
+                    LONGLONG ticks_to_add = (micros * g_qpc_frequency.QuadPart) / 1000000LL;
+                    g_virtual_qpc.QuadPart += ticks_to_add;
+                }
+
+                void SyncToRealTime() noexcept
+                {
+                    std::lock_guard<std::mutex> lock(g_time_mutex);
+                    if (g_initialized && RealQueryPerformanceCounterCall)
+                    {
+                        RealQueryPerformanceCounterCall(&g_virtual_qpc);
+                    }
+                }
+
+                int64_t GetRealTimeMicros() noexcept
+                {
+                    if (!g_initialized || !RealQueryPerformanceCounterCall) return 0;
+                    
+                    LARGE_INTEGER counter;
+                    RealQueryPerformanceCounterCall(&counter);
+                    return 1000000LL * (counter.QuadPart / g_qpc_frequency.QuadPart) +
+                        1000000LL * (counter.QuadPart % g_qpc_frequency.QuadPart) / g_qpc_frequency.QuadPart;
+                }
 
                 bool SetupHook() noexcept
                 {
-                    constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x47ECB0; 
-                    return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_JtlAbsolutePath), 
-                        &g_real_function_address, reinterpret_cast<LPVOID*>(&RealJtlAbsolutePathCall), g_hook_state
-                    );
+                    return _Implementation::SetupHook(L"KernelBase.dll", "QueryPerformanceCounter", reinterpret_cast<LPVOID>(&Detour_QueryPerformanceCounter), &g_real_function_address,
+                        reinterpret_cast<LPVOID*>(&RealQueryPerformanceCounterCall), g_hook_state);
                 }
-
                 bool RemoveHook() noexcept { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }
                 bool EnableHook() noexcept { return _Implementation::EnableHook(g_real_function_address, g_hook_state); }
                 bool DisableHook() noexcept { return _Implementation::DisableHook(g_real_function_address, g_hook_state); }
                 HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire); }
             }
 
-            namespace FunctionLookup
+            namespace InitiateNewFrame
             {
                 namespace
                 {
                     std::atomic<HookState> g_hook_state = HookState::NotInPlace;
                     LPVOID g_real_function_address = nullptr;
 
-                    typedef uintptr_t* (*FunctionLookup_t)(uintptr_t registry, uintptr_t* out_node, uintptr_t path_component);
-                    FunctionLookup_t RealFunctionLookupCall = nullptr;
+                    using InitiateNewFrame_t = uintptr_t (*)(uintptr_t a1, uint64_t a2, uint64_t a3);
+                    InitiateNewFrame_t RealInitiateNewFrameCall = nullptr;
 
-                    uintptr_t* REROUTE_FUNCTION Detour_FunctionLookup(uintptr_t registry, uintptr_t* out_node, uintptr_t path_component) noexcept
+                    uintptr_t REROUTE_FUNCTION Detour_InitiateNewFrame(uintptr_t a1, uint64_t a2, uint64_t a3)
                     {
-                        uintptr_t* ret = RealFunctionLookupCall(registry, out_node, path_component);
-                        return ret;
+                        uint8_t* const p_skip_rendering = reinterpret_cast<uint8_t*>(a1 + 0x1D0);
+                        
+                        bool should_render = PacingState::GetShouldRender();
+
+                        *p_skip_rendering = !should_render;
+
+                        return RealInitiateNewFrameCall(a1, a2, a3);
                     }
-                } 
+                }
 
                 bool SetupHook() noexcept
                 {
-                    constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x8C9740; 
-                    return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_FunctionLookup), 
-                        &g_real_function_address, reinterpret_cast<LPVOID*>(&RealFunctionLookupCall), g_hook_state
-                    );
+                    constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x238E50;
+                    return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_InitiateNewFrame),
+                          &g_real_function_address, reinterpret_cast<LPVOID*>(&RealInitiateNewFrameCall), g_hook_state);
                 }
 
-                bool RemoveHook() noexcept { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }
-                bool EnableHook() noexcept { return _Implementation::EnableHook(g_real_function_address, g_hook_state); }
+                bool RemoveHook() noexcept  { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }
+                bool EnableHook() noexcept  { return _Implementation::EnableHook(g_real_function_address, g_hook_state); }
+                bool DisableHook() noexcept { return _Implementation::DisableHook(g_real_function_address, g_hook_state); }
+                HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire); }
+            }
+
+            namespace NewFrameSubscriberList
+            {
+                namespace 
+                {
+                    std::atomic<HookState> g_hook_state = HookState::NotInPlace;
+                    LPVOID g_real_function_address = nullptr;
+
+                    typedef uintptr_t (REROUTE_FUNCTION* NewFrameSubscriberList_t)(uintptr_t a1);
+                    NewFrameSubscriberList_t RealNewFrameSubscriberListCall = nullptr;
+
+                    uintptr_t REROUTE_FUNCTION Detour_NewFrameSubscriberList(uintptr_t a1) noexcept
+                    {
+                        const uintptr_t expected_ret = _Implementation::GetMainGameModule() + 0x5E43308;
+                        const uintptr_t ret = std::bit_cast<uintptr_t>(_ReturnAddress());
+
+                        if (ret != expected_ret)
+                        {
+                            return RealNewFrameSubscriberListCall(a1);
+                        }
+
+                        //QueryPerformanceCounterHook::Initialize();
+                        //QueryPerformanceCounterHook::AdvanceVirtualTime(16333);
+
+                        //PacingState::SetShouldRender(true);
+                        return RealNewFrameSubscriberListCall(a1);
+                    }
+                }
+
+                bool SetupHook() noexcept
+                {
+                    constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x250390; 
+                    return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_NewFrameSubscriberList), 
+                          &g_real_function_address, reinterpret_cast<LPVOID*>(&RealNewFrameSubscriberListCall), g_hook_state);
+                }
+
+                bool RemoveHook() noexcept  { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }
+                bool EnableHook() noexcept  { return _Implementation::EnableHook(g_real_function_address, g_hook_state); }
+                bool DisableHook() noexcept { return _Implementation::DisableHook(g_real_function_address, g_hook_state); }
+                HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire); }
+            }
+
+            namespace MainFpsLimiter
+            {
+                namespace 
+                {
+                    std::atomic<HookState> g_hook_state = HookState::NotInPlace;
+                    LPVOID g_real_function_address = nullptr;
+
+                    typedef void (REROUTE_FUNCTION* MainFpsLimiter_t)(uintptr_t a1);
+                    MainFpsLimiter_t RealMainFpsLimiterCall = nullptr;
+
+                    void REROUTE_FUNCTION Detour_MainFpsLimiter(uintptr_t a1) noexcept
+                    {
+                        RealMainFpsLimiterCall(a1);
+                    }
+                }
+
+                bool SetupHook() noexcept
+                {
+                    constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x5E44F90; 
+                    return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_MainFpsLimiter), 
+                          &g_real_function_address, reinterpret_cast<LPVOID*>(&RealMainFpsLimiterCall), g_hook_state);
+                }
+
+                bool RemoveHook() noexcept  { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }
+                bool EnableHook() noexcept  { return _Implementation::EnableHook(g_real_function_address, g_hook_state); }
                 bool DisableHook() noexcept { return _Implementation::DisableHook(g_real_function_address, g_hook_state); }
                 HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire); }
             }

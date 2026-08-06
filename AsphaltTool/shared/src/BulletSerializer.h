@@ -800,15 +800,27 @@ namespace BulletTypes
         [[nodiscard]] inline std::vector<ExtractedObject> DeserializeObjectsFromFile(const std::string& path)
         {
             std::ifstream file(path, std::ios::binary | std::ios::ate);
-            if (!file) return {};
+            if (!file) 
+            {
+                std::cerr << "Failed to deserialize: Could not open file: " << path << std::endl;
+                return {};
+            }
 
             const std::streamsize size = file.tellg();
-            if (size <= 0) return {};
+            if (size <= 0)
+            {
+                std::cerr << "Failed to deserialize: File is empty: " << path << std::endl;
+                return {};
+            }
 
             std::vector<char> buffer(static_cast<size_t>(size));
             file.seekg(0, std::ios::beg);
 
-            if (!file.read(buffer.data(), size)) return {};
+            if (!file.read(buffer.data(), size))
+            {
+                std::cerr << "Failed to deserialize: Could not read file: " << path << std::endl;
+                return {};
+            }
 
             return DeserializeObjectsFromDataBuffer(buffer.data(), buffer.size());
         }
@@ -823,7 +835,12 @@ namespace BulletTypes
         inline void SerializeObjectsToFile(const std::vector<std::pair<CollisionObject*, bool>>& objects, const std::string& path)
         {
             std::ofstream out(path.c_str(), std::ios::binary);
+            if (!out) 
+            {
+                std::cerr << "Could not Serialize because of failure to open or create: " << path << std::endl;
+            }
             SerializeObjectsToStream(out, objects);
+            out.close();
         }
     }
 }

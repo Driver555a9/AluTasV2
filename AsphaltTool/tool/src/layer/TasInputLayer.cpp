@@ -95,13 +95,16 @@ namespace AsphaltTas
                 ///////////////////// Desired frame interval / game target fps
                 ImGui::TextUnformatted("Target Frame Interval:");
                 ImGui::SameLine();
-                ImGui::SliderInt("##Target Frame Interval", (int*)&general_cmd_ref->m_write_meta_data.m_game_target_fps_interval_micros, 0, 33'332);
-                general_cmd_ref->m_write_meta_data.m_apply_game_target_fps_interval_override = true;
+                ImGui::SliderInt("##Target Frame Interval", (int*)&general_cmd_ref->m_write_meta_data.m_game_target_fps_interval_micros, 1000, 33'332);
 
-                ///////////////////// Replay Playback speed
-                ImGui::TextUnformatted("Replay Tick Speed    :");
+                ///////////////////// Replay Playback
+                ImGui::TextUnformatted("Speed Up Replay      :");
                 ImGui::SameLine();
-                ImGui::SliderInt("##Replay Tick Speed", (int*)&general_cmd_ref->m_write_meta_data.m_replay_speed_factor, 1, 50'000);
+                bool fast_forward = general_cmd_ref->m_write_meta_data.m_replay_speed_factor > 1;
+                if (ImGui::Checkbox("##Replay fastforward", &fast_forward))
+                {
+                    general_cmd_ref->m_write_meta_data.m_replay_speed_factor = fast_forward ? 100'000 : 1;
+                }
 
                 ///////////////////// End of replay tick skip
                 ImGui::TextUnformatted("Replay End Tick Skip :");
@@ -109,8 +112,6 @@ namespace AsphaltTas
                 ImGui::SliderInt("##Replay End Tick Skip", (int*)&general_cmd_ref->m_write_meta_data.m_on_replay_end_skip_tick_count, 0, 500);
                 
                 ImGui::Checkbox("Speed Up Race Intro", &general_cmd_ref->m_write_meta_data.m_speed_up_pre_race_cinematic);
-                ImGui::SameLine();
-                ImGui::Checkbox("Force Accomplish Target FPS", &general_cmd_ref->m_write_meta_data.m_force_accomplish_target_fps_interval);
                 
                 ///////////////////// LEGACY: Skip animations
                 ImGui::SameLine();
@@ -127,6 +128,9 @@ namespace AsphaltTas
                                       | std::to_underlying(Communication::SkipAnimationFlags::SKIP_RACE_COUNT_DOWN));
                 }
                 general_cmd_ref->m_write_meta_data.m_skip_animation_flags = Communication::SkipAnimationFlags(skip_flags);
+
+                ImGui::SameLine();
+                ImGui::Checkbox("Speed Up GUI", &general_cmd_ref->m_write_meta_data.m_speed_up_gui_animations);
             }
             if (ImGui::CollapsingHeader("Active Replay", ImGuiTreeNodeFlags_DefaultOpen))
             {

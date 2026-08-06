@@ -392,6 +392,13 @@ namespace AsphaltTas
             ENGINE_ERROR_PRINT("Replay could not be loaded because of invalid formatting. Some ticks are duplicated or missing.");
             return Replay{};
         }
+
+        for (size_t i{}; i < replay.GetAmountFrames(); ++i)
+        {
+            auto& frame = replay.m_frames[i];
+            frame.m_replay_input.m_racer_transform_mat4x4 = frame.m_recorded_racer_state.m_racer_transform_mat4x4;
+            frame.m_replay_input.m_racer_velocity_vec3 = frame.m_recorded_racer_state.m_racer_velocity_vec3;
+        }
     
         return replay;
     }

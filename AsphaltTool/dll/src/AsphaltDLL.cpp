@@ -15,7 +15,18 @@ namespace
     HANDLE g_thread_handle      = nullptr;
     HMODULE g_hmodule           = nullptr;
     std::atomic<bool> g_running = false;
+
+    struct Hook
+    {
+        bool (*Setup)();
+        bool (*Remove)();
+        bool (*Enable)();
+        bool (*Disable)();
+    };
+    std::vector<Hook> g_hooks;
 }
+
+#define EXPAND_HOOK(name) { name::SetupHook, name::RemoveHook, name::EnableHook, name::DisableHook }
 
 extern "C" __declspec(dllexport) void RequestShutdown() noexcept
 {
@@ -61,164 +72,67 @@ namespace AsphaltDLL
     {
         DetourFunctions::CameraUpdate::PatchEnableGameFovWriteInstruction();
 
-        DetourFunctions::FloatXorObfuscationSetter::SetupHook();
-        DetourFunctions::FloatXorObfuscationSetter::EnableHook();
+        g_hooks.clear();
 
-        DetourFunctions::FloatXorObfuscationGetter::SetupHook();
-        DetourFunctions::FloatXorObfuscationGetter::EnableHook();
+        g_hooks = {
+            EXPAND_HOOK(DetourFunctions::FloatXorObfuscationSetter),
+            EXPAND_HOOK(DetourFunctions::FloatXorObfuscationGetter),
+            EXPAND_HOOK(DetourFunctions::OnNewFrameWithPhysics),
+            EXPAND_HOOK(DetourFunctions::NewBulletPhysicsTick),
+            EXPAND_HOOK(DetourFunctions::BrakeValue),
+            EXPAND_HOOK(DetourFunctions::SteeringValue),
+            EXPAND_HOOK(DetourFunctions::AcceleratorValue),
+            EXPAND_HOOK(DetourFunctions::EnableNitro),
+            EXPAND_HOOK(DetourFunctions::DecreaseNitroBarFunc),
+            EXPAND_HOOK(DetourFunctions::IncreaseNitroBarFunc),
+            EXPAND_HOOK(DetourFunctions::LocalRacerAccessPoint),
+            EXPAND_HOOK(DetourFunctions::GetLocalRacerStruct),
+            EXPAND_HOOK(DetourFunctions::CameraUpdate),
+            EXPAND_HOOK(DetourFunctions::BarrelRollStabilization),
+            EXPAND_HOOK(DetourFunctions::BarrelYawStabilization),
+            EXPAND_HOOK(DetourFunctions::FinalRacerTransformWriter),
+            EXPAND_HOOK(DetourFunctions::OnWreck),
+            // EXPAND_HOOK(DetourFunctions::OnRespawnButtonPressed), CRASHES GAME ON REMOVE!
+            EXPAND_HOOK(DetourFunctions::GetPhysicsInterval),
+            EXPAND_HOOK(DetourFunctions::OnBeginRaceFunction),
+            EXPAND_HOOK(DetourFunctions::OnClickPlayFunction),
+            EXPAND_HOOK(DetourFunctions::OnEndRaceFunction),
+            EXPAND_HOOK(DetourFunctions::OnUpdateRaceProgress),
+            EXPAND_HOOK(DetourFunctions::OnUpdateCheckpoint),
+            EXPAND_HOOK(DetourFunctions::RenderGUIToggle),
+            EXPAND_HOOK(DetourFunctions::XInput_GetState),
+            EXPAND_HOOK(DetourFunctions::NewLogicTickDispatcher),
+            EXPAND_HOOK(DetourFunctions::AnimationProgressFunction),
+            EXPAND_HOOK(DetourFunctions::SpeedUpUIAnimations),
+            EXPAND_HOOK(DetourFunctions::UcrtBaseRand),
+            EXPAND_HOOK(DetourFunctions::BVHBroadphaseTraversal),
+            ///////////////////////// Experimental /////////////////////////
+            // EXPAND_HOOK(DetourFunctions::Experimental::InitiateNewFrame),
+            // EXPAND_HOOK(DetourFunctions::Experimental::NewFrameSubscriberList),
+            // EXPAND_HOOK(DetourFunctions::Experimental::MainFpsLimiter),
+            // EXPAND_HOOK(DetourFunctions::Experimental::QueryPerformanceCounterHook),
+            // EXPAND_HOOK(DetourFunctions::Experimental::OnRaycastVehicleUpdate),
+            // EXPAND_HOOK(DetourFunctions::Experimental::PhysicsWorldRaycast),
+        };
 
-        DetourFunctions::OnNewFrameWithPhysics::SetupHook();
-        DetourFunctions::OnNewFrameWithPhysics::EnableHook();
+        for (auto& hook : g_hooks)
+            hook.Setup();
 
-        DetourFunctions::NewBulletPhysicsTick::SetupHook();
-        DetourFunctions::NewBulletPhysicsTick::EnableHook();
-
-        DetourFunctions::BrakeValue::SetupHook();
-        DetourFunctions::BrakeValue::EnableHook();
-
-        DetourFunctions::SteeringValue::SetupHook();
-        DetourFunctions::SteeringValue::EnableHook();
-
-        DetourFunctions::AcceleratorValue::SetupHook();
-        DetourFunctions::AcceleratorValue::EnableHook();
-
-        DetourFunctions::EnableNitro::SetupHook();
-        DetourFunctions::EnableNitro::EnableHook();
-
-        DetourFunctions::DecreaseNitroBarFunc::SetupHook();
-        DetourFunctions::DecreaseNitroBarFunc::EnableHook();
-
-        DetourFunctions::IncreaseNitroBarFunc::SetupHook();
-        DetourFunctions::IncreaseNitroBarFunc::EnableHook();
-
-        DetourFunctions::RacerTransformUpdate::SetupHook();
-        DetourFunctions::RacerTransformUpdate::EnableHook();
-
-        DetourFunctions::GetLocalRacerStruct::SetupHook();
-        DetourFunctions::GetLocalRacerStruct::EnableHook();
-
-        DetourFunctions::CameraUpdate::SetupHook();
-        DetourFunctions::CameraUpdate::EnableHook();
-
-        DetourFunctions::BarrelRollStabilization::SetupHook();
-        DetourFunctions::BarrelRollStabilization::EnableHook();
-
-        DetourFunctions::BarrelYawStabilization::SetupHook();
-        DetourFunctions::BarrelYawStabilization::EnableHook();
-
-        DetourFunctions::OnWreck::SetupHook();
-        DetourFunctions::OnWreck::EnableHook();
-
-        DetourFunctions::OnRespawnButtonPressed::SetupHook();
-        DetourFunctions::OnRespawnButtonPressed::EnableHook();
-
-        DetourFunctions::GetPhysicsInterval::SetupHook();
-        DetourFunctions::GetPhysicsInterval::EnableHook();
-
-        DetourFunctions::OnBeginRaceFunction::SetupHook();
-        DetourFunctions::OnBeginRaceFunction::EnableHook();
-
-        DetourFunctions::OnClickPlayFunction::SetupHook();
-        DetourFunctions::OnClickPlayFunction::EnableHook();
-
-        DetourFunctions::OnEndRaceFunction::SetupHook();
-        DetourFunctions::OnEndRaceFunction::EnableHook();
-
-        DetourFunctions::OnUpdateRaceProgress::SetupHook();
-        DetourFunctions::OnUpdateRaceProgress::EnableHook();
-
-        DetourFunctions::OnUpdateCheckpoint::SetupHook();
-        DetourFunctions::OnUpdateCheckpoint::EnableHook();
-
-        DetourFunctions::RenderGUIToggle::SetupHook();
-        DetourFunctions::RenderGUIToggle::EnableHook();
-
-        DetourFunctions::XInput_GetState::SetupHook();
-        DetourFunctions::XInput_GetState::EnableHook();
-
-        DetourFunctions::MainLoopNewFrameDispatcher::SetupHook();
-        DetourFunctions::MainLoopNewFrameDispatcher::EnableHook();
-
-        DetourFunctions::AnimationProgressFunction::SetupHook();
-        DetourFunctions::AnimationProgressFunction::EnableHook();
-
-        DetourFunctions::UcrtBaseRand::SetupHook();
-        DetourFunctions::UcrtBaseRand::EnableHook();
-
-        DetourFunctions::BVHBroadphaseTraversal::SetupHook();
-        DetourFunctions::BVHBroadphaseTraversal::EnableHook();
-
-        /////////////////////////////////////////////////////////////////
-        // Experimental
-        /////////////////////////////////////////////////////////////////
-        //DetourFunctions::Experimental::JtlAbsolutePath::SetupHook();
-        //DetourFunctions::Experimental::JtlAbsolutePath::EnableHook();
-
-        //DetourFunctions::Experimental::FunctionLookup::SetupHook();
-        //DetourFunctions::Experimental::FunctionLookup::EnableHook();
-
-        //DetourFunctions::Experimental::OnRaycastVehicleUpdate::SetupHook();
-        //DetourFunctions::Experimental::OnRaycastVehicleUpdate::EnableHook();
-
-        //DetourFunctions::Experimental::PhysicsWorldRaycast::SetupHook();
-        //DetourFunctions::Experimental::PhysicsWorldRaycast::EnableHook();
+        for (auto& hook : g_hooks)
+            hook.Enable();
     }
 
     void RemoveHooks() noexcept
     {
-        DetourFunctions::XInput_GetState::DisableHook();
-        DetourFunctions::OnNewFrameWithPhysics::DisableHook();
-        DetourFunctions::NewBulletPhysicsTick::DisableHook();
-        DetourFunctions::BrakeValue::DisableHook();
-        DetourFunctions::SteeringValue::DisableHook();
-        DetourFunctions::AcceleratorValue::DisableHook();
-        DetourFunctions::EnableNitro::DisableHook();
-        DetourFunctions::DecreaseNitroBarFunc::DisableHook();
-        DetourFunctions::IncreaseNitroBarFunc::DisableHook();
-        DetourFunctions::RacerTransformUpdate::DisableHook();
-        DetourFunctions::CameraUpdate::DisableHook();
-        DetourFunctions::BarrelRollStabilization::DisableHook();
-        DetourFunctions::BarrelYawStabilization::DisableHook();
-        DetourFunctions::OnWreck::DisableHook();
-        DetourFunctions::OnRespawnButtonPressed::DisableHook();
-        DetourFunctions::GetPhysicsInterval::DisableHook();
-        DetourFunctions::OnBeginRaceFunction::DisableHook();
-        DetourFunctions::OnClickPlayFunction::DisableHook();
-        DetourFunctions::OnEndRaceFunction::DisableHook();
-        DetourFunctions::FloatXorObfuscationGetter::DisableHook();
-        DetourFunctions::FloatXorObfuscationSetter::DisableHook();
-        DetourFunctions::MainLoopNewFrameDispatcher::DisableHook();
-        DetourFunctions::AnimationProgressFunction::DisableHook();
-        DetourFunctions::UcrtBaseRand::DisableHook();
-        DetourFunctions::BVHBroadphaseTraversal::DisableHook();
+        for (auto it = g_hooks.rbegin(); it != g_hooks.rend(); ++it)
+            it->Disable();
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-        DetourFunctions::XInput_GetState::RemoveHook();
-        DetourFunctions::OnNewFrameWithPhysics::RemoveHook();
-        DetourFunctions::NewBulletPhysicsTick::RemoveHook();
-        DetourFunctions::BrakeValue::RemoveHook();
-        DetourFunctions::SteeringValue::RemoveHook();
-        DetourFunctions::AcceleratorValue::RemoveHook();
-        DetourFunctions::EnableNitro::RemoveHook();
-        DetourFunctions::DecreaseNitroBarFunc::RemoveHook();
-        DetourFunctions::IncreaseNitroBarFunc::RemoveHook();
-        DetourFunctions::RacerTransformUpdate::RemoveHook();
-        DetourFunctions::CameraUpdate::RemoveHook();
-        DetourFunctions::BarrelRollStabilization::RemoveHook();
-        DetourFunctions::BarrelYawStabilization::RemoveHook();
-        DetourFunctions::OnWreck::RemoveHook();
-        DetourFunctions::OnRespawnButtonPressed::RemoveHook();
-        DetourFunctions::GetPhysicsInterval::RemoveHook();
-        DetourFunctions::OnBeginRaceFunction::RemoveHook();
-        DetourFunctions::OnClickPlayFunction::RemoveHook();
-        DetourFunctions::OnEndRaceFunction::RemoveHook();
-        DetourFunctions::FloatXorObfuscationGetter::RemoveHook();
-        DetourFunctions::FloatXorObfuscationSetter::RemoveHook();
-        DetourFunctions::MainLoopNewFrameDispatcher::RemoveHook();
-        DetourFunctions::AnimationProgressFunction::RemoveHook();
-        DetourFunctions::UcrtBaseRand::RemoveHook();
-        DetourFunctions::BVHBroadphaseTraversal::RemoveHook();
+        for (auto it = g_hooks.rbegin(); it != g_hooks.rend(); ++it)
+            it->Remove();
+
+        g_hooks.clear();
     }
 
     void Initialize(HMODULE hmodule) noexcept

@@ -171,6 +171,9 @@ namespace AsphaltTas
 
         void InjectIntoGame()
         {
+            ComSharedMem::SharedState* shared = ComSharedMem::GetSharedState();
+            shared->m_non_negotiable_communication_version = Communication::CURRENT_NON_NEGOTIABLE_COMMUNICATION_VERSION;
+            
             if (IsInjected()) return;
 
             libmem::Process process = AsphaltTas::MemoryUtility::GetAsphaltProcessOrThrow();

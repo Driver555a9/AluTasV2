@@ -4,6 +4,7 @@
 #include "common/Replay.h"
 #include "core/model/Model.h"
 #include "core/scene/CameraController.h"
+#include "glm/geometric.hpp"
 #include "layer/GuiStyle.h"
 #include "globalstate/AsphaltDllManager.h"
 #include "BulletSerializer.h"
@@ -100,7 +101,7 @@ namespace AsphaltTas
     {
         const auto last_dumped_req_id = AsphaltDllManager::GetDllStateOutCopy()->m_meta_data.m_last_completed_dump_request_id;
 
-        if (m_input_state.m_key_is_pressed[GLFW_KEY_ESCAPE]) 
+        if (m_input_state.m_key_is_pressed[GLFW_KEY_ESCAPE] && !m_render_gui) 
         {
             OnSetRenderGUI(true);
         }
@@ -114,7 +115,7 @@ namespace AsphaltTas
                 std::filesystem::copy_file(game_path.value() + "/" + Communication::DLL_DUMPED_TRACK_FILE_NAME, m_next_track_path, std::filesystem::copy_options::overwrite_existing, ec);
                 if (ec)
                 {
-                    ENGINE_ERROR_PRINT("Failed to move objects.TRACK file from game directory");
+                    ENGINE_ERROR_PRINT("Failed to move objects.TRACK file from game directory: " << ec.message());
                 }
                 else
                 {
@@ -792,20 +793,21 @@ namespace AsphaltTas
                 const glm::vec3 p0 = RacerState(frames[i].m_recorded_racer_state).GetPositionOpenGL_XYZ();
                 const glm::vec3 p1 = RacerState(frames[i+1].m_recorded_racer_state).GetPositionOpenGL_XYZ();
 
+                bool respawned = glm::distance(p0, p1) > 10.0f;
+
                 /*const float segment_length = glm::length(p1 - p0);
                 distance_accum += segment_length;
 
                 const float hue0 = fmod(distance_accum / rainbow_length * 360.0f, 360.0f);
                 const float hue1 = fmod((distance_accum + segment_length) / rainbow_length * 360.0f, 360.0f);
 
-                const glm::vec3 color0 = HSVtoRGB(hue0, 1.0f, 1.0f);
+                const glm::vec3 color0 = HSVtoRGB(hue0, 1.0f, 1.0f); 
                 const glm::vec3 color1 = HSVtoRGB(hue1, 1.0f, 1.0f); */
 
-                const glm::vec3 color0 (1.0f);
-                const glm::vec3 color1 (1.0f);
+                const glm::vec3 color = respawned ? glm::vec3{1.0f, 0.0f, 0.0f} : glm::vec3{1.0f};
 
-                out.emplace_back(p0, color0);
-                out.emplace_back(p1, color1);
+                out.emplace_back(p0, color);
+                out.emplace_back(p1, color);
             }
 
             return out;
@@ -1151,7 +1153,7 @@ namespace AsphaltTas
                 ImVec2 right_bottom (ImGui::GetItemRectMax());
                 ImVec2 left_bottom  (left_top.x, right_bottom.y);
                 ImVec2 right_top    (right_bottom.x, left_top.y);
-                ImGui::GetWindowDrawList()->AddRect(left_top, right_bottom, IM_COL32(255,0,0,255), 0.0f, ImDrawFlags{0}, BORDER_SIZE_PIXELS);
+                ImGui::GetWindowDrawList()->AddRect(left_top, right_bottom, IM_COL32(255, 0, 0, 255), 0.0f, ImDrawFlags{0}, BORDER_SIZE_PIXELS);
                 ImGui::GetWindowDrawList()->AddLine(left_top, right_bottom, IM_COL32(255, 0, 0, 255));
                 ImGui::GetWindowDrawList()->AddLine(left_bottom, right_top, IM_COL32(255, 0, 0, 255));
             };

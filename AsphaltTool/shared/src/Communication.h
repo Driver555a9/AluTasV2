@@ -40,6 +40,8 @@ namespace Communication
 
     constexpr char DLL_DUMPED_TRACK_FILE_NAME[] = "objects.TRACK";
 
+    constexpr uint32_t CURRENT_NON_NEGOTIABLE_COMMUNICATION_VERSION = 1; // Detect dll ABI missmatches
+
     namespace DllOut
     {
         struct RecordedReplayInputData 
@@ -133,7 +135,8 @@ namespace Communication
             uintptr_t m_steer_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
             uintptr_t m_respawn_func_spoofed_rcx_arg       = NO_VALID_RESOLVED_ADDRESS;
             uintptr_t m_bvh_root_node_static_objects       = NO_VALID_RESOLVED_ADDRESS;
-            uintptr_t m_bvh_root_node_dynamic_objects      = NO_VALID_RESOLVED_ADDRESS; // ramps, nitro bottles etc
+            uintptr_t m_bvh_root_node_dynamic_objects      = NO_VALID_RESOLVED_ADDRESS;
+            uintptr_t m_is_paused_func_spoofed_rcx_arg     = NO_VALID_RESOLVED_ADDRESS;
 
             void ResetAll() noexcept
             {
@@ -150,9 +153,10 @@ namespace Communication
                 m_respawn_func_spoofed_rcx_arg       = NO_VALID_RESOLVED_ADDRESS;
                 m_bvh_root_node_static_objects       = NO_VALID_RESOLVED_ADDRESS;
                 m_bvh_root_node_dynamic_objects      = NO_VALID_RESOLVED_ADDRESS;
+                m_is_paused_func_spoofed_rcx_arg     = NO_VALID_RESOLVED_ADDRESS;
             }
         };
-        static_assert(sizeof(ResolvedAddresses) == 12 * sizeof(uintptr_t), "No packing should occur");
+        static_assert(sizeof(ResolvedAddresses) == 13 * sizeof(uintptr_t), "No packing should occur");
 
         struct XInputState 
         {
@@ -179,16 +183,16 @@ namespace Communication
             float m_physics_interval                        = 1/60.0f;
             std::uint32_t m_game_target_fps_interval_micros = 8333;
             SkipAnimationFlags m_skip_animation_flags       = SkipAnimationFlags::SKIP_NONE; // Deprecated, prefer m_speed_up_pre_race_cinematic
-            std::uint32_t m_replay_speed_factor             = 1;
             std::uint32_t m_on_replay_end_skip_tick_count   = 0;
+            std::uint32_t m_replay_speed_factor             = 1;
             std::uint32_t m_dump_track_request_id           = 0; // While dump request > last_completed_dump, objects.TRACK will be dumped
             std::uint32_t m_last_completed_dump_request_id  = 0;
             RaceStatusState m_race_status_state             = RaceStatusState::IN_MENU;
             bool m_apply_physics_interval_override          = false;
             bool m_gui_is_hidden                            = false;
-            bool m_apply_game_target_fps_interval_override  = false;
             bool m_speed_up_pre_race_cinematic              = false;
-            bool m_force_accomplish_target_fps_interval     = true;
+            bool m_speed_up_gui_animations                  = false;
+            bool m_is_currently_paused                      = false;
             uint8_t __ignore_padding__[6];  
         };
         static_assert(sizeof(DllStateMetaData) == sizeof(ReplayMode) + 6 * sizeof(std::uint32_t) + sizeof(float) + sizeof(SkipAnimationFlags) + sizeof(RaceStatusState)
@@ -269,8 +273,13 @@ namespace Communication
 
             // Pad
             uint8_t __ignore__padding__[7];
+
+            // Patch for rare inexplicable fuckups
+            BulletTypes::UnalignedTransform m_racer_transform_mat4x4 {};
+            BulletTypes::UnalignedVector3 m_racer_velocity_vec3 {};
         };
-        static_assert(sizeof(DllReplayInputIn) == 8 * sizeof(float) + 3 * sizeof(std::uint32_t) + 8 * sizeof(uint8_t), "No packing should occur");
+        static_assert(sizeof(DllReplayInputIn) == 8 * sizeof(float) + 3 * sizeof(std::uint32_t) + 8 * sizeof(uint8_t) 
+                    + sizeof(BulletTypes::UnalignedTransform) + sizeof(BulletTypes::UnalignedVector3), "No packing should occur");
 
         struct WriteRacerState
         {
@@ -322,16 +331,15 @@ namespace Communication
             float m_physics_interval                        = 1/60.0f; // 60pf
             std::uint32_t m_game_target_fps_interval_micros = 8333;
             SkipAnimationFlags m_skip_animation_flags       = SkipAnimationFlags::SKIP_NONE;
-            std::uint32_t m_replay_speed_factor             = 1;
             std::uint32_t m_on_replay_end_skip_tick_count   = 0; 
             std::uint32_t m_dump_track_request_id           = 0;       // This must be greater than out states index for dump to happen
+            std::uint32_t m_replay_speed_factor             = 1;
             bool m_apply_physics_interval_override          = false;   // true changes game behaviour
             bool m_request_dll_shutdown                     = false;   // Alternative to extern C func RequestShutdown call
             bool m_hide_gui                                 = false;
-            bool m_apply_game_target_fps_interval_override  = false;
             bool m_speed_up_pre_race_cinematic              = false;
-            bool m_force_accomplish_target_fps_interval     = true;
-            uint8_t __ignore__padding__[2];
+            bool m_speed_up_gui_animations                  = false;
+            uint8_t __ignore__padding__[3];
         };
         static_assert(sizeof(WriteMetaData) == sizeof(CommandType) + sizeof(ReplayMode) + 5 * sizeof(std::uint32_t) + sizeof(float) + sizeof(SkipAnimationFlags) +
                                            8 * sizeof(bool), "No packing should occur");
@@ -452,6 +460,8 @@ namespace Communication
             // WRITE: Remote Tool - READ: DLL -> This is used for general data
             // Frame agnostic (new frame function will clear this buffer in one go)
             SharedRingBuffer<DllIn::DllGeneralCommandsIn, DLL_IN_GENERAL_BUFF_SIZE>  m_dll_in_buffer_general;
+
+            std::atomic<uint32_t> m_non_negotiable_communication_version {0xFFFFFFFF}; // Must be set by external tool - must match DLLs value
         };
 
         constexpr size_t  SHARED_MEMORY_SIZE  = sizeof(SharedState);

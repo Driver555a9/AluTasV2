@@ -42,15 +42,7 @@ namespace CoreEngine
         m_input_state.m_mouse_wheel_scroll_delta = 0.0;
         
         //---- Camera matrix
-        glm::mat4 cam_matrix;
-        if (m_camera.HasCachedCameraMatrix())
-        {
-            cam_matrix = m_camera.GetLastCachedCameraMatrix();
-        }
-        else 
-        {
-            cam_matrix = m_camera.CalculateCameraMatrix();
-        }
+        const glm::mat4 cam_matrix = m_camera.GetCameraMatrix();
 
         //---- If an object was added / deleted, Update the entire data - else just update transformations
         if (m_scene.GetAndResetObjectVecChangeFlag())  { m_indirect_pipeline.SetSceneData(m_scene.GetRenderModelVector(), m_scene.GetLightVectorConstRef()); } 
