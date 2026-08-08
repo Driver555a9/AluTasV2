@@ -2,6 +2,7 @@
 
 #include "Communication.h"
 #include "common/Replay.h"
+#include "common/Utility.h"
 #include "core/application/Application.h"
 #include "core/utility/Assert.h"
 #include "imgui.h"
@@ -179,11 +180,11 @@ namespace AsphaltTas
                     ImGui::Text("Replay: %zu", i);
                     ImGui::SameLine();
                     
-                    constexpr uint32_t max_name_len = 60;
+                    constexpr size_t max_name_len = 255;
                     std::string name = replay.GetName();
                     name.resize(max_name_len);
 
-                    if (ImGui::InputText((std::string("##Name") + std::to_string(i)).c_str(), name.data(), name.capacity() + 1))
+                    if (ImGui::InputText(("##Name" + std::to_string(i)).c_str(), name.data(), max_name_len + 1))
                     {
                         name.resize(strlen(name.c_str()));
                         replay.SetName(name);
@@ -194,8 +195,14 @@ namespace AsphaltTas
                         ImGui::SameLine();
                         if (ImGui::Button((std::string("Save##NEW_REPLAY_") + std::to_string(i)).c_str()))
                         {
-                            Replay::SerializeReplayToFile(replay, s_replay_folder_path + replay.GetName() + ".REPLAY");
-                            indices_to_be_deleted.push_back(i);
+                            if (Utility::IsValidFilename(replay.GetName()) && Replay::SerializeReplayToFile(replay, s_replay_folder_path + replay.GetName() + ".REPLAY"))
+                            {
+                                indices_to_be_deleted.push_back(i);
+                            }
+                            else
+                            {
+                                ENGINE_ERROR_PRINT("Failed to save: " + replay.GetName() + " - invalid filename.");
+                            }
                         }
 
                         PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Button, GuiStyle::COLOR_RED);

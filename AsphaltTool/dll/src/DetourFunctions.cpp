@@ -615,20 +615,22 @@ namespace AsphaltDLL
                         {
                             continue; 
                         }
-                        LOCK_CURRENT_STATE_MUTEX();
-                        if (current_mode == FrameExecutionMode::IntroCinematicSkip)
                         {
-                            const auto status = GameDLLState::g_current_state.m_meta_data.m_race_status_state;
-                            if (status != ComDllOut::RaceStatusState::IN_PRE_RACE_CINEMATIC)
+                            LOCK_CURRENT_STATE_MUTEX();
+                            if (current_mode == FrameExecutionMode::IntroCinematicSkip)
                             {
-                                break;
+                                const auto status = GameDLLState::g_current_state.m_meta_data.m_race_status_state;
+                                if (status != ComDllOut::RaceStatusState::IN_PRE_RACE_CINEMATIC)
+                                {
+                                    break;
+                                }
                             }
-                        }
-                        else if (current_mode == FrameExecutionMode::AccumulatorReplayFastForward)
-                        {
-                            if (!GameDLLState::g_replay_current_frame_inputs.has_value())
+                            else if (current_mode == FrameExecutionMode::AccumulatorReplayFastForward)
                             {
-                                break; 
+                                if (!GameDLLState::g_replay_current_frame_inputs.has_value())
+                                {
+                                    break; 
+                                }
                             }
                         }
                     }

@@ -39,7 +39,7 @@ namespace AsphaltTas
         out.m_racer_transform_mat4x4   = std::bit_cast<BulletTypes::UnalignedTransform>(m_transform);
         out.m_racer_velocity_vec3      = std::bit_cast<BulletTypes::UnalignedVector3>(m_velocity);
         out.m_race_progress_percentage = m_race_progress_percentage;
-        out.m_rpm                = m_rpm;
+        out.m_rpm                      = m_rpm;
         out.m_checkpoint               = m_checkpoint;
         out.m_gear                     = m_gear;
         return out;

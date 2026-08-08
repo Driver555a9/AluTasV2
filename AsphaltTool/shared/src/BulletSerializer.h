@@ -593,7 +593,7 @@ namespace BulletTypes
                 try
                 {
                     auto shape_type = SafeGetNumber(sh_json, Keys::ShapesRoot::SHAPE_TYPE, BroadphaseNativeTypes::INVALID_SHAPE_PROXYTYPE);
-                    float margin    = SafeGetNumber(sh_json, "Margin", 0.04f);
+                    float margin = SafeGetNumber(sh_json, "Margin", 0.04f);
 
                     switch (shape_type)
                     {
@@ -683,9 +683,7 @@ namespace BulletTypes
                             if (child_raw && child_raw->m_shape_type == BroadphaseNativeTypes::MULTIMATERIAL_TRIANGLE_MESH_PROXYTYPE)
                             {
                                 auto cloned_child = CloneExtractedShape(child_raw);
-                                scaled->m_internal_triangle_shape.reset(
-                                    static_cast<MultiMatExtractedShape*>(cloned_child.release())
-                                );
+                                scaled->m_internal_triangle_shape.reset(static_cast<MultiMatExtractedShape*>(cloned_child.release()));
                             }
                             shape_lookup[idx] = std::move(scaled);
                             break;

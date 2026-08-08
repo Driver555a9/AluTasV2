@@ -593,8 +593,8 @@ namespace AsphaltTas
                         {
                             case CoreEngine::Basic_CameraController::Type::FreeCam   : OnChangeCameraController<CoreEngine::FreeCam_CameraController>();    break;
                             case CoreEngine::Basic_CameraController::Type::OrbitalCam: OnChangeCameraController<CoreEngine::OrbitalCam_CameraController>(); break;
-                            case CoreEngine::Basic_CameraController::Type::FollowCam :OnChangeCameraController<CoreEngine::FollowCam_CameraController>();   break;
-                            default: ENGINE_ASSERT(false && "At OnImGuiRender_LeftOptionPanel(): Expected a valid camera type to be selected.");
+                            case CoreEngine::Basic_CameraController::Type::FollowCam : OnChangeCameraController<CoreEngine::FollowCam_CameraController>();  break;
+                            default: ENGINE_ASSERT(false && "Expected a valid camera type to be selected.");
                         }
                     }
                 }
@@ -750,7 +750,7 @@ namespace AsphaltTas
         }
         if (data.size() < 5)
         {
-            ENGINE_ERROR_PRINT("Malformedtrackview.COLORDEF ignored: Provide at least 5 colors for Ramps, Dynamics, Box, Sphere, Unkown");
+            ENGINE_ERROR_PRINT("Malformed trackview.COLORDEF ignored: Provide at least 5 colors for Ramps, Dynamics, Box, Sphere, Unkown");
             return;
         }
         data.shrink_to_fit();
@@ -1186,13 +1186,13 @@ namespace AsphaltTas
 
                 ImGui::TextUnformatted(std::format("Mesh {:>3d}: ", i).c_str());
 
-                #ifndef __INTELLISENSE__
-                    DrawOrPlaceholder(material->m_base_texture, "Base Texture");
-                    DrawOrPlaceholder(material->m_metallic_roughness_texture, "Metalic Roughness");
-                    DrawOrPlaceholder(material->m_normal_texture, "Normal Texture");
-                    DrawOrPlaceholder(material->m_occlusion_texture, "Occlusion Texture");
-                    DrawOrPlaceholder(material->m_emissive_texture, "Emissive Texture");
-                #endif
+            #ifndef __INTELLISENSE__
+                DrawOrPlaceholder(material->m_base_texture, "Base Texture");
+                DrawOrPlaceholder(material->m_metallic_roughness_texture, "Metalic Roughness");
+                DrawOrPlaceholder(material->m_normal_texture, "Normal Texture");
+                DrawOrPlaceholder(material->m_occlusion_texture, "Occlusion Texture");
+                DrawOrPlaceholder(material->m_emissive_texture, "Emissive Texture");
+            #endif
             }
 
         }

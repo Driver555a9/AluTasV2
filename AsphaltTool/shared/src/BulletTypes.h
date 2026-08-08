@@ -236,7 +236,7 @@ namespace BulletTypes
         CAPSULE_SHAPE_PROXYTYPE,                       // 10 - USED IN GAME (Inside Compound)
         CONE_SHAPE_PROXYTYPE,
         CONVEX_SHAPE_PROXYTYPE,
-        CYLINDER_SHAPE_PROXYTYPE,
+        CYLINDER_SHAPE_PROXYTYPE,                      // 13 - Used in game (rome)
         UNIFORM_SCALING_SHAPE_PROXYTYPE,
         MINKOWSKI_SUM_SHAPE_PROXYTYPE,
         MINKOWSKI_DIFFERENCE_SHAPE_PROXYTYPE,
@@ -263,7 +263,7 @@ namespace BulletTypes
         MAX_BROADPHASE_COLLISION_TYPES
     };
 
-    typedef enum PHY_ScalarType
+    enum class PHY_ScalarType
     {
         PHY_FLOAT,
         PHY_DOUBLE,
@@ -271,7 +271,7 @@ namespace BulletTypes
         PHY_SHORT,
         PHY_FIXEDPOINT88,
         PHY_UCHAR
-    } PHY_ScalarType;
+    };
 
     struct alignas(16) CollisionShape
     {
@@ -589,6 +589,7 @@ namespace BulletTypes
         int m_triangle_material_stride;
         PHY_ScalarType m_triangle_type;
     };
+    static_assert(sizeof(MaterialProperties) == 48);
 
     struct alignas(16) TriangleIndexVertexMaterialArray : public TriangleIndexVertexArray // USED IN GAME with MultimaterialTriangleMeshShape
     {
@@ -649,7 +650,7 @@ namespace BulletTypes
         using NodeArray           = AlignedObjectArray<OptimizedBvhNode>;
         using QuantizedNodeArray  = AlignedObjectArray<QuantizedBvhNode>;
         using BvhSubtreeInfoArray = AlignedObjectArray<BvhSubtreeInfo>;
-        enum btTraversalMode { TRAVERSAL_STACKLESS = 0, TRAVERSAL_STACKLESS_CACHE_FRIENDLY, TRAVERSAL_RECURSIVE};
+        enum TraversalMode { TRAVERSAL_STACKLESS = 0, TRAVERSAL_STACKLESS_CACHE_FRIENDLY, TRAVERSAL_RECURSIVE};
         void**  m_vtable_ptr;
         Vector3 m_bvh_aabb_min;
         Vector3 m_bvh_aabb_max;
@@ -661,7 +662,7 @@ namespace BulletTypes
         NodeArray m_contiguous_nodes;
         QuantizedNodeArray m_quantized_leaf_nodes;
         QuantizedNodeArray m_quantized_contiguous_nodes;
-        btTraversalMode m_traversal_mode;
+        TraversalMode m_traversal_mode;
         BvhSubtreeInfoArray m_subtree_headers;
         int m_subtree_header_count;
     };
@@ -741,8 +742,8 @@ namespace BulletTypes
 
     struct DbvtNode
     {
-        using btDbvtVolume = DbvtAabbMm;
-        btDbvtVolume m_volume;
+        using DbvtVolume = DbvtAabbMm;
+        DbvtVolume m_volume;
         DbvtNode* m_parent;
         union 
         {
@@ -750,8 +751,8 @@ namespace BulletTypes
             void* m_data;
             int m_data_as_int;
         };
-        [[nodiscard]] bool isleaf() const { return (m_children[1] == 0); }
-        [[nodiscard]] bool isinternal() const { return (!isleaf()); }
+        [[nodiscard]] bool IsLeaf() const { return (m_children[1] == 0); }
+        [[nodiscard]] bool IsInternal() const { return (!IsLeaf()); }
     };
 
     struct alignas(16) CompoundShapeChild

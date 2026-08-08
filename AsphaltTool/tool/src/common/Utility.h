@@ -1,8 +1,10 @@
 #pragma once
 
+#include <algorithm>
 #include <string>
 #include <sstream>
 #include <iomanip>
+#include <array>
 
 #include "core/utility/Units.h" 
 
@@ -48,5 +50,34 @@ namespace AsphaltTas
             return 400;
         }
 
+        [[nodiscard]] inline bool IsValidFilename(std::string_view name) noexcept
+        {
+            static constexpr std::string_view invalid_chars = R"(\/:*?"<>|)";
+
+            if (name.empty())
+                return false;
+
+            for (unsigned char c : name)
+            {
+                if (invalid_chars.find(static_cast<char>(c)) != std::string_view::npos || c < 0x20)
+                {
+                    return false;
+                }
+            }
+
+            if (name.back() == '.' || name.back() == ' ')
+                return false;
+
+            std::string upper(name);
+            std::transform(upper.begin(), upper.end(), upper.begin(), [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+
+            static constexpr std::array<std::string_view, 22> reserved = {
+                "CON", "PRN", "AUX", "NUL",
+                "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+                "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+            };
+
+            return std::find(reserved.begin(), reserved.end(), upper) == reserved.end();
+        }
     }
 }

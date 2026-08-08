@@ -25,17 +25,13 @@ namespace AsphaltTas
     {
         if (m_frames.empty()) return;
 
-        /////////////////////////////////
         // Go back if we're too far ahead
-        /////////////////////////////////
         while (m_current_frame_index > 0 && m_frames[m_current_frame_index].m_replay_input.m_race_frame_tick > tick)
         {
             m_current_frame_index--;
         }
 
-        /////////////////////////////////
         // Go forward if we're too far behind
-        /////////////////////////////////
         while (m_current_frame_index < m_frames.size() - 1 && m_frames[m_current_frame_index].m_replay_input.m_race_frame_tick < tick)
         {
             m_current_frame_index++;
@@ -160,15 +156,17 @@ namespace AsphaltTas
         }
     }
 
-    void Replay::SerializeReplayToFile(const Replay& replay, const std::string& path) noexcept
+    bool Replay::SerializeReplayToFile(const Replay& replay, const std::string& path) noexcept
     {   
         try 
         {
             CoreEngine::CommonUtility::WriteStringToFile(SerializeReplayToString(replay), path.c_str());
+            return true;
         } 
         catch (const std::exception& err)
         {
             ENGINE_ERROR_PRINT("Could not save replay to file: " << err.what());
+            return false;
         }
     }
 

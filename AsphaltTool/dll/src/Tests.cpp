@@ -16,125 +16,124 @@ namespace AsphaltDLL
 {
     namespace Tests
     {
-
-    void ChangeMaterialsTest() noexcept
-    {
-        auto leaves = DetourFunctions::BVHBroadphaseTraversal::DumpAllLeaves();
-        for (auto& leaf : leaves)
+        void ChangeMaterialsTest() noexcept
         {
-            if (! leaf.m_broadphase_proxy || !leaf.m_broadphase_proxy->m_client_body || !leaf.m_broadphase_proxy->m_client_body->m_collision_shape_ptr) continue;
-            auto* shape = leaf.m_broadphase_proxy->m_client_body->m_collision_shape_ptr;
-
-            BulletTypes::MultimaterialTriangleMeshShape* multimat = nullptr;
-            if (shape->m_shape_type == BulletTypes::BroadphaseNativeTypes::MULTIMATERIAL_TRIANGLE_MESH_PROXYTYPE)
+            auto leaves = DetourFunctions::BVHBroadphaseTraversal::DumpAllLeaves();
+            for (auto& leaf : leaves)
             {
-                multimat = reinterpret_cast<BulletTypes::MultimaterialTriangleMeshShape*>(shape);
-            }
-            else if (shape->m_shape_type == BulletTypes::BroadphaseNativeTypes::SCALED_TRIANGLE_MESH_SHAPE_PROXYTYPE)
-            {
-                multimat = reinterpret_cast<BulletTypes::MultimaterialTriangleMeshShape*>(reinterpret_cast<BulletTypes::ScaledBvhTriangleMeshShape*>(shape)->m_bvh_tri_mesh_shape);
-            }
-            else { continue; }
+                if (! leaf.m_broadphase_proxy || !leaf.m_broadphase_proxy->m_client_body || !leaf.m_broadphase_proxy->m_client_body->m_collision_shape_ptr) continue;
+                auto* shape = leaf.m_broadphase_proxy->m_client_body->m_collision_shape_ptr;
 
-            if (! multimat->m_mesh_interface->IsInternalTriangleVertexMaterialArray()) continue;
-            BulletTypes::TriangleIndexVertexMaterialArray* arr = reinterpret_cast<BulletTypes::TriangleIndexVertexMaterialArray*>(multimat->m_mesh_interface);
-
-            // Pudong
-            // 0 = GROUND ROAD
-            // 1 = rough terrain
-            // 2 = respawn
-            // 3 = wall surface
-            // 4 = Rough terrain - Walls turn to noclip
-            // 5 = Road
-            // 6 = Road
-            // 7 = Wall surface
-            // 8 = Wall surface
-            // 9 = Wall surface
-            // 10 = Wall surface
-            // 11 = Wall surface
-            // 12 = Wall surface
-            // 13 = Rough terrain - Walls turn to noclip
-            // 14 = Very strong rough / Mud - Walls turn to noclip  | In carribean: Wreck
-            // 15 = Respawn
-            // 16 = Phase through / no contact
-            // 17 = Phase through / no contact
-
-            // Carribean extra materials:
-            //18 wall
-            //19 wall
-            //20 wall
-            //21 wall
-            //22 Mud / Very strong rough
-            //23 Flying tree leaves, rough
-            //24 mud rough / noclip walls
-            //25 tree branches
-
-            constexpr uint8_t FORCED_MATERIAL = 1;
-
-            unsigned char* material_base = nullptr;
-            unsigned char* triangle_material_base = nullptr;
-
-            int num_materials = 0;
-            int material_stride = 0;
-            int num_triangles = 0;
-            int triangle_material_stride = 0;
-
-            BulletTypes::PHY_ScalarType material_type;
-            BulletTypes::PHY_ScalarType triangle_type;
-
-            for (int subpart = 0; subpart < arr->m_indexed_meshes.m_size; ++subpart)
-            {
-                arr->GetLockedMaterialBase(&material_base, num_materials, material_type, material_stride, &triangle_material_base, num_triangles, 
-                                            triangle_material_stride, triangle_type, subpart);
-
-                for (int tri = 0; tri < num_triangles; ++tri)
+                BulletTypes::MultimaterialTriangleMeshShape* multimat = nullptr;
+                if (shape->m_shape_type == BulletTypes::BroadphaseNativeTypes::MULTIMATERIAL_TRIANGLE_MESH_PROXYTYPE)
                 {
-                    auto* p = triangle_material_base + tri * triangle_material_stride;
-                    *p = FORCED_MATERIAL;
-                    /*std::array<unsigned char, 7> roads = {0, 5, 6, 1, 4, 13, 14};
-                    std::array<unsigned char, 7> walls = {3, 7, 8, 9, 10, 11, 12};
-                    bool changed = false;
-                    for(int i{}; i < roads.size(); i++)
+                    multimat = reinterpret_cast<BulletTypes::MultimaterialTriangleMeshShape*>(shape);
+                }
+                else if (shape->m_shape_type == BulletTypes::BroadphaseNativeTypes::SCALED_TRIANGLE_MESH_SHAPE_PROXYTYPE)
+                {
+                    multimat = reinterpret_cast<BulletTypes::MultimaterialTriangleMeshShape*>(reinterpret_cast<BulletTypes::ScaledBvhTriangleMeshShape*>(shape)->m_bvh_tri_mesh_shape);
+                }
+                else { continue; }
+
+                if (! multimat->m_mesh_interface->IsInternalTriangleVertexMaterialArray()) continue;
+                BulletTypes::TriangleIndexVertexMaterialArray* arr = reinterpret_cast<BulletTypes::TriangleIndexVertexMaterialArray*>(multimat->m_mesh_interface);
+
+                // Pudong
+                // 0 = GROUND ROAD
+                // 1 = rough terrain
+                // 2 = respawn
+                // 3 = wall surface
+                // 4 = Rough terrain - Walls turn to noclip
+                // 5 = Road
+                // 6 = Road
+                // 7 = Wall surface
+                // 8 = Wall surface
+                // 9 = Wall surface
+                // 10 = Wall surface
+                // 11 = Wall surface
+                // 12 = Wall surface
+                // 13 = Rough terrain - Walls turn to noclip
+                // 14 = Very strong rough / Mud - Walls turn to noclip  | In carribean: Wreck
+                // 15 = Respawn
+                // 16 = Phase through / no contact
+                // 17 = Phase through / no contact
+
+                // Carribean extra materials:
+                //18 wall
+                //19 wall
+                //20 wall
+                //21 wall
+                //22 Mud / Very strong rough
+                //23 Flying tree leaves, rough
+                //24 mud rough / noclip walls
+                //25 tree branches
+
+                constexpr uint8_t FORCED_MATERIAL = 1;
+
+                unsigned char* material_base = nullptr;
+                unsigned char* triangle_material_base = nullptr;
+
+                int num_materials = 0;
+                int material_stride = 0;
+                int num_triangles = 0;
+                int triangle_material_stride = 0;
+
+                BulletTypes::PHY_ScalarType material_type;
+                BulletTypes::PHY_ScalarType triangle_type;
+
+                for (int subpart = 0; subpart < arr->m_indexed_meshes.m_size; ++subpart)
+                {
+                    arr->GetLockedMaterialBase(&material_base, num_materials, material_type, material_stride, &triangle_material_base, num_triangles, 
+                                                triangle_material_stride, triangle_type, subpart);
+
+                    for (int tri = 0; tri < num_triangles; ++tri)
                     {
-                        if (*p == roads[i])
+                        auto* p = triangle_material_base + tri * triangle_material_stride;
+                        *p = FORCED_MATERIAL;
+                        /*std::array<unsigned char, 7> roads = {0, 5, 6, 1, 4, 13, 14};
+                        std::array<unsigned char, 7> walls = {3, 7, 8, 9, 10, 11, 12};
+                        bool changed = false;
+                        for(int i{}; i < roads.size(); i++)
                         {
-                            *p = 8;
-                            changed = true;
-                            break;
-                        }
-                    }
-                    if (!changed)
-                    {
-                        for (int i{}; i < walls.size(); i++)
-                        {
-                            if (*p == walls[i])
+                            if (*p == roads[i])
                             {
-                                *p = 0;
+                                *p = 8;
+                                changed = true;
                                 break;
                             }
                         }
-                    }*/
+                        if (!changed)
+                        {
+                            for (int i{}; i < walls.size(); i++)
+                            {
+                                if (*p == walls[i])
+                                {
+                                    *p = 0;
+                                    break;
+                                }
+                            }
+                        }*/
+                    }
                 }
+
             }
 
+            const uintptr_t racer_address = GameDLLState::g_current_state.m_resolved_addresses.m_local_racer_base_address;
+            if (racer_address != NO_VALID_RESOLVED_ADDRESS)
+            {
+                BulletTypes::Transform trans {};
+                std::memcpy(trans.Data(), reinterpret_cast<void*>(racer_address + ComDllIn::WriteRacerState::OFFSET_TRANSFORM), sizeof(BulletTypes::Transform));
+
+                trans.m_origin = {1947.0f, 362, 40.9f};
+
+                std::memcpy(reinterpret_cast<void*>(racer_address + ComDllIn::WriteRacerState::OFFSET_TRANSFORM), trans.Data(), sizeof(trans));
+
+                BulletTypes::Vector3 velo;
+                std::memcpy(velo.Data(), reinterpret_cast<void*>(racer_address + ComDllIn::WriteRacerState::OFFSET_VELOCITY), sizeof(BulletTypes::Vector3));
+                velo *= 20;
+                std::memcpy(reinterpret_cast<void*>(racer_address + ComDllIn::WriteRacerState::OFFSET_VELOCITY), velo.Data(), sizeof(velo));
+            }
         }
-
-        const uintptr_t racer_address = GameDLLState::g_current_state.m_resolved_addresses.m_local_racer_base_address;
-        if (racer_address != NO_VALID_RESOLVED_ADDRESS)
-        {
-            BulletTypes::Transform trans {};
-            std::memcpy(trans.Data(), reinterpret_cast<void*>(racer_address + ComDllIn::WriteRacerState::OFFSET_TRANSFORM), sizeof(BulletTypes::Transform));
-
-            trans.m_origin = {1947.0f, 362, 40.9f};
-
-            std::memcpy(reinterpret_cast<void*>(racer_address + ComDllIn::WriteRacerState::OFFSET_TRANSFORM), trans.Data(), sizeof(trans));
-
-            BulletTypes::Vector3 velo;
-            std::memcpy(velo.Data(), reinterpret_cast<void*>(racer_address + ComDllIn::WriteRacerState::OFFSET_VELOCITY), sizeof(BulletTypes::Vector3));
-            velo *= 20;
-            std::memcpy(reinterpret_cast<void*>(racer_address + ComDllIn::WriteRacerState::OFFSET_VELOCITY), velo.Data(), sizeof(velo));
-        }
-    }
 
     namespace  
     {
@@ -349,11 +348,11 @@ namespace AsphaltDLL
                     log << "material_base            = " << static_cast<const void*>(material_base) << '\n';
                     log << "num_materials            = " << num_materials << '\n';
                     log << "material_stride          = " << material_stride << '\n';
-                    log << "material_type            = " << material_type << '\n';
+                    log << "material_type            = " << static_cast<int>(material_type) << '\n';
                     log << "triangle_material_base   = " << static_cast<const void*>(triangle_material_base) << '\n';
                     log << "num_triangles            = " << num_triangles << '\n';
                     log << "triangle_material_stride = " << triangle_material_stride << '\n';
-                    log << "triangle_type            = " << triangle_type << "\n\n";
+                    log << "triangle_type            = " << static_cast<int>(triangle_type) << "\n\n";
 
                     for (int i = 0; i < num_materials; ++i)
                     {
