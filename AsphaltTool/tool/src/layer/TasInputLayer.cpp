@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <utility>
 
 
 namespace AsphaltTas
@@ -132,6 +133,12 @@ namespace AsphaltTas
 
                 ImGui::SameLine();
                 ImGui::Checkbox("Speed Up GUI", &general_cmd_ref->m_write_meta_data.m_speed_up_gui_animations);
+
+                ImGui::SameLine();
+                if (ImGui::Checkbox("Transform Override", &m_use_transform_override_patch))
+                {
+                    
+                }
             }
             if (ImGui::CollapsingHeader("Active Replay", ImGuiTreeNodeFlags_DefaultOpen))
             {
@@ -139,6 +146,16 @@ namespace AsphaltTas
                 {   
                     ImGui::TextUnformatted(("Replay Name : " + active_replay->m_replay.GetName()).c_str());
 
+                    {
+                        const bool on = active_replay->m_replay.GetAmountFrames() > 0 ? 
+                                        ! (active_replay->m_replay.GetFrameVectorConstReference()[0].m_replay_input.m_skip_override_flags 
+                                        & ComDllIn::DllReplayInputIn::SkipOverride::TRANSFORM_FORCED) : m_use_transform_override_patch;
+
+                        PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Text, on ? GuiStyle::COLOR_RED : GuiStyle::COLOR_GREEN);
+                        ImGui::SameLine();
+                        ImGui::TextUnformatted(on ? " - Transform Override On" : " - Transform Override Off");
+                    }
+   
                     uint32_t last_tick = active_replay->m_final_tick;
                     ImGui::TextUnformatted("Target Tick :");
                     ImGui::SameLine();
@@ -201,7 +218,7 @@ namespace AsphaltTas
                             }
                             else
                             {
-                                ENGINE_ERROR_PRINT("Failed to save: " + replay.GetName() + " - invalid filename.");
+                                ENGINE_ERROR_PRINT("Failed to save: " + replay.GetName() + " - verify valid filename.");
                             }
                         }
 
@@ -276,6 +293,13 @@ namespace AsphaltTas
                     {
                         const std::string full_path = s_replay_folder_path + file;
                         Replay replay = Replay::DeserializeReplayFromFile(full_path);
+                        if (! m_use_transform_override_patch)
+                        {
+                            for (auto& frame : replay.GetFrameVectorReference())
+                            {
+                                frame.m_replay_input.m_skip_override_flags |= ComDllIn::DllReplayInputIn::SkipOverride::TRANSFORM_FORCED;
+                            }
+                        }
                         ReplayStateManager::QueueReplay(replay, replay.GetLastFrame()->m_replay_input.m_race_frame_tick);
                     }
 

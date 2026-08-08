@@ -16,6 +16,11 @@ namespace AsphaltTas
         return m_frames;
     }
 
+    std::vector<Replay::Frame>& Replay::GetFrameVectorReference() noexcept
+    {
+        return m_frames;
+    }
+
     void Replay::IncrementFrameIndex(size_t count) noexcept
     {
         m_current_frame_index = std::min(m_current_frame_index + count, m_frames.size() - 1);

@@ -28,9 +28,10 @@ namespace AsphaltTas
         static void DeleteInstance() noexcept;
 
     private:
-        static inline TasInputLayer* s_instance = nullptr;
+        bool m_use_transform_override_patch = true;
 
-        const static inline std::string s_replay_folder_path = "replays/";
+        static inline TasInputLayer* s_instance = nullptr;
+        constexpr static inline std::string s_replay_folder_path = "replays/";
 
     };
 }

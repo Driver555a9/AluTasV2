@@ -30,6 +30,7 @@ namespace AsphaltTas
         }
         
         const std::vector<Frame>& GetFrameVectorConstReference() const noexcept;
+        std::vector<Frame>& GetFrameVectorReference() noexcept;
 
         void IncrementFrameIndex(size_t count = 1) noexcept;
         void GoToFrameAtTick(std::uint32_t tick) noexcept;

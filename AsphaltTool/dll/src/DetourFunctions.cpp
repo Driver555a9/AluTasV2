@@ -488,6 +488,9 @@ namespace AsphaltDLL
                 ComSharedMem::GetSharedState()->m_dll_out_buffer.PushOverwrite(GameDLLState::g_current_state);
 
                 // Reset tick specific input state that is not updated per tick on its own
+                GameDLLState::g_current_state.m_replay_inputs.m_barrel_angular_velocities_vec3    = {0,0,0};
+                GameDLLState::g_current_state.m_replay_inputs.m_value_rbx_2228                    = 0;
+                GameDLLState::g_current_state.m_replay_inputs.m_value_rbx_222C                    = 0;
                 GameDLLState::g_current_state.m_replay_inputs.m_respawn_button_press              = false;
                 GameDLLState::g_current_state.m_replay_inputs.m_nitro_activation_count_this_frame = 0;
 
@@ -1156,35 +1159,6 @@ namespace AsphaltDLL
                         {
                             return; // We're not in the local racer dynamics object
                         }
-
-                        // If continuous override, write the value from current state, else record the new value by game
-                        // Transform
-                        if (GameDLLState::g_current_state.m_racer_state.m_continuous_override_on_flags & ComDllIn::WriteRacerState::CONTINUOUS_OVERRIDE_TRANSFORM)
-                        {
-                            std::memcpy(reinterpret_cast<void*>(base + ComDllIn::WriteRacerState::OFFSET_TRANSFORM), 
-                                        GameDLLState::g_current_state.m_racer_state.m_racer_transform_mat4x4.Data(),
-                                        sizeof(decltype(GameDLLState::g_current_state.m_racer_state.m_racer_transform_mat4x4)));
-                        }
-                        else
-                        {
-                            std::memcpy(GameDLLState::g_current_state.m_racer_state.m_racer_transform_mat4x4.Data(), 
-                                    reinterpret_cast<void*>(base + ComDllOut::RecordedRacerState::OFFSET_TRANSFORM), 
-                                    sizeof(decltype(GameDLLState::g_current_state.m_racer_state.m_racer_transform_mat4x4)));
-                        }
-
-                        // Velocity
-                        if (GameDLLState::g_current_state.m_racer_state.m_continuous_override_on_flags & ComDllIn::WriteRacerState::CONTINUOUS_OVERRIDE_VELOCITY)
-                        {
-                            std::memcpy(reinterpret_cast<void*>(base + ComDllIn::WriteRacerState::OFFSET_VELOCITY), 
-                                        GameDLLState::g_current_state.m_racer_state.m_racer_velocity_vec3.Data(),
-                                        sizeof(decltype(GameDLLState::g_current_state.m_racer_state.m_racer_velocity_vec3)));
-                        }
-                        else 
-                        {
-                            std::memcpy(GameDLLState::g_current_state.m_racer_state.m_racer_velocity_vec3.Data(), 
-                                    reinterpret_cast<void*>(base + ComDllOut::RecordedRacerState::OFFSET_VELOCITY), 
-                                    sizeof(decltype(GameDLLState::g_current_state.m_racer_state.m_racer_velocity_vec3)));
-                        }
                     }
                 }
             }
@@ -1518,10 +1492,11 @@ namespace AsphaltDLL
                             return ret;
                         }
 
+                        const auto base = GameDLLState::g_current_state.m_resolved_addresses.m_local_racer_base_address;
+
                         if (GameDLLState::g_replay_current_frame_inputs.has_value() 
                         && ! (GameDLLState::g_replay_current_frame_inputs->m_skip_override_flags & ComDllIn::DllReplayInputIn::SkipOverride::TRANSFORM_FORCED))
                         {
-                            const auto base            = GameDLLState::g_current_state.m_resolved_addresses.m_local_racer_base_address;
                             const auto inputs   = GameDLLState::g_replay_current_frame_inputs.value();
                             BulletTypes::UnalignedTransform* curr_trans = reinterpret_cast<BulletTypes::UnalignedTransform*>(base + ComDllIn::WriteRacerState::OFFSET_TRANSFORM);
                             BulletTypes::UnalignedVector3* curr_velo    = reinterpret_cast<BulletTypes::UnalignedVector3*>(base + ComDllIn::WriteRacerState::OFFSET_VELOCITY);
@@ -1532,7 +1507,35 @@ namespace AsphaltDLL
                                 std::memcpy(curr_trans->Data(), inputs.m_racer_transform_mat4x4.Data(), sizeof(inputs.m_racer_transform_mat4x4));
                                 std::memcpy(curr_velo->Data(), inputs.m_racer_velocity_vec3.Data(), sizeof(inputs.m_racer_velocity_vec3));
                             }
+                        }
 
+                        // If continuous override, write the value from current state, else record the new value by game
+                        // Transform
+                        if (GameDLLState::g_current_state.m_racer_state.m_continuous_override_on_flags & ComDllIn::WriteRacerState::CONTINUOUS_OVERRIDE_TRANSFORM)
+                        {
+                            std::memcpy(reinterpret_cast<void*>(base + ComDllIn::WriteRacerState::OFFSET_TRANSFORM), 
+                                        GameDLLState::g_current_state.m_racer_state.m_racer_transform_mat4x4.Data(),
+                                        sizeof(decltype(GameDLLState::g_current_state.m_racer_state.m_racer_transform_mat4x4)));
+                        }
+                        else
+                        {
+                            std::memcpy(GameDLLState::g_current_state.m_racer_state.m_racer_transform_mat4x4.Data(), 
+                                    reinterpret_cast<void*>(base + ComDllOut::RecordedRacerState::OFFSET_TRANSFORM), 
+                                    sizeof(decltype(GameDLLState::g_current_state.m_racer_state.m_racer_transform_mat4x4)));
+                        }
+
+                        // Velocity
+                        if (GameDLLState::g_current_state.m_racer_state.m_continuous_override_on_flags & ComDllIn::WriteRacerState::CONTINUOUS_OVERRIDE_VELOCITY)
+                        {
+                            std::memcpy(reinterpret_cast<void*>(base + ComDllIn::WriteRacerState::OFFSET_VELOCITY), 
+                                        GameDLLState::g_current_state.m_racer_state.m_racer_velocity_vec3.Data(),
+                                        sizeof(decltype(GameDLLState::g_current_state.m_racer_state.m_racer_velocity_vec3)));
+                        }
+                        else 
+                        {
+                            std::memcpy(GameDLLState::g_current_state.m_racer_state.m_racer_velocity_vec3.Data(), 
+                                    reinterpret_cast<void*>(base + ComDllOut::RecordedRacerState::OFFSET_VELOCITY), 
+                                    sizeof(decltype(GameDLLState::g_current_state.m_racer_state.m_racer_velocity_vec3)));
                         }
                     }
 

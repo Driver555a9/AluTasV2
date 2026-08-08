@@ -267,7 +267,7 @@ namespace Communication
                 RESPAWN_BUTTON   = 1 << 6,
                 TRANSFORM_FORCED = 1 << 7
             };
-            SkipOverride m_skip_override_flags = SkipOverride::NONE;
+            std::uint32_t m_skip_override_flags = SkipOverride::NONE;
 
             // Respawn button press
             bool m_respawn_button_press = false;
