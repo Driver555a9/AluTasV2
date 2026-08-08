@@ -191,6 +191,8 @@ namespace AsphaltDLL
 
         namespace StateManager
         {
+            std::atomic<bool> g_is_in_active_tick = false;
+
             // No mutex lock, caller must lock
             void OnHandleGeneralInBuffer() noexcept
             {
@@ -410,6 +412,8 @@ namespace AsphaltDLL
             // No mutex lock, caller must lock
             void OnNewTick() noexcept
             {
+                if (g_is_in_active_tick.load(std::memory_order::acquire)) return;
+
                 GameDLLState::g_replay_current_frame_inputs = std::nullopt;
 
                 OnTryResolveNitroRCXArgPointer();
@@ -498,6 +502,7 @@ namespace AsphaltDLL
                 {
                     GameDLLState::g_current_state.m_replay_inputs.m_race_frame_tick++;
                 }
+                g_is_in_active_tick.store(false, std::memory_order::release);
             }
 
             // Does not lock, caller must lock
@@ -793,6 +798,7 @@ namespace AsphaltDLL
                 {
                     {  
                         LOCK_CURRENT_STATE_MUTEX();
+
                         GameDLLState::g_current_state.m_resolved_addresses.m_steer_func_spoofed_rcx_arg = reinterpret_cast<uintptr_t>(p_this);
                         if (GameDLLState::g_replay_current_frame_inputs.has_value() 
                         && ! (GameDLLState::g_replay_current_frame_inputs.value().m_skip_override_flags & ComDllIn::DllReplayInputIn::SkipOverride::STEER))
@@ -921,6 +927,7 @@ namespace AsphaltDLL
 
                     {
                         LOCK_CURRENT_STATE_MUTEX();
+
                         if (GameDLLState::g_replay_current_frame_inputs.has_value()
                         && ! (GameDLLState::g_replay_current_frame_inputs.value().m_skip_override_flags & ComDllIn::DllReplayInputIn::SkipOverride::ACCELERATOR))
                         {

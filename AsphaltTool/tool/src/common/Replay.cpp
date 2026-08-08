@@ -247,7 +247,7 @@ namespace AsphaltTas
                 const auto& rs = f.m_recorded_racer_state;
                 nlohmann::ordered_json tick;
 
-                tick[SerializeKeys::RacerStates::TICK] = static_cast<uint32_t>(i);
+                tick[SerializeKeys::RacerStates::TICK] = static_cast<uint32_t>(f.m_replay_input.m_race_frame_tick);
 
                 {
                     nlohmann::ordered_json arr = nlohmann::ordered_json::array();

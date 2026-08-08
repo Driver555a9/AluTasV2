@@ -56,10 +56,10 @@ namespace Communication
             float m_brake_value {};
 
             //// Nitro
-            std::uint32_t m_nitro_activation_count_this_frame {};;
+            std::uint32_t m_nitro_activation_count_this_frame {};
 
             //// Accelerator
-            float m_accelerator_value {};
+            float m_accelerator_value = 1;
 
             //// Barrel-Angular-Patch
             BulletTypes::UnalignedVector3 m_barrel_angular_velocities_vec3 = {};
