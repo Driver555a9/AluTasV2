@@ -447,12 +447,16 @@ namespace Communication
 
         struct SharedState
         {
-            constexpr static uint32_t DLL_OUT_BUFF_SIZE        = 5000;
-            constexpr static uint32_t DLL_IN_REPLAY_BUFF_SIZE  = 1000;
-            constexpr static uint32_t DLL_IN_GENERAL_BUFF_SIZE = 500;
+            constexpr static uint32_t DLL_OUT_BUFF_SIZE           = 5000;
+            constexpr static uint32_t DLL_OUT_SECONDARY_BUFF_SIZE = 5000;
+            constexpr static uint32_t DLL_IN_REPLAY_BUFF_SIZE     = 1000;
+            constexpr static uint32_t DLL_IN_GENERAL_BUFF_SIZE    = 500;
 
             // WRITE: DLL - READ: Remote Tool -> This is used for all recorded data by the dll. External tools must never write here
             SharedRingBuffer<DllOut::DllStateOut, DLL_OUT_BUFF_SIZE>  m_dll_out_buffer;
+
+            // Copy for third party tool that may want to read memory without claiming the main out data
+            SharedRingBuffer<DllOut::DllStateOut, DLL_OUT_SECONDARY_BUFF_SIZE> m_dll_out_secondary_buffer;
 
             // WRITE: Remote Tool - READ: DLL -> This is used specifically for Replay data. 
             // This must be enabled/disabled in the general buffer meta data struct

@@ -490,6 +490,7 @@ namespace AsphaltDLL
             {
                 GameDLLState::g_current_state.IncreasePacketIDToHighest();
                 ComSharedMem::GetSharedState()->m_dll_out_buffer.PushOverwrite(GameDLLState::g_current_state);
+                ComSharedMem::GetSharedState()->m_dll_out_secondary_buffer.PushOverwrite(GameDLLState::g_current_state);
 
                 // Reset tick specific input state that is not updated per tick on its own
                 GameDLLState::g_current_state.m_replay_inputs.m_barrel_angular_velocities_vec3    = {0,0,0};
