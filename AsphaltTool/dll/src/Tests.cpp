@@ -16,6 +16,82 @@ namespace AsphaltDLL
 {
     namespace Tests
     {
+        void PrintCollisionObjectTest(BulletTypes::CollisionObject* obj) noexcept
+        {
+            if (!obj)
+            {
+                std::printf("[CollisionObject] NULL Pointer\n");
+                return;
+            }
+
+            const auto AsFloat3 = [](const BulletTypes::Vector3& v) -> const float* {
+                return reinterpret_cast<const float*>(&v);
+            };
+
+            std::printf("================ [ CollisionObject @ %p ] ================\n", static_cast<void*>(obj));
+            std::printf("  m_vtable_ptr             : %p\n", obj->m_vtable_ptr);
+            std::printf("  m_internal_type          : %d (0x%X)\n", obj->m_internal_type, obj->m_internal_type);
+            std::printf("  m_collision_flags        : 0x%X\n", obj->m_collision_flags);
+            std::printf("  m_activation_state_1     : %d\n", obj->m_activation_state_1);
+            std::printf("  m_island_tag / companion : %d / %d (world_idx: %d)\n", obj->m_island_tag_1, obj->m_companion_id, obj->m_world_array_index);
+            std::printf("  m_friction / restitution : %.3f / %.3f\n", obj->m_friction, obj->m_restitution);
+            std::printf("  m_contact_proc_threshold : %.3f\n", obj->m_contact_processing_threshold);
+            const float* aniFric = AsFloat3(obj->m_anisotropic_friction);
+            std::printf("  m_anisotropic_friction   : [%.3f, %.3f, %.3f] (has: %d)\n", aniFric[0], aniFric[1], aniFric[2], obj->m_has_anisotropic_friction);
+            std::printf("  m_broadphase_proxy_ptr   : %p\n", static_cast<void*>(obj->m_broadphase_proxy_ptr));
+            std::printf("  m_collision_shape_ptr    : %p\n", static_cast<void*>(obj->m_collision_shape_ptr));
+            std::printf("  m_root_collision_shape   : %p\n", static_cast<void*>(obj->m_root_collision_shape_ptr));
+            std::printf("  m_extension_pointer      : %p\n", obj->m_extension_pointer);
+            std::printf("  m_user_object_pointer    : %p\n", obj->m_user_object_pointer);
+            std::printf("  m_ccd_swept_sphere_rad   : %.3f (thresh: %.3f)\n", obj->m_ccd_swept_sphere_radius, obj->m_ccd_motion_threshold);
+            std::printf("  m_hit_fraction           : %.3f\n", obj->m_hit_fraction);
+            std::printf("  m_update_revision        : %d\n", obj->m_update_revision);
+
+            if (obj->IsRigidBody())
+            {
+                auto* rb = static_cast<BulletTypes::RigidBody*>(obj);
+                
+                std::printf("------------------- [ RigidBody Details ] -------------------\n");
+                std::printf("  m_inverse_mass           : %.4f (Mass: %.3f)\n", 
+                            rb->m_inverse_mass, (rb->m_inverse_mass > 0.0f ? 1.0f / rb->m_inverse_mass : 0.0f));
+
+                const float* linVel = AsFloat3(rb->m_linear_velocity);
+                const float* angVel = AsFloat3(rb->m_angular_velocity);
+                std::printf("  m_linear_velocity        : [%.3f, %.3f, %.3f]\n", linVel[0], linVel[1], linVel[2]);
+                std::printf("  m_angular_velocity       : [%.3f, %.3f, %.3f]\n", angVel[0], angVel[1], angVel[2]);
+                
+                const float* grav_acc = AsFloat3(rb->m_gravity_acceleration);
+                const float* grav = AsFloat3(rb->m_gravity);
+                const float* linFac = AsFloat3(rb->m_linear_factor);
+                const float* angFac = AsFloat3(rb->m_angular_factor);
+                std::printf("  m_gravity_acceleration   : [%.3f, %.3f, %.3f]\n", grav_acc[0], grav_acc[1], grav_acc[2]);
+                std::printf("  m_gravity                : [%.3f, %.3f, %.3f]\n", grav[0], grav[1], grav[2]);
+                std::printf("  m_linear_factor          : [%.3f, %.3f, %.3f]\n", linFac[0], linFac[1], linFac[2]);
+                std::printf("  m_angular_factor         : [%.3f, %.3f, %.3f]\n", angFac[0], angFac[1], angFac[2]);
+
+                const float* force = AsFloat3(rb->m_total_force);
+                const float* torque = AsFloat3(rb->m_total_torque);
+                std::printf("  m_total_force            : [%.3f, %.3f, %.3f]\n", force[0], force[1], force[2]);
+                std::printf("  m_total_torque           : [%.3f, %.3f, %.3f]\n", torque[0], torque[1], torque[2]);
+
+                std::printf("  m_linear / angular_damp  : %.3f / %.3f\n", rb->m_linear_damping, rb->m_angular_damping);
+                std::printf("  m_sleep_thresh (lin/ang) : %.3f / %.3f\n", 
+                            rb->m_linear_sleeping_threshold, rb->m_angular_sleeping_threshold);
+
+                const float* pushVel = AsFloat3(rb->m_push_velocity);
+                const float* turnVel = AsFloat3(rb->m_turn_velocity);
+                std::printf("  m_push_velocity          : [%.3f, %.3f, %.3f]\n", pushVel[0], pushVel[1], pushVel[2]);
+                std::printf("  m_turn_velocity          : [%.3f, %.3f, %.3f]\n", turnVel[0], turnVel[1], turnVel[2]);
+
+                std::printf("  m_optional_motion_state  : %p\n", static_cast<void*>(rb->m_optional_motion_state));
+                std::printf("  m_rigid_body_flags       : 0x%X\n", rb->m_rigid_body_flags);
+                std::printf("  m_debug_body_id          : %d\n", rb->m_debug_body_id);
+            }
+
+            std::printf("==========================================================\n\n");
+        }
+
+
         void ChangeMaterialsTest() noexcept
         {
             auto leaves = DetourFunctions::BVHBroadphaseTraversal::DumpAllLeaves();
@@ -188,13 +264,8 @@ namespace AsphaltDLL
             log << "\nMaterial:\n";
             log << "friction: " << object->m_friction << "\n";
             log << "restitution: " << object->m_restitution << "\n";
-            log << "rolling_friction: " << object->m_rolling_friction << "\n";
-            log << "spinning_friction: " << object->m_spinning_friction << "\n";
             log << "\nUser:\n";
             log << "user_object_pointer: "<< object->m_user_object_pointer << "\n";
-            log << "user_index: "<< object->m_user_index << "\n";
-            log << "user_index_2: "<< object->m_user_index_2 << "\n";
-            log << "user_index_3: " << object->m_user_index_3 << "\n";
             log << "\nCCD:\n";
             log << "hit_fraction: " << object->m_hit_fraction << "\n";
             log << "ccd_swept_sphere_radius: " << object->m_ccd_swept_sphere_radius << "\n";
@@ -203,8 +274,6 @@ namespace AsphaltDLL
             log << "check_collide_with: " << object->m_check_collide_with << "\n";
             log << "objects_without_collision_check size: " << object->m_objects_without_collision_check.m_size << "\n";
             log << "objects_without_collision_check capacity: "<< object->m_objects_without_collision_check.m_capacity << "\n";
-            log << "\nDebug Color:\n";
-            log << object->m_custom_debug_color_RGB.ToString() << "\n";
 
             if (object->m_collision_shape_ptr && object->m_collision_shape_ptr->m_shape_type == BulletTypes::BroadphaseNativeTypes::MULTIMATERIAL_TRIANGLE_MESH_PROXYTYPE)
             {

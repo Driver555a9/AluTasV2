@@ -16,10 +16,12 @@ namespace CoreEngine
             FILE_PATH_MODEL, 
             PRIMITIVE_BOX, 
             PRIMITIVE_SPHERE, 
-            POINTS_MODEL, 
+            POINTS_MODEL,
+            CAPSULE_MODEL,
+            CYLINDER_MODEL, 
 
             FIRST = FILE_PATH_MODEL, 
-            LAST  = POINTS_MODEL
+            LAST  = CYLINDER_MODEL
         };
 
         virtual ~Basic_Model() noexcept = default;

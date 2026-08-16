@@ -87,6 +87,12 @@ namespace BulletTypes
     };
     static_assert(sizeof(Vector4) == 16);
 
+    struct alignas(16) Matrix3x3 
+    {
+        Vector3 m_rows[3];
+    };
+    static_assert(sizeof(Matrix3x3) == 48);
+
     struct UnalignedTransform
     {
         UnalignedVector4 m_basis[3];
@@ -236,7 +242,7 @@ namespace BulletTypes
         CAPSULE_SHAPE_PROXYTYPE,                       // 10 - USED IN GAME (Inside Compound)
         CONE_SHAPE_PROXYTYPE,
         CONVEX_SHAPE_PROXYTYPE,
-        CYLINDER_SHAPE_PROXYTYPE,                      // 13 - Used in game (rome)
+        CYLINDER_SHAPE_PROXYTYPE,                      // 13 - Used in game (see rome)
         UNIFORM_SCALING_SHAPE_PROXYTYPE,
         MINKOWSKI_SUM_SHAPE_PROXYTYPE,
         MINKOWSKI_DIFFERENCE_SHAPE_PROXYTYPE,
@@ -481,6 +487,11 @@ namespace BulletTypes
         int m_up_axis;
     };
 
+    struct alignas(16) CylinderShape : public ConvexInternalShape // USED IN GAME
+    {
+        int m_up_axis;
+    };
+
     struct alignas(16) StridingMeshInterface
     {
         void**  m_vtable_ptr;
@@ -577,6 +588,7 @@ namespace BulletTypes
         }
     };
     static_assert(offsetof(TriangleIndexVertexArray, m_indexed_meshes) == 36);
+    static_assert(offsetof(TriangleIndexVertexArray, m_aabb_min) == 80);
 
     struct alignas(16) MaterialProperties
     {
@@ -817,6 +829,7 @@ namespace BulletTypes
         else if constexpr (std::is_same_v<CleanTarget, ScaledBvhTriangleMeshShape>) return shape->m_shape_type == BroadphaseNativeTypes::SCALED_TRIANGLE_MESH_SHAPE_PROXYTYPE;
         else if constexpr (std::is_same_v<CleanTarget, MultimaterialTriangleMeshShape>) return shape->m_shape_type == BroadphaseNativeTypes::MULTIMATERIAL_TRIANGLE_MESH_PROXYTYPE;
         else if constexpr (std::is_same_v<CleanTarget, CompoundShape>) return shape->m_shape_type == BroadphaseNativeTypes::COMPOUND_SHAPE_PROXYTYPE;
+        else if constexpr (std::is_same_v<CleanTarget, CylinderShape>) return shape->m_shape_type == BroadphaseNativeTypes::CYLINDER_SHAPE_PROXYTYPE;
         else return false;
     }
 
@@ -828,57 +841,168 @@ namespace BulletTypes
         else return nullptr;
     }
 
+    struct MotionState
+    {
+        void** m_vtable_ptr = nullptr;
+
+        void GetWorldTransform(Transform& world_trans) const 
+        {
+            using Fn = void(*)(const MotionState* p_this, Transform& world_trans);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[1](this, world_trans);
+        }
+
+        void SetWorldTransform(const Transform& world_trans) 
+        {
+            using Fn = void(*)(MotionState* p_this, const Transform& world_trans);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[2](this, world_trans);
+        }
+    };
+
     //fwd
     struct BroadphaseProxy;
     struct alignas(16) CollisionObject
     {
-        void**              m_vtable_ptr {};
-        uint8_t             m_header_padding[24]; // Added with respect to game ABI
-        Transform           m_transform_matrix;
+        enum CollisionObjectTypes
+        {
+            CO_COLLISION_OBJECT  = 1,
+            CO_RIGID_BODY        = 2,
+            CO_GHOST_OBJECT      = 4,
+            CO_SOFT_BODY         = 8,
+            CO_HF_FLUID          = 16,
+            CO_USER_TYPE         = 32,
+            CO_FEATHERSTONE_LINK = 64
+        };
+        void**              m_vtable_ptr;                  
+        uint8_t             m_header_padding[24];          
+        Transform           m_transform_matrix;             
         Transform           m_interpolation_world_transform;
-        Vector3             m_interpolation_linear_velocity;
+        Vector3             m_interpolation_linear_velocity; 
         Vector3             m_interpolation_angular_velocity;
-        Vector3             m_anisotropic_friction;
-        int32_t             m_has_anisotropic_friction;
-        float               m_contact_processing_threshold;
-        BroadphaseProxy*    m_broadphase_proxy_ptr;
-        CollisionShape*     m_collision_shape_ptr;
-        void*               m_extension_pointer;
-        CollisionShape*     m_root_collision_shape_ptr;
-        int                 m_collision_flags;
-        int                 m_island_tag_1;
-        int                 m_companion_id;
-        int                 m_world_array_index;
-        int                 m_activation_state_1;
-        float               m_deactivation_time;
-        float               m_friction;
-        float               m_restitution;
-        float               m_rolling_friction;
-        float               m_spinning_friction;
-        float               m_contact_damping;
-        float               m_contact_stiffness;
-        int                 m_internal_type;
-        void*               m_user_object_pointer;
-        int                 m_user_index_2;
-        int                 m_user_index;
-        int                 m_user_index_3;
-        float               m_hit_fraction;
-        float               m_ccd_swept_sphere_radius;
-        float               m_ccd_motion_threshold;
-        int                 m_check_collide_with;
-        AlignedObjectArray<const CollisionObject*> m_objects_without_collision_check;
-        int                 m_update_revision;
-        Vector3             m_custom_debug_color_RGB;
+        Vector3             m_anisotropic_friction;                 
+        int32_t             m_has_anisotropic_friction;      
+        float               m_contact_processing_threshold;  
+        BroadphaseProxy*    m_broadphase_proxy_ptr;          
+        CollisionShape*     m_collision_shape_ptr;           
+        void*               m_extension_pointer;             
+        CollisionShape*     m_root_collision_shape_ptr;         
+        int                 m_collision_flags;               
+        int                 m_island_tag_1;                  
+        int                 m_companion_id;                   
+        int                 m_world_array_index;              
+        int                 m_activation_state_1;             
+        float               m_friction;                       
+        float               m_restitution;                    
+        int                 m_internal_type;                  
+        void*               m_user_object_pointer;                        
+        float               m_hit_fraction;                   
+        float               m_ccd_swept_sphere_radius;        
+        float               m_ccd_motion_threshold;           
+        int                 m_check_collide_with;   
+        uint8_t             m_padding_align[16];                        
+        AlignedObjectArray<const CollisionObject*> m_objects_without_collision_check; 
+        int                 m_update_revision; 
 
-        void SetCollisionShape(CollisionShape* collision_shape) noexcept
+        // Constructor: __int64 __fastcall sub_1463578F8(__int64 a1)
+
+        void SetCollisionShape(CollisionShape* shape) noexcept
         {
             using Fn = void(*)(CollisionObject* p_this, CollisionShape* shape);
-            reinterpret_cast<Fn*>(m_vtable_ptr)[2](this, collision_shape);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[2](this, shape);
+        }
+        
+        [[nodiscard]] bool IsRigidBody() noexcept
+        {
+            return m_internal_type == CO_RIGID_BODY;
+        }
+
+        [[nodiscard]] bool IsGhostObject() noexcept
+        {
+            return m_internal_type == CO_GHOST_OBJECT;
         }
     };
     static_assert(offsetof(CollisionObject, m_transform_matrix)     == 0x20);
     static_assert(offsetof(CollisionObject, m_broadphase_proxy_ptr) == 0xD8);
     static_assert(offsetof(CollisionObject, m_collision_shape_ptr)  == 0xE0);
+    static_assert(offsetof(CollisionObject, m_internal_type)        == 0x114);
+
+    struct alignas(16) RigidBodyConstructionInfo
+    {
+        float               m_mass;
+        uint8_t             m_pad_0[4];
+        MotionState*        m_motion_state;
+        Transform           m_start_world_transform;
+        CollisionShape*     m_collision_shape;
+        uint8_t             m_pad_1[8];
+        Vector3             m_local_inertia;
+        float               m_linear_sleeping_threshold;
+        float               m_angular_sleeping_threshold;
+        float               m_friction;
+        float               m_restitution;
+        float               m_linear_damping;
+        float               m_angular_damping;
+        bool                m_additional_damping;
+        uint8_t             m_pad_2[3];
+        float               m_additional_damping_factor;
+        float               m_additional_linear_damping_threshold_sqr;
+        float               m_additional_angular_damping_threshold_sqr;
+        float               m_additional_angular_damping_factor;
+    };
+    static_assert(sizeof(RigidBodyConstructionInfo) == 160);
+
+    struct alignas(16) RigidBody : public CollisionObject
+    {
+        Vector3             m_linear_velocity;            
+        Vector3             m_angular_velocity;           
+        float               m_inverse_mass;               
+        uint8_t             m_padding_inv_mass[12]; 
+        Vector3             m_linear_factor; 
+        Vector3             m_gravity_acceleration;  
+        Vector3             m_gravity;   
+        Vector3             m_inv_inertia_local; 
+        Vector3             m_total_force;
+        Vector3             m_total_torque;
+        float               m_linear_damping;                          
+        float               m_angular_damping;                         
+        float               m_linear_sleeping_threshold;               
+        float               m_angular_sleeping_threshold;              
+        float               m_additional_damping_factor;               
+        float               m_additional_linear_damping_threshold_sqr; 
+        float               m_additional_angular_damping_threshold_sqr;
+        float               m_additional_angular_damping_factor;       
+        float               m_additional_damping_unknown;              
+        float               m_additional_damping_active;
+        MotionState*        m_optional_motion_state;
+        AlignedObjectArray<void*> m_constraint_refs;
+        int                 m_rigid_body_flags;
+        int                 m_debug_body_id;
+        uint8_t             m_padding_debug_id[12];
+        Matrix3x3           m_inv_inertia_tensor_world;
+        
+        Vector3             m_delta_linear_velocity;  
+        Vector3             m_delta_angular_velocity;  
+        Vector3             m_angular_factor;     
+        Vector3             m_inv_mass_vector; 
+        Vector3             m_push_velocity;
+        Vector3             m_turn_velocity;
+        
+        int32_t             m_unknown_padding_736;
+        int32_t             m_unknown_padding_740;              
+
+        // SetupRigidBody(const RigidBodyConstructionInfo& construction_info) at: base + 0x63539E0
+        // Rigidbody constructors:
+        // _int64 __fastcall sub_1463525A8(__int64 a1, __int64 a2)
+        // __int64 __fastcall sub_1463525F8(__int64 a1, float a2, __int64 a3, __int64 a4, __int128 *a5)
+    };
+    static_assert(offsetof(RigidBody, m_inverse_mass)   == 0x180);
+    static_assert(offsetof(RigidBody, m_gravity)        == 0x1B0);
+    static_assert(offsetof(RigidBody, m_angular_factor) == 0x2A0);
+    static_assert(offsetof(RigidBody, m_turn_velocity)  == 0x2D0);
+
+    struct alignas(16) GhostObject : public CollisionObject
+    {
+        AlignedObjectArray<CollisionObject*> m_overlapping_objects;
+        // Constructor at: base + 0x63661F0
+    };
 
     struct alignas(16) BroadphaseProxy
     {
@@ -891,6 +1015,73 @@ namespace BulletTypes
     };
     static_assert(offsetof(BroadphaseProxy, m_aabb_min) == 0x20);
     static_assert(offsetof(BroadphaseProxy, m_aabb_max) == 0x30);
+
+    struct DispatcherInfo 
+    {
+        float   m_time_step;
+        int     m_step_count;  
+        int     m_dispatch_func;
+        float   m_time_of_impact;
+        bool    m_use_continuous;
+        uint8_t m_pad_11[7];
+        void*   m_debug_draw;
+        uint8_t m_pad_20[40];
+    };
+    static_assert(sizeof(DispatcherInfo) == 0x48);
+
+    struct ContactSolverInfo
+    {
+        float   m_tau;
+        float   m_damping;
+        float   m_friction;
+        float   m_time_step;
+        uint8_t m_pad[80];
+    };
+
+    struct CollisionWorld
+    {
+        void** m_vtable_ptr;
+        uint32_t m_unknown_pad_08;            
+        AlignedObjectArray<GhostObject*> m_ghost_objects;
+        uint32_t m_unknown_pad_28;       
+        AlignedObjectArray<RigidBody*> m_rigid_bodies;
+        void* m_dispatcher1; 
+        DispatcherInfo m_dispatch_info;   
+        void* m_broadphase_pair_cache; 
+        void* m_debug_drawer;     
+        bool m_force_update_all_aabbs;  
+        uint8_t m_pad_A9[7];   
+
+        // updateSingleAabb(CollisionObject* colObj): Asphalt9_Steam_x64_rtl.exe+6365A4C 
+        // updateAabbs():                             Asphalt9_Steam_x64_rtl.exe+63659B0
+        // performDiscreteCollisionDetection():       Asphalt9_Steam_x64_rtl.exe+636405C
+    };
+    static_assert(offsetof(CollisionWorld, m_ghost_objects)              == 0x0C);
+    static_assert(offsetof(CollisionWorld, m_ghost_objects.m_data)       == 0x18);
+    static_assert(offsetof(CollisionWorld, m_dispatcher1)                == 0x48);
+    static_assert(offsetof(CollisionWorld, m_rigid_bodies.m_data)        == 0x38);
+    static_assert(offsetof(CollisionWorld, m_dispatch_info)              == 0x50);
+    static_assert(offsetof(CollisionWorld, m_broadphase_pair_cache)      == 0x98);
+    static_assert(offsetof(CollisionWorld, m_debug_drawer)               == 0xA0);
+    static_assert(offsetof(CollisionWorld, m_force_update_all_aabbs)     == 0xA8);
+    static_assert(sizeof(CollisionWorld)                                 == 0xB0);
+
+    struct DynamicsWorld : public CollisionWorld
+    {
+        void* m_internal_tick_callback; 
+        void* m_internal_pre_tick_callback;
+        void* m_world_user_info;
+        ContactSolverInfo m_solver_info;
+    };
+    static_assert(offsetof(DynamicsWorld, m_internal_tick_callback)     == 0xB0);
+    static_assert(offsetof(DynamicsWorld, m_internal_pre_tick_callback) == 0xB8);
+    static_assert(offsetof(DynamicsWorld, m_solver_info)                == 0xC8);
+    static_assert(offsetof(DynamicsWorld, m_solver_info.m_time_step)    == 0xD4);
+ 
+    struct alignas(16) DiscreteDynamicsWorld : public DynamicsWorld
+    {
+        // internalSingleStepSimulation(btScalar timeStep): Asphalt9_Steam_x64_rtl.exe+634C7CC
+    };
 
     [[nodiscard]] inline BulletTypes::UnalignedTransform ComposeBulletTransforms(const BulletTypes::UnalignedTransform& parent, const BulletTypes::UnalignedTransform& child) noexcept
     {

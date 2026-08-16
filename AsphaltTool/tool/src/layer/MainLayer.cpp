@@ -192,16 +192,15 @@ namespace AsphaltTas
                     { "Camera Base", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_camera_state_base_address : 0 },
                     { "Local Racer Base", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_local_racer_base_address : 0 },
                     { "Nitro Bar Encrypted", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_nitro_bar_encrypted_address : 0 },
-                    { "Steering Struct Gear", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_steering_struct_gear_address : 0 },
+                    { "Steering Struct Base", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_steering_struct_base_address : 0 },
                     { "Target Frame Interval", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_game_target_fps_interval_address : 0 },
                     { "Respawn func RCX Arg", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_respawn_func_spoofed_rcx_arg : 0 },
                     { "Target Fps Interval", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_game_target_fps_interval_address : 0},
                     { "Brake func RCX Arg", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_brake_func_spoofed_rcx_arg : 0},
                     { "Nitro func RCX Arg", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_nitro_func_spoofed_rcx_arg : 0},
-                    { "Physics world instance", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_physics_world_instance_address : 0},
+                    { "Dynamics World", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_discrete_dynamics_world_instance_address : 0},
                     { "BVH root dynamics", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_bvh_root_node_dynamic_objects : 0},
-                    { "BVH root statics", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_bvh_root_node_static_objects : 0},
-                    { "Gear address", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_steering_struct_gear_address : 0},
+                    { "BVH root statics", dll_state_copy.has_value() ? dll_state_copy->m_resolved_addresses.m_bvh_root_node_static_objects : 0}
                 };
 
                 if (ImGui::BeginTable("AddressesTable", 2, ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchSame))

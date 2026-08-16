@@ -22,12 +22,11 @@ namespace Communication
     /////////////////////////////////////////////
 
     //On "Inactive" the dll will not Read or consider the buffer of DllInReplayInputData
-    //On "ActiveBlockThread" the dll will replay the inputs given & block the main game thread until a packet with required race frame tick arrives
-    //On "ActiveNoBlock" the dll will replay the inputs, however, if no valid frame is provided for the tick, it will not block [discouraged]
+    //On "ActiveBlockThread" the dll will replay the inputs given
     //Enum class shared between DllOut and DllIn
     enum class ReplayMode : std::uint32_t
     {
-        Inactive, ActiveBlockThread, ActiveNoBlock
+        Inactive, ActiveBlockThread
     };
 
     // Skips the animations corresponding to the flags
@@ -40,7 +39,7 @@ namespace Communication
 
     constexpr char DLL_DUMPED_TRACK_FILE_NAME[] = "objects.TRACK";
 
-    constexpr uint32_t CURRENT_NON_NEGOTIABLE_COMMUNICATION_VERSION = 1; // Detect dll ABI missmatches
+    constexpr uint32_t CURRENT_NON_NEGOTIABLE_COMMUNICATION_VERSION = 2; // Detect dll ABI missmatches
 
     namespace DllOut
     {
@@ -112,23 +111,24 @@ namespace Communication
             constexpr static std::uint32_t CONTINUOUS_OVERRIDE_FOV_RAD            = 1 << 2;
             constexpr static std::uint32_t CONTINUOUS_OVERRIDE_RELATIVE_TO_CAR    = 1 << 3;
             
-            // Utility: memory offsets from resolved address, NOT from Vtable*
-            constexpr static const inline uintptr_t OFFSET_POSITON_VEC3  = 0x0;
-            constexpr static const inline uintptr_t OFFSET_ROTATION_QUAT = 0xC;
-            constexpr static const inline uintptr_t OFFSET_FOV_RADIANS   = 0xF0;
-            constexpr static const inline uintptr_t OFFSET_ASPECT_RATIO  = 0xF8;
+            // Fixed incorrect base; Base now is the vtable - therefore all offsets moved up 0x38
+            constexpr static const inline uintptr_t OFFSET_POSITON_VEC3  = 0x0  + 0x38;
+            constexpr static const inline uintptr_t OFFSET_ROTATION_QUAT = 0xC  + 0x38;
+            constexpr static const inline uintptr_t OFFSET_FOV_RADIANS   = 0xF0 + 0x38;
+            constexpr static const inline uintptr_t OFFSET_ASPECT_RATIO  = 0xF8 + 0x38;
         };
         static_assert(sizeof(RecordedCameraState) == 12 * sizeof(float) + sizeof(std::uint32_t) + 4 * sizeof(uint8_t), "No packing should occur");
 
         #define NO_VALID_RESOLVED_ADDRESS 0
         struct ResolvedAddresses
         {
-            uintptr_t m_local_racer_base_address           = NO_VALID_RESOLVED_ADDRESS;
-            uintptr_t m_camera_state_base_address          = NO_VALID_RESOLVED_ADDRESS;
-            uintptr_t m_nitro_bar_encrypted_address        = NO_VALID_RESOLVED_ADDRESS; 
-            uintptr_t m_steering_struct_gear_address       = NO_VALID_RESOLVED_ADDRESS;
-            uintptr_t m_game_target_fps_interval_address   = NO_VALID_RESOLVED_ADDRESS;
-            uintptr_t m_physics_world_instance_address     = NO_VALID_RESOLVED_ADDRESS;
+            uintptr_t m_local_racer_base_address                  = NO_VALID_RESOLVED_ADDRESS; // points to BulletTypes::RigidBody!
+            uintptr_t m_camera_state_base_address                 = NO_VALID_RESOLVED_ADDRESS;
+            uintptr_t m_nitro_bar_encrypted_address               = NO_VALID_RESOLVED_ADDRESS; 
+            uintptr_t m_steering_struct_base_address              = NO_VALID_RESOLVED_ADDRESS; // Offset to gear = 0xC0
+            uintptr_t m_game_target_fps_interval_address          = NO_VALID_RESOLVED_ADDRESS;
+            uintptr_t m_discrete_dynamics_world_instance_address  = NO_VALID_RESOLVED_ADDRESS;
+            uintptr_t m_physics_world_wrapper_address             = NO_VALID_RESOLVED_ADDRESS;
 
             uintptr_t m_nitro_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
             uintptr_t m_brake_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
@@ -140,12 +140,13 @@ namespace Communication
 
             void ResetAll() noexcept
             {
-                m_local_racer_base_address           = NO_VALID_RESOLVED_ADDRESS;
-                m_camera_state_base_address          = NO_VALID_RESOLVED_ADDRESS;
-                m_nitro_bar_encrypted_address        = NO_VALID_RESOLVED_ADDRESS;
-                m_steering_struct_gear_address       = NO_VALID_RESOLVED_ADDRESS;
-                m_game_target_fps_interval_address   = NO_VALID_RESOLVED_ADDRESS;
-                m_physics_world_instance_address     = NO_VALID_RESOLVED_ADDRESS;
+                m_local_racer_base_address                  = NO_VALID_RESOLVED_ADDRESS;
+                m_camera_state_base_address                 = NO_VALID_RESOLVED_ADDRESS;
+                m_nitro_bar_encrypted_address               = NO_VALID_RESOLVED_ADDRESS;
+                m_steering_struct_base_address              = NO_VALID_RESOLVED_ADDRESS;
+                m_game_target_fps_interval_address          = NO_VALID_RESOLVED_ADDRESS;
+                m_discrete_dynamics_world_instance_address  = NO_VALID_RESOLVED_ADDRESS;
+                m_physics_world_wrapper_address             = NO_VALID_RESOLVED_ADDRESS;
 
                 m_nitro_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
                 m_brake_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
@@ -156,7 +157,7 @@ namespace Communication
                 m_is_paused_func_spoofed_rcx_arg     = NO_VALID_RESOLVED_ADDRESS;
             }
         };
-        static_assert(sizeof(ResolvedAddresses) == 13 * sizeof(uintptr_t), "No packing should occur");
+        static_assert(sizeof(ResolvedAddresses) == 14 * sizeof(uintptr_t), "No packing should occur");
 
         struct XInputState 
         {
@@ -173,7 +174,7 @@ namespace Communication
 
         enum class RaceStatusState : uint8_t 
         {
-            IN_MENU, IN_RACE, IN_LOADING_SCREEN, IN_PRE_RACE_CINEMATIC
+            IN_MENU, IN_RACE, IN_LOADING_SCREEN, IN_PRE_RACE_CINEMATIC, IN_QUICK_RESTART_PAUSE
         };
 
         struct DllStateMetaData 
@@ -295,8 +296,8 @@ namespace Communication
             constexpr static std::uint32_t CONTINUOUS_OVERRIDE_NITRO_BAR = DllOut::RecordedRacerState::CONTINUOUS_OVERRIDE_NITRO_BAR;
 
             // Utility: memory offsets from resolved address
-            constexpr static uintptr_t OFFSET_TRANSFORM = 0x20;
-            constexpr static uintptr_t OFFSET_VELOCITY  = 0x160; 
+            constexpr static uintptr_t OFFSET_TRANSFORM = DllOut::RecordedRacerState::OFFSET_TRANSFORM;
+            constexpr static uintptr_t OFFSET_VELOCITY  = DllOut::RecordedRacerState::OFFSET_VELOCITY; 
         };
         static_assert(sizeof(WriteRacerState) == sizeof(CommandType) + sizeof(std::uint32_t) + 20 * sizeof(float), "No packing should occur");
 
@@ -316,11 +317,10 @@ namespace Communication
             constexpr static std::uint32_t CONTINUOUS_OVERRIDE_FOV_RAD            = DllOut::RecordedCameraState::CONTINUOUS_OVERRIDE_FOV_RAD;
             constexpr static std::uint32_t CONTINUOUS_OVERRIDE_RELATIVE_TO_CAR    = DllOut::RecordedCameraState::CONTINUOUS_OVERRIDE_RELATIVE_TO_CAR;
 
-            // Utility: memory offsets from resolved address
-            constexpr static uintptr_t OFFSET_POSITON_VEC3  = 0x0;
-            constexpr static uintptr_t OFFSET_ROTATION_QUAT = 0xC;
-            constexpr static uintptr_t OFFSET_FOV_RADIANS   = 0xF0;
-            constexpr static uintptr_t OFFSET_ASPECT_RATIO  = 0xF8;
+            constexpr static uintptr_t OFFSET_POSITON_VEC3  = DllOut::RecordedCameraState::OFFSET_POSITON_VEC3;
+            constexpr static uintptr_t OFFSET_ROTATION_QUAT = DllOut::RecordedCameraState::OFFSET_ROTATION_QUAT;
+            constexpr static uintptr_t OFFSET_FOV_RADIANS   = DllOut::RecordedCameraState::OFFSET_FOV_RADIANS;
+            constexpr static uintptr_t OFFSET_ASPECT_RATIO  = DllOut::RecordedCameraState::OFFSET_ASPECT_RATIO;
         };
         static_assert(sizeof(WriteCameraState) == sizeof(CommandType) + 11 * sizeof(float) + sizeof(std::uint32_t) + 8 * sizeof(uint8_t), "No packing should occur");
 
@@ -340,7 +340,9 @@ namespace Communication
             bool m_hide_gui                                 = false;
             bool m_speed_up_pre_race_cinematic              = false;
             bool m_speed_up_gui_animations                  = false;
-            uint8_t __ignore__padding__[3];
+            bool m_request_track_reset                      = false;
+            bool m_acknowledge_quick_restart_pause          = false;
+            uint8_t __ignore__padding__[1];
         };
         static_assert(sizeof(WriteMetaData) == sizeof(CommandType) + sizeof(ReplayMode) + 5 * sizeof(std::uint32_t) + sizeof(float) + sizeof(SkipAnimationFlags) +
                                            8 * sizeof(bool), "No packing should occur");

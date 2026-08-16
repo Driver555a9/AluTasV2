@@ -59,6 +59,7 @@ namespace AsphaltDLL
             }
         }
 
+        DetourFunctions::CameraUpdate::PatchEnableGameFovWriteInstruction();
         RemoveHooks();
 
         MH_Uninitialize();
@@ -79,6 +80,7 @@ namespace AsphaltDLL
             EXPAND_HOOK(DetourFunctions::FloatXorObfuscationGetter),
             EXPAND_HOOK(DetourFunctions::OnNewFrameWithPhysics),
             EXPAND_HOOK(DetourFunctions::NewBulletPhysicsTick),
+            EXPAND_HOOK(DetourFunctions::InternalSingleStepSimulation),
             EXPAND_HOOK(DetourFunctions::BrakeValue),
             EXPAND_HOOK(DetourFunctions::SteeringValue),
             EXPAND_HOOK(DetourFunctions::AcceleratorValue),
@@ -92,7 +94,7 @@ namespace AsphaltDLL
             EXPAND_HOOK(DetourFunctions::BarrelYawStabilization),
             EXPAND_HOOK(DetourFunctions::FinalRacerTransformWriter),
             EXPAND_HOOK(DetourFunctions::OnWreck),
-            // EXPAND_HOOK(DetourFunctions::OnRespawnButtonPressed), CRASHES GAME ON REMOVE!
+            //EXPAND_HOOK(DetourFunctions::OnRespawnButtonPressed), //CRASHES GAME ON REMOVE!
             EXPAND_HOOK(DetourFunctions::GetPhysicsInterval),
             EXPAND_HOOK(DetourFunctions::OnBeginRaceFunction),
             EXPAND_HOOK(DetourFunctions::OnClickPlayFunction),
@@ -106,6 +108,8 @@ namespace AsphaltDLL
             EXPAND_HOOK(DetourFunctions::SpeedUpUIAnimations),
             EXPAND_HOOK(DetourFunctions::UcrtBaseRand),
             EXPAND_HOOK(DetourFunctions::BVHBroadphaseTraversal),
+            EXPAND_HOOK(DetourFunctions::WorldShouldResetQuery),
+            EXPAND_HOOK(DetourFunctions::ProcessLevelResetFadePhase),
             ///////////////////////// Experimental /////////////////////////
             // EXPAND_HOOK(DetourFunctions::Experimental::InitiateNewFrame),
             // EXPAND_HOOK(DetourFunctions::Experimental::NewFrameSubscriberList),

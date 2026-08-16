@@ -18,6 +18,8 @@ namespace CoreEngine
         m_position = position;
         m_rotation = rotation;
         m_aabb_half_extents = half_extents;
+
+        CalculateAABBExtentsAndLocalCenter();
     }
 
     std::unique_ptr<Basic_Model> BoxModel::Copy() const noexcept

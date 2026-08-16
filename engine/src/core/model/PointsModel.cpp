@@ -13,7 +13,6 @@ namespace CoreEngine
         m_rotation     = rotation;
         
         CalculateAABBExtentsAndLocalCenter();
-        CenterModelLocally();
     }
 
     std::unique_ptr<Basic_Model> PointsModel::Copy() const noexcept

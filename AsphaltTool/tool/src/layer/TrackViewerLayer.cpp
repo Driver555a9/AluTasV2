@@ -2,6 +2,7 @@
 #include "common/RacerState.h"
 #include "Communication.h"
 #include "common/Replay.h"
+#include "core/model/CapsuleModel.h"
 #include "core/model/Model.h"
 #include "core/scene/CameraController.h"
 #include "glm/geometric.hpp"
@@ -17,6 +18,8 @@
 #include "core/model/Mesh.h"
 #include "core/model/PointsModel.h"
 #include "core/model/SphereModel.h"
+#include "Core/model/CylinderModel.h"
+#include "core/model/CapsuleModel.h"
 #include "core/rendering/Texture.h"
 #include "core/scene/FreeCam_CameraController.h"
 #include "core/scene/Scene3D_ObjectBuilder.h"
@@ -266,9 +269,11 @@ namespace AsphaltTas
             return result;
         };
 
-        std::function<void(const BulletTypes::Serializer::BasicExtractedShape*,const BulletTypes::UnalignedTransform&, uint32_t,const std::string&)> RenderShapeAtTransform;
+        std::function<void(const BulletTypes::Serializer::BasicExtractedShape*,const BulletTypes::UnalignedTransform&, 
+                                 const BulletTypes::Serializer::CollisionObjectInfo&, const std::string&)> RenderShapeAtTransform;
 
-        RenderShapeAtTransform = [&](const BulletTypes::Serializer::BasicExtractedShape* shape, const BulletTypes::UnalignedTransform& raw_transform, uint32_t collision_flags, const std::string& name_prefix)
+        RenderShapeAtTransform = [&](const BulletTypes::Serializer::BasicExtractedShape* shape, const BulletTypes::UnalignedTransform& raw_transform, 
+                                     const BulletTypes::Serializer::CollisionObjectInfo& info, const std::string& name_prefix)
         {
             if (!shape) return;
 
@@ -282,7 +287,10 @@ namespace AsphaltTas
                     const glm::vec3 half_extents = ConvertVector3ToGlm(box_shape->m_implicit_shape_dimensions);
 
                     std::stringstream ss;
-                    ss << name_prefix << "Box - Collision Flags: " << collision_flags
+                    ss << name_prefix << "Box" 
+                    << "\nCollision Flags: " << info.m_collision_flags
+                    << "\nInternalType: " << info.m_internal_type
+                    << "\nMass: " << info.m_mass
                     << "\nTransform Rot: " << raw_transform.m_basis->ToString()
                     << "\nTransform Pos: " << raw_transform.m_origin.ToString();
 
@@ -303,7 +311,10 @@ namespace AsphaltTas
                     const glm::vec3 half_extents = ConvertVector3ToGlm(sphere_shape->m_implicit_shape_dimensions);
 
                     std::stringstream ss;
-                    ss << name_prefix << "Sphere - Collision Flags: " << collision_flags
+                    ss << name_prefix << "Sphere"
+                    << "\nCollision Flags: " << info.m_collision_flags
+                    << "\nInternalType: " << info.m_internal_type
+                    << "\nMass: " << info.m_mass
                     << "\nTransform Rot: " << raw_transform.m_basis->ToString()
                     << "\nTransform Pos: " << raw_transform.m_origin.ToString();
                     
@@ -320,7 +331,106 @@ namespace AsphaltTas
 
                 case BulletTypes::BroadphaseNativeTypes::CAPSULE_SHAPE_PROXYTYPE:
                 {
-                    return; // No render primitive yet
+                    const auto* capsule_shape = static_cast<const BulletTypes::Serializer::CapsuleExtractedShape*>(shape);
+                    const glm::vec3 implicit_dims = ConvertVector3ToGlm(capsule_shape->m_implicit_shape_dimensions);
+                    const int up_axis = capsule_shape->m_up_axis;
+
+                    float radius = 0.0f;
+                    float half_height = 0.0f;
+                    glm::quat mesh_alignment = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+
+                    if (up_axis == 0)
+                    {
+                        radius         = implicit_dims.y;
+                        half_height    = implicit_dims.x;
+                        mesh_alignment = glm::angleAxis(-glm::half_pi<float>(), glm::vec3(0.0f, 0.0f, 1.0f));
+                    }
+                    else if (up_axis == 1)
+                    {
+                        radius = implicit_dims.x;
+                        half_height = implicit_dims.y;
+                    }
+                    else if (up_axis == 2)
+                    {
+                        radius         = implicit_dims.x;
+                        half_height    = implicit_dims.z;
+                        mesh_alignment = glm::angleAxis(glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
+                    }
+
+                    const float cylinder_height = half_height * 2.0f; 
+
+                    glm::quat final_mesh_rotation = rotation * mesh_alignment;
+
+                    std::stringstream ss;
+                    ss << name_prefix << "Capsule"
+                       << "\nCollision Flags: " << info.m_collision_flags
+                       << "\nInternalType: " << info.m_internal_type
+                       << "\nMass: " << info.m_mass
+                       << "\nTransform Rot: " << raw_transform.m_basis->ToString()
+                       << "\nTransform Pos: " << raw_transform.m_origin.ToString();
+                    
+                    const glm::vec3 color = m_color_defs[COLOR_DEFS_INDEX_CAPSULE];
+
+                    CoreEngine::Scene3D_ObjectBuilder builder = m_scene.CreateObjectBuilder();
+                    builder.RenderModel_SetExisting(std::make_unique<CoreEngine::CapsuleModel>(radius, cylinder_height, position, final_mesh_rotation, color));
+                    
+                    builder.SetPosition(position);
+                    builder.SetRotation(rotation);
+                    builder.SetName(ss.str());
+                    m_scene.AddObjectFromBuilder(std::move(builder));
+                    return; 
+                }
+
+                case BulletTypes::BroadphaseNativeTypes::CYLINDER_SHAPE_PROXYTYPE:
+                {
+                    const auto* cylinder_shape = static_cast<const BulletTypes::Serializer::CylinderExtractedShape*>(shape);
+                    const glm::vec3 implicit_dims = ConvertVector3ToGlm(cylinder_shape->m_implicit_shape_dimensions);
+                    const int up_axis = cylinder_shape->m_up_axis;
+
+                    float radius = 0.0f;
+                    float half_height = 0.0f;
+                    glm::quat mesh_alignment = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+
+                    if (up_axis == 0)
+                    {
+                        radius         = implicit_dims.y; 
+                        half_height    = implicit_dims.x;
+                        mesh_alignment = glm::angleAxis(-glm::half_pi<float>(), glm::vec3(0.0f, 0.0f, 1.0f));
+                    }
+                    else if (up_axis == 1)
+                    {
+                        radius      = implicit_dims.x;
+                        half_height = implicit_dims.y;
+                    }
+                    else if (up_axis == 2)
+                    {
+                        radius         = implicit_dims.x;
+                        half_height    = implicit_dims.z;
+                        mesh_alignment = glm::angleAxis(glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
+                    }
+
+                    const float total_height = half_height * 2.0f; 
+                    glm::quat final_mesh_rotation = rotation * mesh_alignment;
+
+                    std::stringstream ss;
+                    ss << name_prefix << "Cylinder"
+                       << "\nCollision Flags: " << info.m_collision_flags
+                       << "\nInternalType: " << info.m_internal_type
+                       << "\nMass: " << info.m_mass
+                       << "\nTransform Rot: " << raw_transform.m_basis->ToString()
+                       << "\nTransform Pos: " << raw_transform.m_origin.ToString();
+                    
+                    const glm::vec3 color = m_color_defs[COLOR_DEFS_INDEX_CYLINDER]; 
+
+                    CoreEngine::Scene3D_ObjectBuilder builder = m_scene.CreateObjectBuilder();
+                    
+                    builder.RenderModel_SetExisting(std::make_unique<CoreEngine::CylinderModel>(radius, total_height, position, final_mesh_rotation, color));
+                    
+                    builder.SetPosition(position);
+                    builder.SetRotation(rotation); 
+                    builder.SetName(ss.str());
+                    m_scene.AddObjectFromBuilder(std::move(builder));
+                    return; 
                 }
 
                 case BulletTypes::BroadphaseNativeTypes::MULTIMATERIAL_TRIANGLE_MESH_PROXYTYPE:
@@ -329,7 +439,10 @@ namespace AsphaltTas
                     std::vector<VerticesIndicesForMaterialID> data_per_material_mesh = MaterialGroupedDataFromBinaryTriangles(multimat->m_triangles);
 
                     std::stringstream ss;
-                    ss << name_prefix << "MultiMat - Collision Flags: " << collision_flags
+                    ss << name_prefix << "MultiMat"
+                    << "\nCollision Flags: " << info.m_collision_flags
+                    << "\nInternalType: " << info.m_internal_type
+                    << "\nMass: " << info.m_mass
                     << "\nTransform Rot: " << raw_transform.m_basis->ToString()
                     << "\nTransform Pos: " << raw_transform.m_origin.ToString()
                     << "\nAmount Triangles: " << multimat->m_triangles.size();
@@ -378,7 +491,10 @@ namespace AsphaltTas
 
                     std::vector<VerticesIndicesForMaterialID> data_per_material_mesh = MaterialGroupedDataFromBinaryTriangles(inner_shape->m_triangles);
                     std::stringstream ss;
-                    ss << name_prefix << "ScaledMultiMat - Collision Flags: " << collision_flags
+                    ss << name_prefix << "ScaledMultiMat"
+                    << "\nCollision Flags: " << info.m_collision_flags
+                    << "\nInternalType: " << info.m_internal_type
+                    << "\nMass: " << info.m_mass
                     << "\nTransform Rot: " << raw_transform.m_basis->ToString()
                     << "\nTransform Pos: " << raw_transform.m_origin.ToString()
                     << "\nAmount Triangles: " << inner_shape->m_triangles.size();
@@ -414,7 +530,7 @@ namespace AsphaltTas
 
                         const BulletTypes::UnalignedTransform combined = ComposeBulletTransforms(raw_transform, child.m_local_transform);
 
-                        RenderShapeAtTransform(child.m_child_ptr.get(), combined, collision_flags, name_prefix + " [Compound Child] ");
+                        RenderShapeAtTransform(child.m_child_ptr.get(), combined, info, name_prefix + " [Compound Child] ");
                     }
                     return;
                 } 
@@ -428,7 +544,7 @@ namespace AsphaltTas
         {
             if (!object.m_root_shape) continue;
 
-            RenderShapeAtTransform(object.m_root_shape.get(), object.m_collision_object_info.m_world_transform, object.m_collision_object_info.m_collision_flags,"");
+            RenderShapeAtTransform(object.m_root_shape.get(), object.m_collision_object_info.m_world_transform, object.m_collision_object_info, "");
         }
 
         m_indirect_pipeline.SetSceneData(m_scene.GetRenderModelVector(), m_scene.GetLightVectorConstRef());
@@ -761,7 +877,7 @@ namespace AsphaltTas
     {
         m_current_replay = replay;
 
-        auto replay_path = [&replay]() -> std::vector<CoreEngine::DrawLines3D_RenderPipeline::LineVertex> 
+        const auto replay_path = [&replay]() -> std::vector<CoreEngine::DrawLines3D_RenderPipeline::LineVertex> 
         {
             if (!replay.has_value()) return {};
 

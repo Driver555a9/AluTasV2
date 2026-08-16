@@ -54,9 +54,22 @@ namespace AsphaltDLL
         }
 
         ////////////////////////////////////////////////////////////
+        // Bullet spec DiscreteDynamicsWorld::InternalSingleStepSimulation on the actual physics world object
+        ////////////////////////////////////////////////////////////
+        namespace InternalSingleStepSimulation
+        {
+            bool SetupHook() noexcept;
+            bool RemoveHook() noexcept;
+            bool EnableHook() noexcept;
+            bool DisableHook() noexcept;
+            [[nodiscard]] HookState GetHookState() noexcept;
+        }
+
+        ////////////////////////////////////////////////////////////
         // Function called on each Bullet Physics step. 
         // [rdx] is float seconds interval time from last call
         // Function internally increments a counter with [rdx] and does as many physics ticks until that counter is < 0, subtracting PF each tick
+        // [rcx] is a proxy between game world and discretedynamicsworld
         ////////////////////////////////////////////////////////////
         namespace NewBulletPhysicsTick
         {
@@ -363,6 +376,32 @@ namespace AsphaltDLL
         namespace FloatXorObfuscationGetter
         {
             [[nodiscard]] float DecryptFromAddress(void* original_addr) noexcept;
+            bool SetupHook() noexcept;
+            bool RemoveHook() noexcept;
+            bool EnableHook() noexcept;
+            bool DisableHook() noexcept;
+            [[nodiscard]] HookState GetHookState() noexcept;
+        }
+
+        ////////////////////////////////////////////
+        // Query function that checks if track should be reset and if so calls ProcessLevelResetFadePhase
+        ////////////////////////////////////////////
+        namespace WorldShouldResetQuery
+        {
+            void QueueResetWorld() noexcept;
+            bool SetupHook() noexcept;
+            bool RemoveHook() noexcept;
+            bool EnableHook() noexcept;
+            bool DisableHook() noexcept;
+            [[nodiscard]] HookState GetHookState() noexcept;
+        }
+
+        ////////////////////////////////////////////
+        // Initiates end of race track reset for incomming replay
+        ////////////////////////////////////////////
+        namespace ProcessLevelResetFadePhase
+        {
+            void SpoofCallToProcessLevelResetFadePhase(uintptr_t a1, uintptr_t* a2) noexcept;
             bool SetupHook() noexcept;
             bool RemoveHook() noexcept;
             bool EnableHook() noexcept;

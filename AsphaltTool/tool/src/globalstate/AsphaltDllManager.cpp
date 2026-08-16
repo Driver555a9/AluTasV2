@@ -100,6 +100,8 @@ namespace AsphaltTas
             ComSharedMem::SharedState* shared = ComSharedMem::GetSharedState();
             ComDllOut::DllStateOut out_state;
 
+            bool has_ack_quick_restart = false;
+
             while (shared->m_dll_out_buffer.TryPop(out_state))
             {
                 const bool is_in_race          = out_state.m_meta_data.m_race_status_state == ComDllOut::RaceStatusState::IN_RACE;
@@ -126,14 +128,25 @@ namespace AsphaltTas
                 {
                     TasInputLayer::OnRaceEnded();
                 }
+
+                ComDllOut::DllStateOut dummy;
+                if (out_state.m_meta_data.m_race_status_state == Communication::DllOut::RaceStatusState::IN_QUICK_RESTART_PAUSE && ! shared->m_dll_out_buffer.TryPeek(dummy))
+                {
+                    TasInputLayer::OnRaceEnded();
+                    TasInputLayer::OnRaceStarted();
+                    has_ack_quick_restart = true;
+                }
                 
                 TasInputLayer::OnDLLUpdate();
             }
 
             ScopeLockedAccess<ComDllIn::DllGeneralCommandsIn> general_cmd = GetDllGeneralCommandsInRef();
             general_cmd->m_write_meta_data.m_command_type = ComDllIn::CommandType::ExecuteCommand;
+            general_cmd->m_write_meta_data.m_acknowledge_quick_restart_pause = has_ack_quick_restart;
 
             shared->m_dll_in_buffer_general.PushOverwrite(*general_cmd);
+
+            general_cmd->m_write_meta_data.m_request_track_reset = false; //Insure request runs only once
         }
 
         ScopeLockedAccess<std::optional<ComDllOut::DllStateOut>> GetDllStateOutLockResultRef() noexcept

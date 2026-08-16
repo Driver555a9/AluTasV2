@@ -69,13 +69,48 @@ namespace CoreEngine
 
     struct SimpleSphere_radius1
     {
-        private:
-            SimpleSphere_radius1(float radius, int subdivisions);
+    public:
+        std::vector<Vertex> m_sphere_verts;
+        std::vector<GLuint> m_sphere_indices;
 
-        public:
-            std::vector<Vertex> m_sphere_verts;
-            std::vector<GLuint> m_sphere_indices;
+        static const SimpleSphere_radius1& GetInstance()
+        {
+            static const SimpleSphere_radius1 sphere_instance(1.0f, 4);
+            return sphere_instance;
+        }
 
-            static const SimpleSphere_radius1& GetInstance();
+    private:
+        SimpleSphere_radius1(float radius, int subdivisions);
+    };
+
+    struct SimpleCylinder_r1_h2
+    {
+    public:
+        std::vector<Vertex> m_verts;
+        std::vector<GLuint> m_indices;
+
+        static const SimpleCylinder_r1_h2& GetInstance()
+        {
+            static const SimpleCylinder_r1_h2 instance(32);
+            return instance;
+
+        }
+    private:
+        SimpleCylinder_r1_h2(int segments) noexcept;
+    };
+
+    struct SimpleCapsule_r1_h2
+    {
+    public:
+        std::vector<Vertex> m_verts;
+        std::vector<GLuint> m_indices;
+
+        static const SimpleCapsule_r1_h2& GetInstance()
+        {
+            static const SimpleCapsule_r1_h2 instance(32, 16);
+            return instance;
+        }
+    private:
+        SimpleCapsule_r1_h2(int segments, int rings) noexcept;
     };
 }

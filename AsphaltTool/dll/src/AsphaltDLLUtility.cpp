@@ -1,6 +1,8 @@
 #include "AsphaltDLLUtility.h"
 #include "BulletTypes.h"
 #include "Communication.h"
+#include "Timer.h"
+#include "Units.h"
 #include <cstdint>
 #include <cstdio>
 #include <random>
@@ -68,7 +70,7 @@ namespace AsphaltDLL::Utility
 
     uint64_t GetMonotonicMicrosecondCount() noexcept
     {
-        return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+        return Timer::GetMonotonicTime<Units::MicroSecond>().Get();
     }
 
     uintptr_t SafeResolvePointerChain(uintptr_t module_base, const std::vector<uintptr_t>& offsets) noexcept

@@ -18,6 +18,8 @@ namespace CoreEngine
         m_rotation = rotation;
 
         m_aabb_half_extents = glm::vec3(radius);
+
+        CalculateAABBExtentsAndLocalCenter();
     }
 
     std::unique_ptr<Basic_Model> SphereModel::Copy() const noexcept

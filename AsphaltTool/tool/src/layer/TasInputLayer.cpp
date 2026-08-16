@@ -135,9 +135,15 @@ namespace AsphaltTas
                 ImGui::Checkbox("Speed Up GUI", &general_cmd_ref->m_write_meta_data.m_speed_up_gui_animations);
 
                 ImGui::SameLine();
-                if (ImGui::Checkbox("Transform Override", &m_use_transform_override_patch))
+                ImGui::Checkbox("Transform Override", &m_use_transform_override_patch);
+
                 {
-                    
+                    PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Button, GuiStyle::COLOR_BLUE);
+                    if (ImGui::Button("Soft Reset Track"))
+                    {
+                        ENGINE_INFO_LOG("REQUEST BUTTON CLICK");
+                        general_cmd_ref->m_write_meta_data.m_request_track_reset = true;
+                    }
                 }
             }
             if (ImGui::CollapsingHeader("Active Replay", ImGuiTreeNodeFlags_DefaultOpen))

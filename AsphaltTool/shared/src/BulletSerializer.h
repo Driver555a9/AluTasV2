@@ -3,6 +3,7 @@
 #include "BulletTypes.h"
 
 #include "nlohmann/json.hpp"
+#include "nlohmann/json_fwd.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -19,7 +20,8 @@ namespace BulletTypes
         enum class CollisionSerializerVersion : uint32_t
         {
             VERSION_1 = 1,
-            NEWEST    = VERSION_1
+            VERSION_2 = 2,
+            NEWEST    = VERSION_2
         };
 
         constexpr uint32_t MAGIC_HEADER = 0x4C4F4342; // BCOL
@@ -51,14 +53,10 @@ namespace BulletTypes
             namespace ObjectsRoot
             {
                 constexpr char ROOT[]                    = "Objects"; 
-                constexpr char IS_FROM_STATIC_TREE[]     = "IsStatic";
                 constexpr char TRANSFORM[]               = "Trans";
-                constexpr char CONTACT_PROC_THRESHOLD[]  = "ContactProcThresh";
                 constexpr char COLLISION_FLAGS[]         = "ColFlags";
-                constexpr char FRICTION[]                = "Friction";
-                constexpr char RESTITUTION[]             = "Restitution";
-                constexpr char CCD_SWEPT_SPHERE_RADIUS[] = "CCDSSRadius";
-                constexpr char CCD_MOTION_THRESHOLD[]    = "CCDMoThresh";
+                constexpr char INTERNAL_TYPE[]           = "InternalType";
+                constexpr char MASS[]                    = "Mass";
                 constexpr char SHAPE_INDEX[]             = "ShapeIndex";
             }
         };
@@ -148,13 +146,9 @@ namespace BulletTypes
         struct CollisionObjectInfo
         {
             UnalignedTransform m_world_transform;
-            float m_contact_processing_threshold;
-            uint32_t m_collision_flags;
-            float m_friction;
-            float m_restitution;
-            float m_ccd_swept_sphere_radius;
-            float m_ccd_motion_threshold;
-            bool  m_is_from_static_tree;
+            uint32_t           m_collision_flags;
+            int                m_internal_type;
+            float              m_mass;
         };
 
         struct BasicExtractedShape
@@ -191,6 +185,13 @@ namespace BulletTypes
             CapsuleExtractedShape() : BasicExtractedShape(BroadphaseNativeTypes::CAPSULE_SHAPE_PROXYTYPE) {}
         };
 
+        struct CylinderExtractedShape : public BasicExtractedShape
+        {
+            UnalignedVector3 m_implicit_shape_dimensions;
+            int m_up_axis;
+            CylinderExtractedShape() : BasicExtractedShape(BroadphaseNativeTypes::CYLINDER_SHAPE_PROXYTYPE) {}
+        };
+
         struct MultiMatExtractedShape : public BasicExtractedShape
         {
             std::vector<BinaryTriangle> m_triangles;
@@ -217,7 +218,7 @@ namespace BulletTypes
         };
 
         template <typename TStream>
-        bool SerializeObjectsToStream(TStream& stream, const std::vector<std::pair<CollisionObject*, bool>>& objects)
+        bool SerializeObjectsToStream(TStream& stream, const std::vector<CollisionObject*>& objects)
         {
             nlohmann::ordered_json json = nlohmann::ordered_json::object();
             json[Keys::Meta::ROOT][Keys::Meta::TIMESTAMP] = std::time(nullptr);
@@ -256,6 +257,16 @@ namespace BulletTypes
                 const Vector3 extents = capsule->m_implicit_shape_dimensions;
                 sh_json[Keys::ShapesRoot::HALF_EXTENTS] = { extents.x, extents.y, extents.z };
                 sh_json[Keys::ShapesRoot::UP_AXYS]      = capsule->m_up_axis;
+                return true;
+            };
+
+            const auto SerializeCylinder = [](nlohmann::ordered_json& sh_json, const CylinderShape* cylinder)
+            {
+                sh_json[Keys::ShapesRoot::SHAPE_TYPE]   = cylinder->m_shape_type;
+                sh_json[Keys::ShapesRoot::MARGIN]       = cylinder->GetMargin();
+                const Vector3 extents                   = cylinder->m_implicit_shape_dimensions;
+                sh_json[Keys::ShapesRoot::HALF_EXTENTS] = { extents.x, extents.y, extents.z };
+                sh_json[Keys::ShapesRoot::UP_AXYS]      = cylinder->m_up_axis;
                 return true;
             };
 
@@ -315,6 +326,10 @@ namespace BulletTypes
                 else if (const CapsuleShape* capsule = SafeShapeCast<const CapsuleShape>(shape))
                 {
                     serialize_success = SerializeCapsule(shape_json, capsule);
+                }
+                else if (const CylinderShape* cylinder = SafeShapeCast<const CylinderShape>(shape))
+                {
+                    serialize_success = SerializeCylinder(shape_json, cylinder);
                 }
                 else if (const MultimaterialTriangleMeshShape* multimat = SafeShapeCast<const MultimaterialTriangleMeshShape>(shape))
                 {
@@ -385,7 +400,7 @@ namespace BulletTypes
             for (size_t i = 0; i < objects.size(); ++i)
             {
                 const auto& obj = objects[i];
-                const auto* shape = obj.first->m_collision_shape_ptr;
+                const auto* shape = obj->m_collision_shape_ptr;
                 if (!shape) continue;
 
                 size_t shape_index = GetOrSerializeShape(shape);
@@ -394,15 +409,19 @@ namespace BulletTypes
                 nlohmann::ordered_json obj_json;
 
                 obj_json[Keys::ObjectsRoot::SHAPE_INDEX]             = shape_index;
-                obj_json[Keys::ObjectsRoot::IS_FROM_STATIC_TREE]     = obj.second;
-                obj_json[Keys::ObjectsRoot::CONTACT_PROC_THRESHOLD]  = obj.first->m_contact_processing_threshold;
-                obj_json[Keys::ObjectsRoot::COLLISION_FLAGS]         = obj.first->m_collision_flags;
-                obj_json[Keys::ObjectsRoot::FRICTION]                = obj.first->m_friction;
-                obj_json[Keys::ObjectsRoot::RESTITUTION]             = obj.first->m_restitution;
-                obj_json[Keys::ObjectsRoot::CCD_SWEPT_SPHERE_RADIUS] = obj.first->m_ccd_swept_sphere_radius;
-                obj_json[Keys::ObjectsRoot::CCD_MOTION_THRESHOLD]    = obj.first->m_ccd_motion_threshold;
+                obj_json[Keys::ObjectsRoot::COLLISION_FLAGS]         = obj->m_collision_flags;
+                obj_json[Keys::ObjectsRoot::INTERNAL_TYPE]           = obj->m_internal_type;
 
-                const Transform& trans = obj.first->m_transform_matrix;
+                if (obj->IsRigidBody())
+                {
+                    obj_json[Keys::ObjectsRoot::MASS] = (1.0f / static_cast<const RigidBody*>(obj)->m_inverse_mass);
+                }
+                else 
+                {
+                    obj_json[Keys::ObjectsRoot::MASS] = 0.0f;
+                }
+
+                const Transform& trans = obj->m_transform_matrix;
                 obj_json[Keys::ObjectsRoot::TRANSFORM] =
                 {
                     trans[0].x, trans[0].y, trans[0].z, trans[0].w,
@@ -458,6 +477,12 @@ namespace BulletTypes
                 {
                     auto dst = std::make_unique<CapsuleExtractedShape>();
                     *dst = *static_cast<const CapsuleExtractedShape*>(src);
+                    return dst;
+                }
+                case BroadphaseNativeTypes::CYLINDER_SHAPE_PROXYTYPE:
+                {
+                    auto dst = std::make_unique<CylinderExtractedShape>();
+                    *dst = *static_cast<const CylinderExtractedShape*>(src);
                     return dst;
                 }
                 case BroadphaseNativeTypes::MULTIMATERIAL_TRIANGLE_MESH_PROXYTYPE:
@@ -646,6 +671,23 @@ namespace BulletTypes
                             shape_lookup[idx] = std::move(capsule);
                             break;
                         }
+                        case BroadphaseNativeTypes::CYLINDER_SHAPE_PROXYTYPE:
+                        {
+                            auto cylinder = std::make_unique<CylinderExtractedShape>();
+                            cylinder->m_margin  = margin;
+                            cylinder->m_up_axis = SafeGetNumber(sh_json, Keys::ShapesRoot::UP_AXYS, 1);
+                            if (sh_json.contains(Keys::ShapesRoot::HALF_EXTENTS) && sh_json[Keys::ShapesRoot::HALF_EXTENTS].is_array() && sh_json[Keys::ShapesRoot::HALF_EXTENTS].size() >= 3)
+                            {
+                                const auto& ext = sh_json[Keys::ShapesRoot::HALF_EXTENTS];
+                                cylinder->m_implicit_shape_dimensions = {
+                                    ext[0].is_number() ? ext[0].get<float>() : 0.0f,
+                                    ext[1].is_number() ? ext[1].get<float>() : 0.0f,
+                                    ext[2].is_number() ? ext[2].get<float>() : 0.0f
+                                };
+                            }
+                            shape_lookup[idx] = std::move(cylinder);
+                            break;
+                        }
                         case BroadphaseNativeTypes::MULTIMATERIAL_TRIANGLE_MESH_PROXYTYPE:
                         {
                             auto multimat = std::make_unique<MultiMatExtractedShape>();
@@ -757,13 +799,10 @@ namespace BulletTypes
                         if (!obj_json.is_object()) continue;
 
                         ExtractedObject obj;
-                        obj.m_collision_object_info.m_contact_processing_threshold = SafeGetNumber(obj_json, Keys::ObjectsRoot::CONTACT_PROC_THRESHOLD, 0.0f);
-                        obj.m_collision_object_info.m_collision_flags              = SafeGetNumber(obj_json, Keys::ObjectsRoot::COLLISION_FLAGS, uint32_t(0));
-                        obj.m_collision_object_info.m_friction                     = SafeGetNumber(obj_json, Keys::ObjectsRoot::FRICTION, 1.0f);
-                        obj.m_collision_object_info.m_restitution                  = SafeGetNumber(obj_json, Keys::ObjectsRoot::RESTITUTION, 0.0f);
-                        obj.m_collision_object_info.m_ccd_swept_sphere_radius      = SafeGetNumber(obj_json, Keys::ObjectsRoot::CCD_SWEPT_SPHERE_RADIUS, 0.0f);
-                        obj.m_collision_object_info.m_ccd_motion_threshold         = SafeGetNumber(obj_json, Keys::ObjectsRoot::CCD_MOTION_THRESHOLD, 0.0f);
-                        obj.m_collision_object_info.m_is_from_static_tree          = SafeGetNumber(obj_json, Keys::ObjectsRoot::IS_FROM_STATIC_TREE, true);
+                        obj.m_collision_object_info.m_collision_flags   = SafeGetNumber(obj_json, Keys::ObjectsRoot::COLLISION_FLAGS, uint32_t(0));
+                        obj.m_collision_object_info.m_internal_type     = SafeGetNumber(obj_json, Keys::ObjectsRoot::INTERNAL_TYPE,   int(0));
+                        obj.m_collision_object_info.m_mass              = SafeGetNumber(obj_json, Keys::ObjectsRoot::MASS,            float(0.0f));     
+
                         obj.m_root_shape = nullptr;
 
                         if (obj_json.contains(Keys::ObjectsRoot::TRANSFORM) && obj_json[Keys::ObjectsRoot::TRANSFORM].is_array())
@@ -823,14 +862,14 @@ namespace BulletTypes
             return DeserializeObjectsFromDataBuffer(buffer.data(), buffer.size());
         }
 
-        [[nodiscard]] inline std::string SerializeObjectsToString(const std::vector<std::pair<CollisionObject*, bool>>& objects)
+        [[nodiscard]] inline std::string SerializeObjectsToString(const std::vector<CollisionObject*>& objects)
         {
             std::ostringstream oss(std::ios::binary);
             SerializeObjectsToStream(oss, objects);
             return oss.str();
         }
 
-        inline void SerializeObjectsToFile(const std::vector<std::pair<CollisionObject*, bool>>& objects, const std::string& path)
+        inline void SerializeObjectsToFile(const std::vector<CollisionObject*>& objects, const std::string& path)
         {
             std::ofstream out(path.c_str(), std::ios::binary);
             if (!out.is_open()) 

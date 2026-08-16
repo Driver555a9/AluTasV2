@@ -58,9 +58,107 @@ namespace CoreEngine
         }
     }
 
-    const SimpleSphere_radius1& SimpleSphere_radius1::GetInstance()
+    SimpleCylinder_r1_h2::SimpleCylinder_r1_h2(int segments) noexcept
     {
-        static const SimpleSphere_radius1 sphere_instance(1.0f, 4);
-        return sphere_instance;
+        const float radius     = 1.0f;
+        const float half_height = 1.0f;
+
+        m_verts.push_back({ glm::vec3(0, half_height, 0), glm::vec3(0, 1, 0), glm::vec2(0.5f, 0.5f) });
+        m_verts.push_back({ glm::vec3(0, -half_height, 0), glm::vec3(0, -1, 0), glm::vec2(0.5f, 0.5f) });
+
+        int top_center_index = 0;
+        int bottom_center_index = 1;
+        int top_ring_start = m_verts.size();
+
+        for (int i = 0; i <= segments; ++i)
+        {
+            float u = static_cast<float>(i) / segments;
+            float theta = u * glm::two_pi<float>();
+            float cos_theta = std::cos(theta);
+            float sin_theta = std::sin(theta);
+
+            float x = cos_theta * radius;
+            float z = sin_theta * radius;
+
+            m_verts.push_back({ glm::vec3(x, half_height, z), glm::vec3(0, 1, 0), glm::vec2(x * 0.5f + 0.5f, z * 0.5f + 0.5f) });
+            m_verts.push_back({ glm::vec3(x, -half_height, z), glm::vec3(0, -1, 0), glm::vec2(x * 0.5f + 0.5f, z * 0.5f + 0.5f) });
+            m_verts.push_back({ glm::vec3(x, half_height, z), glm::vec3(cos_theta, 0, sin_theta), glm::vec2(u, 1.0f) });
+            m_verts.push_back({ glm::vec3(x, -half_height, z), glm::vec3(cos_theta, 0, sin_theta), glm::vec2(u, 0.0f) });
+        }
+
+        for (int i = 0; i < segments; ++i)
+        {
+            int baseIdx = top_ring_start + (i * 4);
+            int nextBaseIdx = top_ring_start + ((i + 1) * 4);
+
+            m_indices.push_back(top_center_index);
+            m_indices.push_back(baseIdx + 0);
+            m_indices.push_back(nextBaseIdx + 0);
+
+            m_indices.push_back(bottom_center_index);
+            m_indices.push_back(nextBaseIdx + 1);
+            m_indices.push_back(baseIdx + 1);
+
+            m_indices.push_back(baseIdx + 2);
+            m_indices.push_back(baseIdx + 3);
+            m_indices.push_back(nextBaseIdx + 2);
+
+            m_indices.push_back(nextBaseIdx + 2);
+            m_indices.push_back(baseIdx + 3);
+            m_indices.push_back(nextBaseIdx + 3);
+        }
+    }
+
+    SimpleCapsule_r1_h2::SimpleCapsule_r1_h2(int segments, int rings) noexcept
+    {
+        const float radius = 1.0f;
+        const float cylinder_half_height = 1.0f; 
+        
+        for (int i = 0; i <= rings * 2 + 1; ++i)
+        {
+            bool isTopHemisphere = (i <= rings);
+            int ringIndex = isTopHemisphere ? i : i - 1;
+
+            float v = static_cast<float>(ringIndex) / (rings * 2); 
+            float phi = glm::half_pi<float>() - v * glm::pi<float>(); 
+            
+            float yOffset = isTopHemisphere ? cylinder_half_height : -cylinder_half_height;
+            
+            float y = std::sin(phi) * radius;
+            float r = std::cos(phi) * radius;
+
+            for (int j = 0; j <= segments; ++j)
+            {
+                float u = static_cast<float>(j) / segments;
+                float theta = u * glm::two_pi<float>();
+
+                float x = std::cos(theta) * r;
+                float z = std::sin(theta) * r;
+
+                glm::vec3 position(x, y + yOffset, z);
+
+                glm::vec3 normal = glm::normalize(glm::vec3(x, y, z));
+                
+                m_verts.push_back({ position, normal, glm::vec2(u, 1.0f - v) });
+            }
+        }
+
+        int ringsTotal = rings * 2 + 1;
+        for (int i = 0; i < ringsTotal; ++i)
+        {
+            for (int j = 0; j < segments; ++j)
+            {
+                int first = (i * (segments + 1)) + j;
+                int second = first + segments + 1;
+
+                m_indices.push_back(first);
+                m_indices.push_back(second);
+                m_indices.push_back(first + 1);
+
+                m_indices.push_back(second);
+                m_indices.push_back(second + 1);
+                m_indices.push_back(first + 1);
+            }
+        }
     }
 }

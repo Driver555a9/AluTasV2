@@ -89,6 +89,10 @@ namespace AsphaltDLL
     #define DLL_INFO_LOG(expr) std::cout << ::AsphaltDLL::Utility::ColorCodes::YELLOW \
     << "\n[INFO] File: " << ___FILENAME_HELPER_MACRO___ << ::AsphaltDLL::Utility::ColorCodes::GREEN \
     << " Line " << __LINE__ << ": " << ::AsphaltDLL::Utility::ColorCodes::RESET << expr << std::endl
+
+    #define DLL_DEBUG_PRINT(expr) std::cout << ::AsphaltDLL::Utility::ColorCodes::BLUE \
+    << "\n[ERROR] File: " << ___FILENAME_HELPER_MACRO___ << ::AsphaltDLL::Utility::ColorCodes::GREEN \
+    << " Line " << __LINE__ << ": " << ::AsphaltDLL::Utility::ColorCodes::RESET << expr << std::endl
 #elif defined(__GNUC__)
 
     #define DLL_ERROR_PRINT(expr) std::cout << ::AsphaltDLL::Utility::ColorCodes::RED \
@@ -100,6 +104,10 @@ namespace AsphaltDLL
     << " Line " << __LINE__ << ::AsphaltDLL::Utility::ColorCodes::RESET << std::endl
 
     #define DLL_INFO_LOG(expr) std::cout << ::AsphaltDLL::Utility::ColorCodes::YELLOW \
+    << "\n[INFO] File: " << __FILE_NAME__ << ::AsphaltDLL::Utility::ColorCodes::GREEN \
+    << " Line " << __LINE__ << ": " << ::AsphaltDLL::Utility::ColorCodes::RESET << expr << std::endl
+
+    #define DLL_DEBUG_PRINT(expr) std::cout << ::AsphaltDLL::Utility::ColorCodes::BLUE \
     << "\n[INFO] File: " << __FILE_NAME__ << ::AsphaltDLL::Utility::ColorCodes::GREEN \
     << " Line " << __LINE__ << ": " << ::AsphaltDLL::Utility::ColorCodes::RESET << expr << std::endl
 #endif 

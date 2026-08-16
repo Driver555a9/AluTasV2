@@ -42,14 +42,18 @@ namespace AsphaltTas
         constexpr static size_t COLOR_DEFS_INDEX_DYNAMICS  = 1;
         constexpr static size_t COLOR_DEFS_INDEX_BOX       = 2;
         constexpr static size_t COLOR_DEFS_INDEX_SPHERE    = 3;
-        constexpr static size_t COLOR_DEFS_BEGIN_MATERIALS = 4;
+        constexpr static size_t COLOR_DEFS_INDEX_CYLINDER  = 4;
+        constexpr static size_t COLOR_DEFS_INDEX_CAPSULE   = 5;
+        constexpr static size_t COLOR_DEFS_BEGIN_MATERIALS = 6;
         std::vector<glm::vec3> m_color_defs = 
         {
             {1.0f, 0.1568f, 0.0f},        //RAMPS
             {1.0f, 0.0f, 0.39215f},       //DYNAMICS
             {0.55f, 0.65f, 0.90f},        //BOX
             {0.70f, 0.78f, 0.95f},        //Sphere
-            {0.2354f, 1.000f, 0.0f},
+            {0.850f, 1.000f, 0.450f},     //Cylinder
+            {0.350f, 0.700f, 0.450f},     //Capsule
+            {0.2354f, 1.000f, 0.0f},      
             {0.000f, 0.650f, 1.000f},
             {1.000f, 0.850f, 0.000f},
             {0.600f, 0.250f, 1.000f},
@@ -71,9 +75,7 @@ namespace AsphaltTas
             {0.100f, 0.850f, 0.500f},
             {0.950f, 0.650f, 0.150f},
             {0.150f, 0.850f, 1.000f},
-            {0.550f, 0.000f, 0.700f},
-            {0.850f, 1.000f, 0.450f},
-            {0.350f, 0.700f, 0.450f}
+            {0.550f, 0.000f, 0.700f}
         };
 
         void OnSetRenderGUI(bool on) noexcept;
