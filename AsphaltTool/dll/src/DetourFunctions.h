@@ -98,7 +98,23 @@ namespace AsphaltDLL
         //////////////////////////////////////////////////////////
         // PhysicsContext MERSENNE TWISTER PRNG - used for Barrel Rolls, must be reset per race!
         //////////////////////////////////////////////////////////
-        namespace PhysicsContextMersenneTwisterPRNG
+        namespace BarrelPRNG
+        {
+            void Reset() noexcept;
+            float NextFloat01() noexcept;
+            double NextDouble01() noexcept;
+        }
+
+        namespace BarrelRandomLerp
+        {
+            bool SetupHook() noexcept;
+            bool RemoveHook() noexcept;
+            bool EnableHook() noexcept;
+            bool DisableHook() noexcept;
+            [[nodiscard]] HookState GetHookState() noexcept;
+        }
+
+        namespace BarrelRandomBool
         {
             bool SetupHook() noexcept;
             bool RemoveHook() noexcept;

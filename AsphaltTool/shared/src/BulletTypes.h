@@ -46,12 +46,7 @@ namespace BulletTypes
         [[nodiscard]] std::string ToString() const noexcept { return std::format("({:.3f}, {:.3f}, {:.3f})", x, y, z); }
     };
     static_assert(sizeof(UnalignedVector3) == 12);
-
-    inline std::ostream& operator<<(std::ostream& os, const UnalignedVector3& vec) 
-    {
-        os << vec.ToString();
-        return os;
-    }
+    inline std::ostream& operator<<(std::ostream& os, const UnalignedVector3& vec) { os << vec.ToString(); return os;}
 
     struct alignas(16) Vector3
     {
@@ -82,12 +77,7 @@ namespace BulletTypes
         [[nodiscard]] std::string ToString() const { return std::format("({:.3f}, {:.3f}, {:.3f})", x, y, z); }
     };
     static_assert(sizeof(Vector3) == 16);
-
-    inline std::ostream& operator<<(std::ostream& os, const Vector3& vec) 
-    {
-        os << vec.ToString();
-        return os;
-    }
+    inline std::ostream& operator<<(std::ostream& os, const Vector3& vec) { os << vec.ToString(); return os;}
 
     struct UnalignedVector4 
     { 
@@ -108,12 +98,7 @@ namespace BulletTypes
         [[nodiscard]] std::string ToString() const noexcept { return std::format("({:.3f}, {:.3f}, {:.3f}, {:.3f})", x, y, z, w); }
     };
     static_assert(sizeof(UnalignedVector4) == 16);
-
-    inline std::ostream& operator<<(std::ostream& os, const UnalignedVector4& vec) 
-    {
-        os << vec.ToString();
-        return os;
-    }
+    inline std::ostream& operator<<(std::ostream& os, const UnalignedVector4& vec) { os << vec.ToString(); return os; }
 
     struct alignas(16) Vector4 
     { 
@@ -134,11 +119,7 @@ namespace BulletTypes
         [[nodiscard]] std::string ToString() const noexcept { return std::format("({:.3f}, {:.3f}, {:.3f}, {:.3f})", x, y, z, w); }
     };
     static_assert(sizeof(Vector4) == 16);
-    inline std::ostream& operator<<(std::ostream& os, const Vector4& vec) 
-    {
-        os << vec.ToString();
-        return os;
-    }
+    inline std::ostream& operator<<(std::ostream& os, const Vector4& vec) { os << vec.ToString(); return os; }
 
     struct alignas(16) Matrix3x3 
     {
@@ -169,11 +150,7 @@ namespace BulletTypes
         [[nodiscard]] static UnalignedTransform Identity() noexcept { return UnalignedTransform(); }
     };
     static_assert(sizeof(UnalignedTransform) == 16 * sizeof(float));
-    inline std::ostream& operator<<(std::ostream& os, const UnalignedTransform& vec) 
-    {
-        os << vec.ToString();
-        return os;
-    }
+    inline std::ostream& operator<<(std::ostream& os, const UnalignedTransform& vec) { os << vec.ToString(); return os;}
 
     struct alignas(16) Transform
     {
@@ -199,11 +176,7 @@ namespace BulletTypes
         [[nodiscard]] static Transform Identity() noexcept { return Transform(); }
     };
     static_assert(sizeof(Transform) == 16 * sizeof(float));
-    inline std::ostream& operator<<(std::ostream& os, const Transform& vec) 
-    {
-        os << vec.ToString();
-        return os;
-    }
+    inline std::ostream& operator<<(std::ostream& os, const Transform& vec) { os << vec.ToString(); return os; }
 
     struct UnalignedQuaternion
     {
@@ -215,11 +188,7 @@ namespace BulletTypes
         [[nodiscard]] std::string ToString() const { return std::format("({:.3f}, {:.3f}, {:.3f}, {:.3f})", x, y, z, w); }
     };
     static_assert(sizeof(UnalignedQuaternion) == 4 * sizeof(float));
-    inline std::ostream& operator<<(std::ostream& os, const UnalignedQuaternion& vec) 
-    {
-        os << vec.ToString();
-        return os;
-    }
+    inline std::ostream& operator<<(std::ostream& os, const UnalignedQuaternion& vec) { os << vec.ToString(); return os;}
 
     struct alignas(16) Quaternion
     {
@@ -231,11 +200,7 @@ namespace BulletTypes
         [[nodiscard]] std::string ToString() const { return std::format("({:.3f}, {:.3f}, {:.3f}, {:.3f})", x, y, z, w); }
     };
     static_assert(sizeof(Quaternion) == 4 * sizeof(float));
-    inline std::ostream& operator<<(std::ostream& os, const Quaternion& vec) 
-    {
-        os << vec.ToString();
-        return os;
-    }
+    inline std::ostream& operator<<(std::ostream& os, const Quaternion& vec) { os << vec.ToString(); return os; }
 
     #pragma pack(push, 1)
     template <typename T>
@@ -247,8 +212,8 @@ namespace BulletTypes
         T*      m_data;
         bool    m_owns_memory;
         uint8_t m_tail_pad[7]; 
-        T& operator[](int32_t i) { assert(i < m_size && m_size >= 0); return m_data[i]; }
-        const T& operator[](int32_t i) const { assert(i < m_size && m_size >= 0); return m_data[i]; }
+        T& operator[](int i) { assert(i < m_size && m_size >= 0 && "You are accessing out of bounds in an AlignedObjectArray!"); return m_data[i]; }
+        const T& operator[](int i) const { assert(i < m_size && m_size >= 0 && "You are accessing out of bounds in an AlignedObjectArray!"); return m_data[i]; }
     };
     #pragma pack(pop)
     static_assert(sizeof(AlignedObjectArray<void*>) == 28);
@@ -256,7 +221,6 @@ namespace BulletTypes
     ////////////////////////////////////////////
     // Complex physics types
     ////////////////////////////////////////////
-
     struct RaycastOutput
     {
         void*            m_hit_body_ptr {}; // Not a Collision object? Unclear what it points to
@@ -1686,7 +1650,6 @@ namespace BulletTypes
     [[nodiscard]] inline BulletTypes::UnalignedTransform ComposeBulletTransforms(const BulletTypes::UnalignedTransform& parent, const BulletTypes::UnalignedTransform& child) noexcept
     {
         BulletTypes::UnalignedTransform result{};
-
 
         const auto Dot3 = [](const BulletTypes::UnalignedVector4& a, const BulletTypes::UnalignedVector4& b) -> float
         {

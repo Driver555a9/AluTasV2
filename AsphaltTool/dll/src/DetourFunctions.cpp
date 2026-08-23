@@ -23,6 +23,7 @@
 #include <minwinbase.h>
 #include <optional>
 #include <ostream>
+#include <random>
 #include <synchapi.h>
 #include <unordered_map>
 #include <utility>
@@ -926,8 +927,8 @@ namespace AsphaltDLL
 
                         if (GameDLLState::g_current_state.m_replay_inputs.m_race_frame_tick == 0)
                         {
-                            // RESET INDEX INTO MERSENNE TWISTER PRNG
-                            *reinterpret_cast<int*>(GameDLLState::g_current_state.m_resolved_addresses.m_physics_context_address + 472) = 0;
+                            // RESET MERSENNE TWISTER PRNG
+                            BarrelPRNG::Reset();
                         }
 
                         *p_in_delta_micros = GameDLLState::g_current_state.m_meta_data.m_fixed_frame_interval_micros;
@@ -982,7 +983,6 @@ namespace AsphaltDLL
             bool EnableHook() noexcept { return _Implementation::EnableHook(g_real_function_address, g_hook_state); }
             bool DisableHook() noexcept { return _Implementation::DisableHook(g_real_function_address, g_hook_state); }
             HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire); }
-
         }
 
         namespace PhysicsWorldWrapperNewTick
@@ -1095,33 +1095,105 @@ namespace AsphaltDLL
             HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire); }
         }
 
-        namespace PhysicsContextMersenneTwisterPRNG
+        // Makes barrels random
+        // NEVER CHANGE ANY OF THIS
+        namespace BarrelPRNG
+        {
+            namespace
+            {
+                std::mutex g_mutex;
+                std::mt19937 g_engine;
+                bool g_seeded = false;
+                constexpr uint32_t FIXED_SEED = 0; // NEVER CHANGE THIS
+                constexpr float F_CONSTANT = 4294967296.0f;
+                constexpr float D_CONSTANT = 4294967296.0;
+                // Anti accidental change protection
+                static_assert(F_CONSTANT == 4294967296.0f);  
+                static_assert(D_CONSTANT == 4294967296.0);
+                static_assert(FIXED_SEED == 0);
+            }
+
+            void Reset() noexcept
+            {
+                std::lock_guard<std::mutex> lock(g_mutex);
+                g_engine.seed(FIXED_SEED);
+                g_seeded = true;
+            }
+
+            float NextFloat01() noexcept
+            {
+                std::lock_guard<std::mutex> lock(g_mutex);
+                if (!g_seeded) { g_engine.seed(FIXED_SEED); g_seeded = true; }
+                uint32_t word = g_engine();
+                return static_cast<float>(word) / F_CONSTANT;
+            }
+
+            double NextDouble01() noexcept
+            {
+                std::lock_guard<std::mutex> lock(g_mutex);
+                if (!g_seeded) { g_engine.seed(FIXED_SEED); g_seeded = true; }
+                uint32_t w0 = g_engine();
+                uint32_t w1 = g_engine();
+                double v6 = static_cast<double>(static_cast<int>(w0)) + static_cast<double>(static_cast<int>(w1)) * D_CONSTANT;
+                return v6 / (D_CONSTANT * D_CONSTANT);
+            }
+        }
+
+        namespace BarrelRandomLerp
         {
             namespace
             {
                 std::atomic<HookState> g_hook_state = HookState::NotInPlace;
-
                 LPVOID g_real_function_address = nullptr;
 
-                typedef float (DETOUR_FUNCTION_DEF* PhysicsContextMersenneTwisterPRNG_t)(uintptr_t p_this, float* a2);
-                PhysicsContextMersenneTwisterPRNG_t RealPhysicsContextMersenneTwisterPRNGCall = nullptr;
+                typedef float (DETOUR_FUNCTION_DEF* BarrelRandomLerp_t)(uintptr_t a1, float* a2);
+                BarrelRandomLerp_t RealBarrelRandomLerpCall = nullptr;
 
-                float DETOUR_FUNCTION_DEF Detour_DiscreteDynamicsWorldDestructor(uintptr_t p_this, float* a2) noexcept
+                float DETOUR_FUNCTION_DEF Detour_BarrelRandomLerp(uintptr_t a1, float* a2) noexcept
                 {
-                    return RealPhysicsContextMersenneTwisterPRNGCall(p_this, a2);
+                    float lo = a2[0];
+                    float hi = a2[1];
+                    return BarrelPRNG::NextFloat01() * (hi - lo) + lo;
                 }
             }
 
             bool SetupHook() noexcept
             {
                 constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x486A1D0;
-                return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, 
-                    reinterpret_cast<LPVOID>(&Detour_DiscreteDynamicsWorldDestructor), &g_real_function_address, reinterpret_cast<LPVOID*>(&RealPhysicsContextMersenneTwisterPRNGCall), g_hook_state);
+                return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_BarrelRandomLerp), &g_real_function_address,
+                    reinterpret_cast<LPVOID*>(&RealBarrelRandomLerpCall), g_hook_state);
+            }
+            bool RemoveHook() noexcept  { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }
+            bool EnableHook() noexcept  { return _Implementation::EnableHook(g_real_function_address, g_hook_state); }
+            bool DisableHook() noexcept { return _Implementation::DisableHook(g_real_function_address, g_hook_state); }
+            HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire); }
+        }
+
+        namespace BarrelRandomBool
+        {
+            namespace
+            {
+                std::atomic<HookState> g_hook_state = HookState::NotInPlace;
+                LPVOID g_real_function_address = nullptr;
+
+                typedef bool (DETOUR_FUNCTION_DEF* BarrelRandomBool_t)(uintptr_t a1);
+                BarrelRandomBool_t RealBarrelRandomBoolCall = nullptr;
+
+                bool DETOUR_FUNCTION_DEF Detour_BarrelRandomBool(uintptr_t a1) noexcept
+                {
+                    return BarrelPRNG::NextDouble01() < 0.5;
+                }
             }
 
-            bool RemoveHook() noexcept { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }
-            bool EnableHook() noexcept { return _Implementation::EnableHook(g_real_function_address, g_hook_state); }
-            bool DisableHook() noexcept { return _Implementation::DisableHook(g_real_function_address, g_hook_state);}
+            bool SetupHook() noexcept
+            {
+                constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x486A120;
+                return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_BarrelRandomBool), &g_real_function_address,
+                    reinterpret_cast<LPVOID*>(&RealBarrelRandomBoolCall), g_hook_state);
+            }
+            bool RemoveHook() noexcept  { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }
+            bool EnableHook() noexcept  { return _Implementation::EnableHook(g_real_function_address, g_hook_state); }
+            bool DisableHook() noexcept { return _Implementation::DisableHook(g_real_function_address, g_hook_state); }
             HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire); }
         }
 
