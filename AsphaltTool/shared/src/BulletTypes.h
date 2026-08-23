@@ -1,10 +1,16 @@
 #pragma once
 
+#define NOMINMAX
 #include <cassert>
 #include <cstdint>
 #include <cstddef>
 #include <format>
+#include <algorithm>
 #include <type_traits>
+
+#ifdef HAS_GET_MAIN_MODULE_FUNCTION
+    extern uintptr_t GetMainModule() noexcept;
+#endif
 
 namespace BulletTypes
 {
@@ -21,20 +27,31 @@ namespace BulletTypes
         [[nodiscard]] const float* Data() const noexcept { return &x; }
         [[nodiscard]] UnalignedVector3 operator+(const UnalignedVector3& other) const noexcept { return {x + other.x, y + other.y, z + other.z};}
         [[nodiscard]] UnalignedVector3 operator-(const UnalignedVector3& other) const noexcept { return {x - other.x, y - other.y, z - other.z};}
+        [[nodiscard]] UnalignedVector3 operator*(const UnalignedVector3& other) const { return {x * other.x, y * other.y, z * other.z};}
         [[nodiscard]] UnalignedVector3 operator*(float scalar) const noexcept { return {x * scalar, y * scalar, z * scalar}; }
         [[nodiscard]] UnalignedVector3 operator/(float scalar) const noexcept { return {x / scalar, y / scalar, z / scalar}; }
         [[nodiscard]] UnalignedVector3 operator-() const noexcept { return {-x, -y, -z}; }
+        [[nodiscard]] UnalignedVector3 Cross(const UnalignedVector3& other) const noexcept { return { y * other.z - z * other.y, z * other.x - x * other.z, x * other.y - y * other.x};}
+        [[nodiscard]] float Dot(const UnalignedVector3& other) const noexcept { return x * other.x + y * other.y + z * other.z; }
+        [[nodiscard]] float Magnitude() const noexcept { return std::hypot(x, y, z); }
+        void Normalize() noexcept { const float mag = Magnitude(); const float inv_mag = 1.0f / mag; x *= inv_mag; y *= inv_mag; z *= inv_mag; }
         UnalignedVector3& operator+=(const UnalignedVector3& other) noexcept { x += other.x; y += other.y; z += other.z; return *this; }
         UnalignedVector3& operator-=(const UnalignedVector3& other) noexcept { x -= other.x; y -= other.y; z -= other.z; return *this; }
         UnalignedVector3& operator*=(float scalar) noexcept { x *= scalar; y *= scalar; z *= scalar; return *this; }
         UnalignedVector3& operator/=(float scalar) noexcept { x /= scalar; y /= scalar; z /= scalar; return *this; }
         [[nodiscard]] bool operator==(const UnalignedVector3& other) const noexcept { return x == other.x && y == other.y && z == other.z; }
         [[nodiscard]] bool operator!=(const UnalignedVector3& other) const noexcept { return !(*this == other); }
-        float& operator[](size_t i) noexcept { assert(i < 3); return reinterpret_cast<float*>(this)[i]; }
-        const float& operator[](size_t i) const noexcept { assert(i < 3); return reinterpret_cast<const float*>(this)[i]; }
+        [[nodiscard]] float& operator[](size_t i) noexcept { assert(i < 3); return reinterpret_cast<float*>(this)[i]; }
+        [[nodiscard]] const float& operator[](size_t i) const noexcept { assert(i < 3); return reinterpret_cast<const float*>(this)[i]; }
         [[nodiscard]] std::string ToString() const noexcept { return std::format("({:.3f}, {:.3f}, {:.3f})", x, y, z); }
     };
     static_assert(sizeof(UnalignedVector3) == 12);
+
+    inline std::ostream& operator<<(std::ostream& os, const UnalignedVector3& vec) 
+    {
+        os << vec.ToString();
+        return os;
+    }
 
     struct alignas(16) Vector3
     {
@@ -46,46 +63,82 @@ namespace BulletTypes
         [[nodiscard]] const float* Data() const { return &x; }
         [[nodiscard]] Vector3 operator+(const Vector3& other) const { return {x + other.x, y + other.y, z + other.z};}
         [[nodiscard]] Vector3 operator-(const Vector3& other) const { return {x - other.x, y - other.y, z - other.z};}
+        [[nodiscard]] Vector3 operator*(const Vector3& other) const { return {x * other.x, y * other.y, z * other.z};}
         [[nodiscard]] Vector3 operator*(float scalar) const { return {x * scalar, y * scalar, z * scalar}; }
         [[nodiscard]] Vector3 operator/(float scalar) const { return {x / scalar, y / scalar, z / scalar}; }
         [[nodiscard]] Vector3 operator-() const { return {-x, -y, -z}; }
+        [[nodiscard]] Vector3 Cross(const Vector3& other) const noexcept { return { y * other.z - z * other.y, z * other.x - x * other.z, x * other.y - y * other.x};}
+        [[nodiscard]] float Dot(const Vector3& other) const noexcept { return x * other.x + y * other.y + z * other.z; }
+        [[nodiscard]] float Magnitude() const noexcept { return std::hypot(x, y, z); }
+        void Normalize() noexcept { const float mag = Magnitude(); const float inv_mag = 1 / mag; x *= inv_mag; y *= inv_mag; z *= inv_mag; }
         Vector3& operator+=(const Vector3& other) { x += other.x; y += other.y; z += other.z; return *this; }
         Vector3& operator-=(const Vector3& other) { x -= other.x; y -= other.y; z -= other.z; return *this; }
         Vector3& operator*=(float scalar) { x *= scalar; y *= scalar; z *= scalar; return *this; }
         Vector3& operator/=(float scalar) { x /= scalar; y /= scalar; z /= scalar; return *this; }
         [[nodiscard]] bool operator==(const Vector3& other) const { return x == other.x && y == other.y && z == other.z; }
         [[nodiscard]] bool operator!=(const Vector3& other) const { return !(*this == other); }
-        float& operator[](size_t i) { assert(i < 3); return reinterpret_cast<float*>(this)[i]; }
-        const float& operator[](size_t i) const { assert(i < 3); return reinterpret_cast<const float*>(this)[i]; }
+        [[nodiscard]] float& operator[](size_t i) { assert(i < 3); return reinterpret_cast<float*>(this)[i]; }
+        [[nodiscard]] const float& operator[](size_t i) const { assert(i < 3); return reinterpret_cast<const float*>(this)[i]; }
         [[nodiscard]] std::string ToString() const { return std::format("({:.3f}, {:.3f}, {:.3f})", x, y, z); }
     };
     static_assert(sizeof(Vector3) == 16);
+
+    inline std::ostream& operator<<(std::ostream& os, const Vector3& vec) 
+    {
+        os << vec.ToString();
+        return os;
+    }
 
     struct UnalignedVector4 
     { 
         float x{}, y{}, z{}, w{}; 
         [[nodiscard]] float* Data() noexcept { return &x; }
         [[nodiscard]] const float* Data() const noexcept { return &x; }
-        float& operator[](size_t i) noexcept { assert(i < 4); return reinterpret_cast<float*>(this)[i]; }
-        const float& operator[](size_t i) const noexcept { assert(i < 4); return reinterpret_cast<const float*>(this)[i]; }
+        [[nodiscard]] float& operator[](size_t i) noexcept { assert(i < 4); return reinterpret_cast<float*>(this)[i]; }
+        [[nodiscard]] const float& operator[](size_t i) const noexcept { assert(i < 4); return reinterpret_cast<const float*>(this)[i]; }
+        [[nodiscard]] UnalignedVector4 operator+(const UnalignedVector4& other) const { return {x + other.x, y + other.y, z + other.z, w + other.w};}
+        [[nodiscard]] UnalignedVector4 operator-(const UnalignedVector4& other) const { return {x - other.x, y - other.y, z - other.z, w - other.w};}
+        [[nodiscard]] UnalignedVector4 operator*(const UnalignedVector4& other) const { return {x * other.x, y * other.y, z * other.z, w * other.w};}
+        [[nodiscard]] UnalignedVector4 operator*(float scalar) const { return {x * scalar, y * scalar, z * scalar, w * scalar}; }
+        [[nodiscard]] UnalignedVector4 operator/(float scalar) const { return {x / scalar, y / scalar, z / scalar, w / scalar}; }
+        UnalignedVector4& operator+=(const UnalignedVector4& other) { x += other.x; y += other.y; z += other.z; w += other.w; return *this; }
+        UnalignedVector4& operator-=(const UnalignedVector4& other) { x -= other.x; y -= other.y; z -= other.z; w -= other.w; return *this; }
         [[nodiscard]] bool operator==(const UnalignedVector4& other) const noexcept { return x == other.x && y == other.y && z == other.z && w == other.w; }
         [[nodiscard]] bool operator!=(const UnalignedVector4& other) const noexcept { return !(*this == other); }
         [[nodiscard]] std::string ToString() const noexcept { return std::format("({:.3f}, {:.3f}, {:.3f}, {:.3f})", x, y, z, w); }
     };
     static_assert(sizeof(UnalignedVector4) == 16);
 
+    inline std::ostream& operator<<(std::ostream& os, const UnalignedVector4& vec) 
+    {
+        os << vec.ToString();
+        return os;
+    }
+
     struct alignas(16) Vector4 
     { 
         float x{}, y{}, z{}, w{}; 
         [[nodiscard]] float* Data() noexcept { return &x; }
         [[nodiscard]] const float* Data() const noexcept { return &x; }
-        float& operator[](size_t i) noexcept { assert(i < 4); return reinterpret_cast<float*>(this)[i]; }
-        const float& operator[](size_t i) const noexcept { assert(i < 4); return reinterpret_cast<const float*>(this)[i]; }
+        [[nodiscard]] float& operator[](size_t i) noexcept { assert(i < 4); return reinterpret_cast<float*>(this)[i]; }
+        [[nodiscard]] const float& operator[](size_t i) const noexcept { assert(i < 4); return reinterpret_cast<const float*>(this)[i]; }
+        [[nodiscard]] Vector4 operator*(float scalar) const { return {x * scalar, y * scalar, z * scalar, w * scalar}; }
+        [[nodiscard]] Vector4 operator/(float scalar) const { return {x / scalar, y / scalar, z / scalar, w / scalar}; }
+        [[nodiscard]] Vector4 operator+(const Vector4& other) const { return {x + other.x, y + other.y, z + other.z, w + other.w};}
+        [[nodiscard]] Vector4 operator-(const Vector4& other) const { return {x - other.x, y - other.y, z - other.z, w - other.w};}
+        [[nodiscard]] Vector4 operator*(const Vector4& other) const { return {x * other.x, y * other.y, z * other.z, w * other.w};}
+        Vector4& operator+=(const Vector4& other) { x += other.x; y += other.y; z += other.z; w += other.w; return *this; }
+        Vector4& operator-=(const Vector4& other) { x -= other.x; y -= other.y; z -= other.z; w -= other.w; return *this; }
         [[nodiscard]] bool operator==(const Vector4& other) const noexcept { return x == other.x && y == other.y && z == other.z && w == other.w; }
         [[nodiscard]] bool operator!=(const Vector4& other) const noexcept { return !(*this == other); }
         [[nodiscard]] std::string ToString() const noexcept { return std::format("({:.3f}, {:.3f}, {:.3f}, {:.3f})", x, y, z, w); }
     };
     static_assert(sizeof(Vector4) == 16);
+    inline std::ostream& operator<<(std::ostream& os, const Vector4& vec) 
+    {
+        os << vec.ToString();
+        return os;
+    }
 
     struct alignas(16) Matrix3x3 
     {
@@ -97,87 +150,92 @@ namespace BulletTypes
     {
         UnalignedVector4 m_basis[3];
         UnalignedVector4 m_origin;
-        UnalignedTransform() noexcept : m_basis({1, 0, 0}, {0, 1, 0}, {0, 0, 1}), m_origin(0, 0, 0) {}
-        UnalignedVector4& operator[](size_t col) noexcept { assert(col < 4); return (col < 3) ? m_basis[col] : m_origin; }
-        const UnalignedVector4& operator[](size_t col) const noexcept { assert(col < 4);  return (col < 3) ? m_basis[col] : m_origin; }
-        float& At(size_t flat_index) noexcept { assert(flat_index < 16); return reinterpret_cast<float*>(this)[flat_index]; }
-        const float& At(size_t flat_index) const noexcept { assert(flat_index < 16); return reinterpret_cast<const float*>(this)[flat_index]; }
-        float* Data() noexcept { return reinterpret_cast<float*>(this); }
-        const float* Data() const noexcept { return reinterpret_cast<const float*>(this); }
-        [[nodiscard]] bool operator==(const UnalignedTransform& other) const noexcept
-        { 
-            return m_basis[0] == other.m_basis[0] && m_basis[1] == other.m_basis[1] && m_basis[2] == other.m_basis[2] && m_origin == other.m_origin;
-        }
+        UnalignedTransform() noexcept : m_basis{UnalignedVector4(1.0f, 0.0f, 0.0f, 0.0f), UnalignedVector4(0.0f, 1.0f, 0.0f, 0.0f),UnalignedVector4(0.0f, 0.0f, 1.0f, 0.0f)}, m_origin(0.0f, 0.0f, 0.0f, 1.0f) {}
+        [[nodiscard]] UnalignedVector4& operator[](size_t col) noexcept { assert(col < 4); return (col < 3) ? m_basis[col] : m_origin; }
+        [[nodiscard]] const UnalignedVector4& operator[](size_t col) const noexcept { assert(col < 4);  return (col < 3) ? m_basis[col] : m_origin; }
+        [[nodiscard]] float& At(size_t flat_index) noexcept { assert(flat_index < 16); return reinterpret_cast<float*>(this)[flat_index]; }
+        [[nodiscard]] const float& At(size_t flat_index) const noexcept { assert(flat_index < 16); return reinterpret_cast<const float*>(this)[flat_index]; }
+        [[nodiscard]] float* Data() noexcept { return reinterpret_cast<float*>(this); }
+        [[nodiscard]] const float* Data() const noexcept { return reinterpret_cast<const float*>(this); }
+        void RotateX(float radians) noexcept { const float c = std::cos(radians); const float s = std::sin(radians); const UnalignedVector4 old_y = m_basis[1]; const UnalignedVector4 old_z = m_basis[2]; m_basis[1] = old_y * c + old_z * s; m_basis[2] = old_y * -s + old_z * c; }
+        void RotateY(float radians) noexcept { const float c = std::cos(radians); const float s = std::sin(radians); const UnalignedVector4 old_x = m_basis[0]; const UnalignedVector4 old_z = m_basis[2]; m_basis[0] = old_x * c - old_z * s; m_basis[2] = old_x * s + old_z * c; }
+        void RotateZ(float radians) noexcept { const float c = std::cos(radians); const float s = std::sin(radians); const UnalignedVector4 old_x = m_basis[0]; const UnalignedVector4 old_y = m_basis[1]; m_basis[0] = old_x * c + old_y * s; m_basis[1] = old_x * -s + old_y * c; }
+        void RotateWorldX(float radians) noexcept { const float c = std::cos(radians); const float s = std::sin(radians); for (int i = 0; i < 3; ++i) { const float y = m_basis[i].y; const float z = m_basis[i].z; m_basis[i].y = y * c - z * s; m_basis[i].z = y * s + z * c; } const float y = m_origin.y; const float z = m_origin.z; m_origin.y = y * c - z * s; m_origin.z = y * s + z * c; }
+        void RotateWorldY(float radians) noexcept { const float c = std::cos(radians); const float s = std::sin(radians); for (int i = 0; i < 3; ++i) { const float x = m_basis[i].x; const float z = m_basis[i].z; m_basis[i].x = x * c + z * s; m_basis[i].z = -x * s + z * c; } const float x = m_origin.x; const float z = m_origin.z; m_origin.x = x * c + z * s; m_origin.z = -x * s + z * c;}
+        void RotateWorldZ(float radians) noexcept { const float c = std::cos(radians); const float s = std::sin(radians); for (int i = 0; i < 3; ++i) { const float x = m_basis[i].x; const float y = m_basis[i].y; m_basis[i].x = x * c - y * s; m_basis[i].y = x * s + y * c; } const float x = m_origin.x; const float y = m_origin.y; m_origin.x = x * c - y * s; m_origin.y = x * s + y * c;}
+        [[nodiscard]] bool operator==(const UnalignedTransform& other) const noexcept {  return m_basis[0] == other.m_basis[0] && m_basis[1] == other.m_basis[1] && m_basis[2] == other.m_basis[2] && m_origin == other.m_origin; }
         [[nodiscard]] bool operator!=(const UnalignedTransform& other) const noexcept { return !(*this == other); }
-        [[nodiscard]] std::string ToString() const noexcept
-        {
-            return std::format(
-                "[{:.3f}, {:.3f}, {:.3f}, {:.3f}, "
-                "{:.3f}, {:.3f}, {:.3f}, {:.3f}, "
-                "{:.3f}, {:.3f}, {:.3f}, {:.3f}, "
-                "{:.3f}, {:.3f}, {:.3f}, {:.3f}]",
-                (*this)[0].x, (*this)[0].y, (*this)[0].z, (*this)[0].w,
-                (*this)[1].x, (*this)[1].y, (*this)[1].z, (*this)[1].w,
-                (*this)[2].x, (*this)[2].y, (*this)[2].z, (*this)[2].w,
-                (*this)[3].x, (*this)[3].y, (*this)[3].z, (*this)[3].w
-            );
-        }
+        [[nodiscard]] std::string ToString() const noexcept { return std::format("[{:.3f}, {:.3f}, {:.3f}, {:.3f}, ""{:.3f}, {:.3f}, {:.3f}, {:.3f}, ""{:.3f}, {:.3f}, {:.3f}, {:.3f}, ""{:.3f}, {:.3f}, {:.3f}, {:.3f}]",(*this)[0].x, (*this)[0].y, (*this)[0].z, (*this)[0].w,(*this)[1].x, (*this)[1].y, (*this)[1].z, (*this)[1].w,(*this)[2].x, (*this)[2].y, (*this)[2].z, (*this)[2].w,(*this)[3].x, (*this)[3].y, (*this)[3].z, (*this)[3].w);}
+        [[nodiscard]] static UnalignedTransform Identity() noexcept { return UnalignedTransform(); }
     };
     static_assert(sizeof(UnalignedTransform) == 16 * sizeof(float));
+    inline std::ostream& operator<<(std::ostream& os, const UnalignedTransform& vec) 
+    {
+        os << vec.ToString();
+        return os;
+    }
 
     struct alignas(16) Transform
     {
         Vector4 m_basis[3];
         Vector4 m_origin;
-        Transform() noexcept : m_basis({1, 0, 0}, {0, 1, 0}, {0, 0, 1}), m_origin(0, 0, 0) {}
-        Vector4& operator[](size_t col) noexcept{ assert(col < 4); return (col < 3) ? m_basis[col] : m_origin; }
-        const Vector4& operator[](size_t col) const noexcept { assert(col < 4); return (col < 3) ? m_basis[col] : m_origin; }
-        float& At(size_t flat_index) noexcept { assert(flat_index < 16); return reinterpret_cast<float*>(this)[flat_index]; }
-        const float& At(size_t flat_index) const noexcept { assert(flat_index < 16); return reinterpret_cast<const float*>(this)[flat_index]; }
-        float* Data() noexcept { return reinterpret_cast<float*>(this); }
-        const float* Data() const noexcept { return reinterpret_cast<const float*>(this); }
-        [[nodiscard]] bool operator==(const Transform& other) const noexcept
-        { 
-            return m_basis[0] == other.m_basis[0] && m_basis[1] == other.m_basis[1] && m_basis[2] == other.m_basis[2] && m_origin == other.m_origin;
-        }
+        Transform() noexcept : m_basis{Vector4(1.0f, 0.0f, 0.0f, 0.0f), Vector4(0.0f, 1.0f, 0.0f, 0.0f),Vector4(0.0f, 0.0f, 1.0f, 0.0f)}, m_origin(0.0f, 0.0f, 0.0f, 1.0f) {}
+        [[nodiscard]] Vector4& operator[](size_t col) noexcept{ assert(col < 4); return (col < 3) ? m_basis[col] : m_origin; }
+        [[nodiscard]] const Vector4& operator[](size_t col) const noexcept { assert(col < 4); return (col < 3) ? m_basis[col] : m_origin; }
+        [[nodiscard]] float& At(size_t flat_index) noexcept { assert(flat_index < 16); return reinterpret_cast<float*>(this)[flat_index]; }
+        [[nodiscard]] const float& At(size_t flat_index) const noexcept { assert(flat_index < 16); return reinterpret_cast<const float*>(this)[flat_index]; }
+        [[nodiscard]] float* Data() noexcept { return reinterpret_cast<float*>(this); }
+        [[nodiscard]] const float* Data() const noexcept { return reinterpret_cast<const float*>(this); }
+        void RotateX(float radians) noexcept { const float c = std::cos(radians); const float s = std::sin(radians); const Vector4 old_y = m_basis[1]; const Vector4 old_z = m_basis[2]; m_basis[1] = old_y * c + old_z * s; m_basis[2] = old_y * -s + old_z * c; }
+        void RotateY(float radians) noexcept { const float c = std::cos(radians); const float s = std::sin(radians); const Vector4 old_x = m_basis[0]; const Vector4 old_z = m_basis[2]; m_basis[0] = old_x * c - old_z * s; m_basis[2] = old_x * s + old_z * c; }
+        void RotateZ(float radians) noexcept { const float c = std::cos(radians); const float s = std::sin(radians); const Vector4 old_x = m_basis[0]; const Vector4 old_y = m_basis[1]; m_basis[0] = old_x * c + old_y * s; m_basis[1] = old_x * -s + old_y * c; }
+        void RotateWorldX(float radians) noexcept { const float c = std::cos(radians); const float s = std::sin(radians); for (int i = 0; i < 3; ++i) { const float y = m_basis[i].y; const float z = m_basis[i].z; m_basis[i].y = y * c - z * s; m_basis[i].z = y * s + z * c; } const float y = m_origin.y; const float z = m_origin.z; m_origin.y = y * c - z * s; m_origin.z = y * s + z * c; }
+        void RotateWorldY(float radians) noexcept { const float c = std::cos(radians); const float s = std::sin(radians); for (int i = 0; i < 3; ++i) { const float x = m_basis[i].x; const float z = m_basis[i].z; m_basis[i].x = x * c + z * s; m_basis[i].z = -x * s + z * c; } const float x = m_origin.x; const float z = m_origin.z; m_origin.x = x * c + z * s; m_origin.z = -x * s + z * c;}
+        void RotateWorldZ(float radians) noexcept { const float c = std::cos(radians); const float s = std::sin(radians); for (int i = 0; i < 3; ++i) { const float x = m_basis[i].x; const float y = m_basis[i].y; m_basis[i].x = x * c - y * s; m_basis[i].y = x * s + y * c; } const float x = m_origin.x; const float y = m_origin.y; m_origin.x = x * c - y * s; m_origin.y = x * s + y * c;}
+        [[nodiscard]] Vector3 operator*(const Vector3& v) const noexcept { return {  m_basis[0].x * v.x + m_basis[1].x * v.y + m_basis[2].x * v.z + m_origin.x, m_basis[0].y * v.x + m_basis[1].y * v.y + m_basis[2].y * v.z + m_origin.y, m_basis[0].z * v.x + m_basis[1].z * v.y + m_basis[2].z * v.z + m_origin.z }; }
+        [[nodiscard]] bool operator==(const Transform& other) const noexcept { return m_basis[0] == other.m_basis[0] && m_basis[1] == other.m_basis[1] && m_basis[2] == other.m_basis[2] && m_origin == other.m_origin; }
         [[nodiscard]] bool operator!=(const Transform& other) const noexcept { return !(*this == other); }
-        [[nodiscard]] std::string ToString() const noexcept
-        {
-            return std::format(
-                "[{:.3f}, {:.3f}, {:.3f}, {:.3f}, "
-                "{:.3f}, {:.3f}, {:.3f}, {:.3f}, "
-                "{:.3f}, {:.3f}, {:.3f}, {:.3f}, "
-                "{:.3f}, {:.3f}, {:.3f}, {:.3f}]",
-                (*this)[0].x, (*this)[0].y, (*this)[0].z, (*this)[0].w,
-                (*this)[1].x, (*this)[1].y, (*this)[1].z, (*this)[1].w,
-                (*this)[2].x, (*this)[2].y, (*this)[2].z, (*this)[2].w,
-                (*this)[3].x, (*this)[3].y, (*this)[3].z, (*this)[3].w
-            );
-        }
+        [[nodiscard]] std::string ToString() const noexcept { return std::format("[{:.3f}, {:.3f}, {:.3f}, {:.3f}, ""{:.3f}, {:.3f}, {:.3f}, {:.3f}, ""{:.3f}, {:.3f}, {:.3f}, {:.3f}, ""{:.3f}, {:.3f}, {:.3f}, {:.3f}]",(*this)[0].x, (*this)[0].y, (*this)[0].z, (*this)[0].w,(*this)[1].x, (*this)[1].y, (*this)[1].z, (*this)[1].w,(*this)[2].x, (*this)[2].y, (*this)[2].z, (*this)[2].w,(*this)[3].x, (*this)[3].y, (*this)[3].z, (*this)[3].w);}
+        [[nodiscard]] static Transform Identity() noexcept { return Transform(); }
     };
     static_assert(sizeof(Transform) == 16 * sizeof(float));
+    inline std::ostream& operator<<(std::ostream& os, const Transform& vec) 
+    {
+        os << vec.ToString();
+        return os;
+    }
 
     struct UnalignedQuaternion
     {
         float x, y, z, w;
         [[nodiscard]] float* Data() { return &x; }
         [[nodiscard]] const float* Data() const { return &x; }
-        float& operator[](size_t i) { assert(i < 4); return reinterpret_cast<float*>(this)[i]; }
-        const float& operator[](size_t i) const { assert(i < 4); return reinterpret_cast<const float*>(this)[i]; }
+        [[nodiscard]] float& operator[](size_t i) { assert(i < 4); return reinterpret_cast<float*>(this)[i]; }
+        [[nodiscard]] const float& operator[](size_t i) const { assert(i < 4); return reinterpret_cast<const float*>(this)[i]; }
         [[nodiscard]] std::string ToString() const { return std::format("({:.3f}, {:.3f}, {:.3f}, {:.3f})", x, y, z, w); }
     };
     static_assert(sizeof(UnalignedQuaternion) == 4 * sizeof(float));
+    inline std::ostream& operator<<(std::ostream& os, const UnalignedQuaternion& vec) 
+    {
+        os << vec.ToString();
+        return os;
+    }
 
     struct alignas(16) Quaternion
     {
         float x, y, z, w;
         [[nodiscard]] float* Data() { return &x; }
         [[nodiscard]] const float* Data() const { return &x; }
-        float& operator[](size_t i) { assert(i < 4); return reinterpret_cast<float*>(this)[i]; }
-        const float& operator[](size_t i) const { assert(i < 4); return reinterpret_cast<const float*>(this)[i]; }
+        [[nodiscard]] float& operator[](size_t i) { assert(i < 4); return reinterpret_cast<float*>(this)[i]; }
+        [[nodiscard]] const float& operator[](size_t i) const { assert(i < 4); return reinterpret_cast<const float*>(this)[i]; }
         [[nodiscard]] std::string ToString() const { return std::format("({:.3f}, {:.3f}, {:.3f}, {:.3f})", x, y, z, w); }
     };
     static_assert(sizeof(Quaternion) == 4 * sizeof(float));
+    inline std::ostream& operator<<(std::ostream& os, const Quaternion& vec) 
+    {
+        os << vec.ToString();
+        return os;
+    }
 
     #pragma pack(push, 1)
     template <typename T>
@@ -239,10 +297,10 @@ namespace BulletTypes
         IMPLICIT_CONVEX_SHAPES_START_HERE,
         SPHERE_SHAPE_PROXYTYPE,                        // 8 - USED IN GAME
         MULTI_SPHERE_SHAPE_PROXYTYPE,
-        CAPSULE_SHAPE_PROXYTYPE,                       // 10 - USED IN GAME (Inside Compound)
+        CAPSULE_SHAPE_PROXYTYPE,                       // 10 - USED IN GAME
         CONE_SHAPE_PROXYTYPE,
         CONVEX_SHAPE_PROXYTYPE,
-        CYLINDER_SHAPE_PROXYTYPE,                      // 13 - Used in game (see rome)
+        CYLINDER_SHAPE_PROXYTYPE,                      // 13 - Used in game
         UNIFORM_SCALING_SHAPE_PROXYTYPE,
         MINKOWSKI_SUM_SHAPE_PROXYTYPE,
         MINKOWSKI_DIFFERENCE_SHAPE_PROXYTYPE,
@@ -291,6 +349,12 @@ namespace BulletTypes
         ////////////////////////////////////
         // Dynamic dispatch methods
         ////////////////////////////////////
+        ~CollisionShape() noexcept
+        {
+            using Fn = void(__fastcall *)(CollisionShape* p_this, char should_free);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[0](this, 1);
+        }
+
         void GetAABB(Transform& transform, Vector3& aabb_min_out, Vector3& aabb_max_out) const noexcept 
         {
             using Fn = void(*)(const CollisionShape* p_this, float* transform, float* aabb_min_out, float* aabb_max_out);
@@ -422,7 +486,7 @@ namespace BulletTypes
 
     struct alignas(16) PolyhedralConvexShape : public ConvexInternalShape 
     {
-    private:
+    protected:
         void* m_polyhedron; //Seems unused or garbage
     public:
         [[nodiscard]] int GetNumVertices() const noexcept
@@ -468,8 +532,33 @@ namespace BulletTypes
         }
     };
 
+
     struct alignas(16) BoxShape : public PolyhedralConvexShape // USED IN GAME
     {
+    #ifdef HAS_GET_MAIN_MODULE_FUNCTION 
+        static BoxShape* Construct(Vector3 half_extents) noexcept
+        {
+            BoxShape* storage = reinterpret_cast<BoxShape*>(operator new(sizeof(BoxShape)));
+            std::memset(reinterpret_cast<void*>(storage), 0, sizeof(BoxShape));
+            
+            storage->m_vtable_ptr = std::bit_cast<void**>(GetMainModule() + 0x6940B70); // Vtable for v47.1.0
+
+            storage->m_shape_type       = BroadphaseNativeTypes::BOX_SHAPE_PROXYTYPE;
+            storage->m_polyhedron       = nullptr;
+            storage->m_local_scaling    = { 1.0f, 1.0f, 1.0f };
+            storage->m_collision_margin = 0.0f;
+            storage->m_padding = 0;
+
+            Vector3 margin(storage->GetMargin(), storage->GetMargin(), storage->GetMargin());
+            storage->m_implicit_shape_dimensions = (half_extents * storage->m_local_scaling) - margin;
+
+            const float safe_margin = std::min({half_extents.x, half_extents.y, half_extents.z}) * 0.1f;
+            storage->SetMargin(safe_margin);
+
+            return storage;
+        }
+    #endif
+    
         void GetPlaneEquation(Vector4& plane, int i) const noexcept
         {
             using Fn = void(*)(const BoxShape* p_this, Vector4& plane, int i);
@@ -479,7 +568,22 @@ namespace BulletTypes
 
     struct alignas(16) SphereShape : public ConvexInternalShape // USED IN GAME
     {
+    #ifdef HAS_GET_MAIN_MODULE_FUNCTION 
+        static SphereShape* Construct(float radius) noexcept
+        {
+            SphereShape* storage = reinterpret_cast<SphereShape*>(operator new(sizeof(SphereShape)));
+            std::memset(reinterpret_cast<void*>(storage), 0, sizeof(SphereShape));
+            
+            storage->m_vtable_ptr = std::bit_cast<void**>(GetMainModule() + 0x6940750); // Vtable for v47.1.0
 
+            storage->m_shape_type       = BroadphaseNativeTypes::SPHERE_SHAPE_PROXYTYPE;
+            storage->m_local_scaling    = { 1.0f, 1.0f, 1.0f };
+            storage->m_implicit_shape_dimensions = {radius, 0.0f, 0.0f};
+            storage->m_collision_margin = radius;
+            storage->m_padding = 0;
+            return storage;
+        }
+    #endif
     };
 
     struct alignas(16) CapsuleShape : public ConvexInternalShape // USED IN GAME
@@ -575,6 +679,12 @@ namespace BulletTypes
         int              m_has_aabb; 
         Vector3          m_aabb_min;
         Vector3          m_aabb_max;
+
+        [[nodiscard]] int GetNumSubparts() const noexcept
+        {
+            return static_cast<int>(m_indexed_meshes.m_size);
+        }
+
         [[nodiscard]] uint64_t GetAmountTriangles() const noexcept
         {
             if (m_indexed_meshes.m_size < 0 || m_indexed_meshes.m_size > m_indexed_meshes.m_capacity) return 0;
@@ -607,6 +717,34 @@ namespace BulletTypes
     {
         using MaterialArray = AlignedObjectArray<MaterialProperties>;
         MaterialArray m_materials;
+
+    #ifdef HAS_GET_MAIN_MODULE_FUNCTION
+        static TriangleIndexVertexMaterialArray* CallConstructor(void* storage, int num_triangles, const void* triangle_index_base,
+                                                                 int triangle_index_stride, int num_vertices, const void* vertex_base,
+                                                                 int vertex_stride, int num_materials, const void* material_base,
+                                                                 int material_stride, const void* triangle_materials_base, int material_index_stride) noexcept
+        {
+            using Fn = TriangleIndexVertexMaterialArray*(*)(void*, int, uintptr_t, int, int, uintptr_t, int, int, uintptr_t, int, uintptr_t, int);
+
+            return reinterpret_cast<Fn>(GetMainModule() + 0x636973C)(storage,num_triangles,
+                reinterpret_cast<uintptr_t>(triangle_index_base), triangle_index_stride, num_vertices,
+                reinterpret_cast<uintptr_t>(vertex_base), vertex_stride, num_materials, reinterpret_cast<uintptr_t>(material_base),
+                material_stride, reinterpret_cast<uintptr_t>(triangle_materials_base), material_index_stride);
+        }
+
+        static TriangleIndexVertexMaterialArray* ConstructForSurfaceIndices(int num_triangles, const int* triangle_indices, int num_vertices,
+                                                                            const float* vertex_positions, const uint8_t* triangle_surface_ids,
+                                                                            int vertex_stride = 3 * sizeof(float), int index_stride = 3 * sizeof(int)) noexcept
+        {
+            static const struct { float unused[4]; } dummy_material{};
+
+            TriangleIndexVertexMaterialArray* storage = static_cast<TriangleIndexVertexMaterialArray*>(operator new(sizeof(TriangleIndexVertexMaterialArray)));
+            std::memset(storage, 0, sizeof(TriangleIndexVertexMaterialArray));
+
+            return CallConstructor(storage, num_triangles, triangle_indices, index_stride, num_vertices, vertex_positions,
+                            vertex_stride, 1, &dummy_material, sizeof(dummy_material), triangle_surface_ids, sizeof(uint8_t));
+        }
+    #endif
 
         void GetLockedMaterialBase(unsigned char** material_base, int& num_materials, PHY_ScalarType& material_type, int& material_stride,
 								unsigned char** triangle_materialBase, int& num_triangles, int& triangle_material_stride, PHY_ScalarType& triangle_type, int subpart = 0) noexcept
@@ -717,6 +855,14 @@ namespace BulletTypes
         bool m_use_quantized_aabb_compression {};
         bool m_owns_bvh {};
         bool m_pad[11] {};
+
+    #ifdef HAS_GET_MAIN_MODULE_FUNCTION
+        static BvhTriangleMeshShape* CallConstructor(void* location, TriangleIndexVertexArray* mesh_interface, bool use_quant, bool build_bvh = true) noexcept
+        {
+            using Fn = BvhTriangleMeshShape*(*)(BvhTriangleMeshShape* p_this, StridingMeshInterface*, bool, bool);
+            return reinterpret_cast<Fn>(GetMainModule() + 0x6366C48)(reinterpret_cast<BvhTriangleMeshShape*>(location), mesh_interface, use_quant, build_bvh);
+        }
+    #endif
     };
 
     struct alignas(16) ScaledBvhTriangleMeshShape : public ConcaveShape // USED IN GAME
@@ -735,7 +881,41 @@ namespace BulletTypes
 
     struct alignas(16) MultimaterialTriangleMeshShape : public BvhTriangleMeshShape // USED IN GAME
     {
-	    AlignedObjectArray<Material*> m_material_list;
+        uint8_t m_header_padd[4];
+        AlignedObjectArray<Material*> m_material_list;
+
+    #ifdef HAS_GET_MAIN_MODULE_FUNCTION
+        static MultimaterialTriangleMeshShape* Construct(TriangleIndexVertexArray* mesh_interface, bool use_quant = true, bool build_bvh = true) noexcept
+        {
+            MultimaterialTriangleMeshShape* storage = static_cast<MultimaterialTriangleMeshShape*>(operator new(sizeof(MultimaterialTriangleMeshShape)));
+            std::memset(storage, 0, sizeof(MultimaterialTriangleMeshShape));
+
+            BvhTriangleMeshShape::CallConstructor(storage, mesh_interface, use_quant, build_bvh);
+            storage->m_vtable_ptr = std::bit_cast<void**>(GetMainModule() + 0x6940C38);
+            storage->m_shape_type = BroadphaseNativeTypes::MULTIMATERIAL_TRIANGLE_MESH_PROXYTYPE;
+
+            storage->m_material_list.m_owns_memory = 1;
+            storage->m_material_list.m_data        = nullptr;
+
+            const int num_subparts = mesh_interface->GetNumSubparts();
+            for (int subpart = 0; subpart < num_subparts; ++subpart)
+            {
+                const unsigned char* vertexbase;
+                int numverts;
+                PHY_ScalarType type;
+                int stride;
+                const unsigned char* indexbase;
+                int indexstride;
+                int numfaces;
+                PHY_ScalarType indicestype;
+
+                mesh_interface->GetLockedReadOnlyVertexIndexBase(&vertexbase, numverts, type, stride, &indexbase, indexstride, numfaces, indicestype, subpart);
+            }
+
+            return storage;
+        }
+    #endif
+
         [[nodiscard]] uint64_t GetAmountTriangles() const noexcept
         {
             if (m_mesh_interface->IsInternalTriangleVertexMaterialArray())
@@ -745,7 +925,9 @@ namespace BulletTypes
             return 0;
         }
     };
-    static_assert(offsetof(MultimaterialTriangleMeshShape, m_local_aabb_min) ==  0x60);
+    static_assert(offsetof(MultimaterialTriangleMeshShape, m_local_aabb_min) == 0x60);
+    static_assert(offsetof(MultimaterialTriangleMeshShape, m_material_list)  == 0xB4);
+    static_assert(offsetof(MultimaterialTriangleMeshShape, m_material_list.m_owns_memory) == 200);
 
     struct DbvtAabbMm
     {
@@ -903,6 +1085,14 @@ namespace BulletTypes
         int                 m_update_revision; 
 
         // Constructor: __int64 __fastcall sub_1463578F8(__int64 a1)
+    #ifdef HAS_GET_MAIN_MODULE_FUNCTION
+        static CollisionObject* Construct() noexcept
+        {
+            void* storage = operator new(sizeof(CollisionObject));
+            using Fn = CollisionObject*(*)(void*);
+            return reinterpret_cast<Fn>(GetMainModule() + 0x63578F8)(storage);
+        }
+    #endif
 
         void SetCollisionShape(CollisionShape* shape) noexcept
         {
@@ -946,6 +1136,12 @@ namespace BulletTypes
         float               m_additional_linear_damping_threshold_sqr;
         float               m_additional_angular_damping_threshold_sqr;
         float               m_additional_angular_damping_factor;
+
+        RigidBodyConstructionInfo(float mass, CollisionShape* collision_shape, const Vector3& local_inertia = Vector3(0.0f)) noexcept
+        : m_mass(mass), m_motion_state(nullptr), m_start_world_transform(), m_collision_shape(collision_shape), m_local_inertia(local_inertia), m_linear_damping(0.0f), m_angular_damping(0.0f),
+		  m_friction(0.5f), m_restitution(0.0f), m_linear_sleeping_threshold(0.8f),
+		  m_angular_sleeping_threshold(1.f), m_additional_damping(false), m_additional_damping_factor(0.005f), 
+          m_additional_linear_damping_threshold_sqr(0.01f), m_additional_angular_damping_threshold_sqr(0.01f), m_additional_angular_damping_factor(0.01f) {}
     };
     static_assert(sizeof(RigidBodyConstructionInfo) == 160);
 
@@ -992,6 +1188,14 @@ namespace BulletTypes
         // Rigidbody constructors:
         // _int64 __fastcall sub_1463525A8(__int64 a1, __int64 a2)
         // __int64 __fastcall sub_1463525F8(__int64 a1, float a2, __int64 a3, __int64 a4, __int128 *a5)
+    #ifdef HAS_GET_MAIN_MODULE_FUNCTION 
+        static RigidBody* Construct(const RigidBodyConstructionInfo& construction_info) noexcept
+        {
+            void* storage = operator new(sizeof(RigidBody));
+            using Fn = RigidBody*(*)(void*, const RigidBodyConstructionInfo&);
+            return reinterpret_cast<Fn>(GetMainModule() + 0x63525A8)(storage, construction_info);
+        }
+    #endif
     };
     static_assert(offsetof(RigidBody, m_inverse_mass)   == 0x180);
     static_assert(offsetof(RigidBody, m_gravity)        == 0x1B0);
@@ -1006,7 +1210,7 @@ namespace BulletTypes
 
     struct alignas(16) BroadphaseProxy
     {
-        CollisionObject*  m_client_body {};
+        CollisionObject*  m_client_object {};
         int               m_collision_filter_group;
         int               m_collision_filter_mask;
         int               m_unique_id;
@@ -1038,6 +1242,134 @@ namespace BulletTypes
         uint8_t m_pad[80];
     };
 
+    struct LocalShapeInfo
+	{
+		int m_shape_part;
+		int m_triangle_index;
+	};
+
+    struct SpinMutex
+    {
+        int m_lock;
+    };
+
+    struct LocalRayResult
+	{
+		const CollisionObject* m_collision_object;
+		LocalShapeInfo* m_local_shape_info;
+		Vector3 m_hit_normal_local;
+		float m_hit_fraction;
+	};
+
+    struct RayResultCallback
+	{
+		float m_closest_hit_fraction;
+		const CollisionObject* m_collision_object;
+		int m_collision_filter_group;
+		int m_collision_filter_mask;
+		unsigned int m_flags;
+
+		virtual ~RayResultCallback() {}
+
+		virtual bool NeedsCollision(BroadphaseProxy* proxy0) const
+		{
+			bool collides = (proxy0->m_collision_filter_group & m_collision_filter_mask) != 0;
+			collides = collides && (m_collision_filter_group & proxy0->m_collision_filter_mask);
+			return collides;
+		}
+
+		virtual float AddSingleResult(LocalRayResult& ray_result, bool normal_in_world_space) = 0;
+	};
+
+    struct ClosestRayResultCallback : public RayResultCallback
+	{
+		ClosestRayResultCallback(const Vector3& ray_from_world, const Vector3& ray_to_world) : m_ray_from_world(ray_from_world), m_ray_to_world(ray_to_world) {}
+
+		Vector3 m_ray_from_world, m_ray_to_world, m_hit_normal_world, m_hit_point_world;
+
+		virtual float AddSingleResult(LocalRayResult& ray_result, bool normal_in_world_space) override
+		{
+			m_closest_hit_fraction = ray_result.m_hit_fraction;
+			m_collision_object = ray_result.m_collision_object;
+			if (normal_in_world_space)
+			{
+				m_hit_normal_world = ray_result.m_hit_normal_local;
+			}
+            const auto Interpolate3 = [](const Vector3& v0, const Vector3& v1, float rt)
+            {
+                Vector3 out;
+                float s = 1.0f - rt;
+                out[0] = s * v0[0] + rt * v1[0];
+                out[1] = s * v0[1] + rt * v1[1];
+                out[2] = s * v0[2] + rt * v1[2];
+                return out;
+            };
+			m_hit_point_world = Interpolate3(m_ray_from_world, m_ray_to_world, ray_result.m_hit_fraction);
+			return ray_result.m_hit_fraction;
+		}
+	};
+
+    struct IDebugDraw
+    {
+        struct alignas(16) DefaultColors
+        {
+            Vector3 m_active_object, m_deactivated_object, m_wants_deactivation_object, m_disabled_deactivation_object, m_disabled_simulation_object, m_aabb, m_contact_point;
+            DefaultColors() : m_active_object(1, 1, 1), m_deactivated_object(0, 1, 0), m_wants_deactivation_object(0, 1, 1), m_disabled_deactivation_object(1, 0, 0), m_disabled_simulation_object(1, 1, 0), m_aabb(1, 0, 0), m_contact_point(1, 1, 0) {}
+        };
+
+        enum DebugDrawModes
+        {
+            DBG_NoDebug = 0,
+            DBG_DrawWireframe = 1,
+            DBG_DrawAabb = 2,
+            DBG_DrawFeaturesText = 4,
+            DBG_DrawContactPoints = 8,
+            DBG_NoDeactivation = 16,
+            DBG_NoHelpText = 32,
+            DBG_DrawText = 64,
+            DBG_ProfileTimings = 128,
+            DBG_EnableSatComparison = 256,
+            DBG_DisableBulletLCP = 512,
+            DBG_EnableCCD = 1024,
+            DBG_DrawConstraints = (1 << 11),
+            DBG_DrawConstraintLimits = (1 << 12),
+            DBG_FastWireframe = (1 << 13),
+            DBG_DrawNormals = (1 << 14),
+            DBG_DrawFrames = (1 << 15),
+            DBG_MAX_DEBUG_DRAW_MODE
+        };
+
+        virtual ~IDebugDraw(){};
+
+        //virtual DefaultColors GetDefaultColors() const = 0;
+        //virtual void SetDefaultColors(const DefaultColors& /*colors*/) = 0;
+        virtual void DrawLine(const Vector3& from, const Vector3& to, const Vector3& color) = 0;
+        virtual void DrawLine(const Vector3& from, const Vector3& to, const Vector3& fromColor, const Vector3& toColor) = 0;
+        virtual void DrawSphere(float radius, const Transform& transform, const Vector3& color) = 0;
+        virtual void DrawSphere(const Vector3& p, float radius, const Vector3& color) = 0;
+        virtual void DrawTriangle(const Vector3& v0, const Vector3& v1, const Vector3& v2, const Vector3& n0, const Vector3& n1, const Vector3& n2, const Vector3& color, float alpha) = 0;
+        virtual void DrawTriangle(const Vector3& v0, const Vector3& v1, const Vector3& v2, const Vector3& color, float alpha) = 0;
+        virtual void DrawContactPoint(const Vector3& PointOnB, const Vector3& normalOnB, float distance, int lifeTime, const Vector3& color) = 0;
+        virtual void ReportErrorWarning(const char* warningString) = 0;
+        virtual void Draw3dText(const Vector3& location, const char* textString) = 0;
+        virtual void SetDebugMode(int debugMode) = 0;
+        virtual int  GetDebugMode() const = 0;
+        virtual void DrawAabb(const Vector3& from, const Vector3& to, const Vector3& color) = 0;
+        virtual void DrawTransform(const Transform& transform, float orthoLen) = 0;
+        virtual void DrawArc(const Vector3& center, const Vector3& normal, const Vector3& axis, float radiusA, float radiusB, float minAngle, float maxAngle,
+                            const Vector3& color, bool drawSect, float stepDegrees = float(10.f)) = 0;
+        virtual void DrawSpherePatch(const Vector3& center, const Vector3& up, const Vector3& axis, float radius,
+                                    float minTh, float maxTh, float minPs, float maxPs, const Vector3& color, float stepDegrees = float(10.f), bool drawCenter = true) = 0;
+        virtual void DrawBox(const Vector3& bbMin, const Vector3& bbMax, const Vector3& color) = 0;
+        virtual void DrawBox(const Vector3& bbMin, const Vector3& bbMax, const Transform& trans, const Vector3& color) = 0;
+        virtual void DrawCapsule(float radius, float halfHeight, int upAxis, const Transform& transform, const Vector3& color) = 0;
+        virtual void DrawCylinder(float radius, float halfHeight, int upAxis, const Transform& transform, const Vector3& color) = 0;
+        virtual void DrawCone(float radius, float height, int upAxis, const Transform& transform, const Vector3& color) = 0;
+        virtual void DrawPlane(const Vector3& planeNormal, float planeConst, const Transform& transform, const Vector3& color) = 0;
+        virtual void ClearLines() = 0;
+        virtual void FlushLines() = 0;
+    };
+
     struct CollisionWorld
     {
         void** m_vtable_ptr;
@@ -1050,7 +1382,67 @@ namespace BulletTypes
         void* m_broadphase_pair_cache; 
         void* m_debug_drawer;     
         bool m_force_update_all_aabbs;  
-        uint8_t m_pad_A9[7];   
+        uint8_t m_pad_A9[7];
+
+        ~CollisionWorld() noexcept
+        {
+            using Fn = void(__fastcall *)(CollisionWorld* p_this, char should_free);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[0](this, 1);
+        }
+
+        void UpdateAabbs() noexcept
+        {
+            using Fn = void(*)(CollisionWorld* p_this);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[1](this);
+        }
+
+        void SetDebugDrawer(IDebugDraw* idebug_drawer) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, void*);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[2](this, idebug_drawer);
+        }
+        
+        IDebugDraw* GetDebugDrawer() const noexcept
+        {
+            using Fn = IDebugDraw*(*)(const CollisionWorld*);
+            return reinterpret_cast<Fn*>(m_vtable_ptr)[3](this);
+        }
+
+        void DebugDrawWorld() noexcept
+        {
+            using Fn = void(*)(CollisionWorld*);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[4](this);
+        }
+
+        void DebugDrawObject(const Transform& trans, const CollisionShape* shape, const Vector3& color) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, const Transform&, const CollisionShape*, const Vector3&);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[5](this, trans, shape, color);
+        }
+
+        void RayTest(const Vector3& ray_from_world, const Vector3& ray_to_world, RayResultCallback& result_callback) const noexcept
+        {
+            using Fn = void(*)(const CollisionWorld*, const Vector3&, const Vector3&, RayResultCallback&);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[6](this, ray_from_world, ray_to_world, result_callback);
+        }
+
+        void AddCollisionObject(CollisionObject* obj, int collision_filter_group = 1, int collision_filter_mask = -1) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, CollisionObject*, int, int);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[7](this, obj, collision_filter_group, collision_filter_mask);
+        }
+
+        void RemoveCollisionObject(CollisionObject* obj) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, CollisionObject*);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[8](this, obj);
+        }
+
+        void PerformDiscreteCollisionDetection() noexcept
+        {
+            using Fn = void(*)(CollisionWorld*);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[9](this);
+        }
 
         // updateSingleAabb(CollisionObject* colObj): Asphalt9_Steam_x64_rtl.exe+6365A4C 
         // updateAabbs():                             Asphalt9_Steam_x64_rtl.exe+63659B0
@@ -1072,20 +1464,229 @@ namespace BulletTypes
         void* m_internal_pre_tick_callback;
         void* m_world_user_info;
         ContactSolverInfo m_solver_info;
+
+        int StepSimulation(float time_step, int max_sub_steps = 1, float fixed_time_step = 1.0f / 60.0f) noexcept
+        {
+            using Fn = int(*)(CollisionWorld*, float, int, float);
+            return reinterpret_cast<Fn*>(m_vtable_ptr)[10](this, time_step, max_sub_steps, fixed_time_step);
+        }
+
+        void AddConstraint(void* typed_constraint, bool disable_collision_linked_bodies = false) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, void*, bool);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[11](this, typed_constraint, disable_collision_linked_bodies);
+        }
+
+        void RemoveConstraint(void* typed_constraint) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, void*);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[12](this, typed_constraint);
+        }
+
+        void AddAction(void* action_interface) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, void*);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[13](this, action_interface);
+        }
+
+	    void RemoveAction(void* action_interface) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, void*);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[14](this, action_interface);
+        }
+
+        void SetGravity(const Vector3& gravity) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, const Vector3&);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[15](this, gravity);
+        }
+
+        Vector3 GetGravity() const noexcept
+        {
+            using Fn = Vector3(*)(const CollisionWorld*);
+            return reinterpret_cast<Fn*>(m_vtable_ptr)[16](this);
+        }
+
+        void SynchronizeMotionStates() noexcept
+        {
+            using Fn = void(*)(CollisionWorld*);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[17](this);
+        }
+
+        void AddRigidBody(RigidBody* body) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, RigidBody*);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[18](this, body);
+        }
+
+	    void RemoveRigidBody(RigidBody* body) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, RigidBody*);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[19](this, body);
+        }
+
+        void SetConstraintSolver(void* solver) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, void*);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[20](this, solver);
+        }
+
+        void* GetConstraintSolver() noexcept
+        {
+            using Fn = void*(*)(CollisionWorld*);
+            return reinterpret_cast<Fn*>(m_vtable_ptr)[21](this);
+        }
+
+        int GetNumConstraints() const noexcept
+        {
+            using Fn = int(*)(const CollisionWorld*);
+            return reinterpret_cast<Fn*>(m_vtable_ptr)[22](this);
+        }
+
+        void* GetConstraint(int index) noexcept
+        {
+            using Fn = void*(*)(CollisionWorld*, int);
+            return reinterpret_cast<Fn*>(m_vtable_ptr)[23](this, index);
+        }
+
+        const void* GetConstraint(int index) const noexcept
+        {
+            using Fn = void*(*)(const CollisionWorld*, int);
+            return reinterpret_cast<Fn*>(m_vtable_ptr)[24](this, index);
+        }
+
+        int GetWorldType() const noexcept
+        {
+            using Fn = int(*)(const CollisionWorld*);
+            return reinterpret_cast<Fn*>(m_vtable_ptr)[25](this);
+        }
+
+        void ClearForces() noexcept
+        {
+            using Fn = void(*)(CollisionWorld*);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[26](this);
+        }
+
+        void AddVehicle(void* vehicle) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, void*);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[27](this, vehicle);
+        }
+
+        void RemoveVehicle(void* vehicle) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, void*);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[28](this, vehicle);
+        }
+
+        void AddCharacter(void* character) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, void*);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[29](this, character);
+        }
+
+        void RemoveCharacter(void* character) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, void*);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[30](this, character);
+        }    
     };
     static_assert(offsetof(DynamicsWorld, m_internal_tick_callback)     == 0xB0);
     static_assert(offsetof(DynamicsWorld, m_internal_pre_tick_callback) == 0xB8);
     static_assert(offsetof(DynamicsWorld, m_solver_info)                == 0xC8);
     static_assert(offsetof(DynamicsWorld, m_solver_info.m_time_step)    == 0xD4);
- 
+    
+    //TODO: MABY UNVERIFIED OFFSETS, VERIFY THESE
     struct alignas(16) DiscreteDynamicsWorld : public DynamicsWorld
     {
-        // internalSingleStepSimulation(btScalar timeStep): Asphalt9_Steam_x64_rtl.exe+634C7CC
+        uint8_t m_header_padd[40]; 
+        AlignedObjectArray<void*> m_sorted_constraints;
+	    void* m_solver_island_callback;
+	    void* m_constraint_solver;
+	    void* m_island_manager;
+	    AlignedObjectArray<void*> m_constraints;
+	    AlignedObjectArray<RigidBody*> m_non_static_rigid_bodies;
+	    Vector3 m_gravity;
+        float m_local_time;
+        float m_fixed_time_step;
+        bool m_owns_island_manager;
+        bool m_owns_constraint_solver;
+        bool m_synchronize_all_motion_states;
+        bool m_apply_speculative_contact_restitution;
+        AlignedObjectArray<void*> m_actions;
+        int m_profile_timings;
+        bool m_latency_motion_state_interpolation;
+        AlignedObjectArray<void*> m_predictive_manifolds;
+        SpinMutex m_predictive_manifolds_mutex; 
+
+        void PredictUnconstraintMotion(float time_step) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, float);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[31](this, time_step);
+        }    
+
+        void IntegrateTransforms(float time_step) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, float);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[32](this, time_step);
+        }
+
+        void CalculateSimulationIslands() noexcept
+        {
+            using Fn = void(*)(CollisionWorld*);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[33](this);
+        }
+
+        void SolveConstraints(ContactSolverInfo& solver_info) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, ContactSolverInfo&);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[34](this, solver_info);
+        }
+
+        //+634C7CC
+	    void InternalSingleStepSimulation(float time_step) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, float);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[35](this, time_step);
+        }
+
+        void SaveKinematicState(float time_step) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, float);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[36](this, time_step);
+        }
+
+        void AddRigidBody(RigidBody* body, int group, int mask) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, RigidBody*, int, int);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[37](this, body, group, mask);
+        }
+
+        void ApplyGravity() noexcept
+        {
+            using Fn = void(*)(CollisionWorld*);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[38](this);  
+        }
+
+        void SetNumTasks(int num_tasks) noexcept 
+        {
+            using Fn = void(*)(CollisionWorld*, int);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[39](this, num_tasks);  
+        }
+
+        void UpdateVehicles(float time_step) noexcept
+        {
+            using Fn = void(*)(CollisionWorld*, float);
+            reinterpret_cast<Fn*>(m_vtable_ptr)[40](this, time_step);
+        }
     };
+    static_assert(offsetof(DiscreteDynamicsWorld, m_gravity) == 0x1C0);
+    static_assert(offsetof(DiscreteDynamicsWorld, m_non_static_rigid_bodies.m_size) == 0x1A4);
 
     [[nodiscard]] inline BulletTypes::UnalignedTransform ComposeBulletTransforms(const BulletTypes::UnalignedTransform& parent, const BulletTypes::UnalignedTransform& child) noexcept
     {
         BulletTypes::UnalignedTransform result{};
+
 
         const auto Dot3 = [](const BulletTypes::UnalignedVector4& a, const BulletTypes::UnalignedVector4& b) -> float
         {

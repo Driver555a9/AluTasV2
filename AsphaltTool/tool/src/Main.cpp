@@ -1,4 +1,5 @@
 #include "core/application/Application.h"
+#include "core/utility/SingleAppInstance.h"
 
 #include "layer/MainLayer.h"
 
@@ -13,7 +14,12 @@ int main()
         .m_use_glfw_await_events            = false
     };
 
-    CoreEngine::Application app = CoreEngine::Application::Create(application_config);
-    AsphaltTas::MainLayer::CreateInstance();
-    app.Run();
+    CoreEngine::SingleAppInstance single_app {L"AsphaltTasSingleInstance"};
+    
+    if (single_app.IsFirstInstance())
+    {
+        CoreEngine::Application app = CoreEngine::Application::Create(application_config);
+        AsphaltTas::MainLayer::CreateInstance();
+        app.Run();
+    }
 }

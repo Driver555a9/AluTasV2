@@ -13,6 +13,7 @@ namespace CoreEngine
 
     public:
         explicit CylinderModel(float radius, float cylinder_height, glm::vec3 position, glm::quat rotation, glm::vec3 color) noexcept;
+        explicit CylinderModel(float radius, float height, int up_axis, glm::vec3 position, glm::quat rotation, glm::vec3 color) noexcept;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //-------- Basic_Model Abstract Methods

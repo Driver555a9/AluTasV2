@@ -5,6 +5,7 @@ file(GLOB_RECURSE TOOL_SOURCES
 
 add_executable(AsphaltTas ${TOOL_SOURCES})
 
+
 target_include_directories(AsphaltTas PUBLIC
     ${CMAKE_SOURCE_DIR}/engine/include
     ${CMAKE_CURRENT_SOURCE_DIR}/../shared/src

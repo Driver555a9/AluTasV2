@@ -11,6 +11,7 @@
 #include "core/scene/FollowCam_CameraController.h"
 #include "core/scene/DummyCameraController.h"
 
+#include "core/scene/Scene3D.h"
 #include "core/utility/MathUtility.h"
 #include "core/utility/Units.h"
 
@@ -97,7 +98,7 @@ namespace CoreEngine
         ////////////////////////////////////////////////
         struct SelectedObjectState
         {
-            Scene3D_SceneObject* m_object_ptr = nullptr;
+            Scene3D::ObjectID    m_object_id {};
             bool                 m_highlight_aabb_box     {true };
             bool                 m_physics_receives_input {false};
         };
@@ -135,7 +136,7 @@ namespace CoreEngine
         bool OnCreateCustomObject(const CustomCreationData& data) noexcept; 
         bool OnCreateTrianglePointObject(TrianglePointCreationData&& data);
 
-        void OnSetSelectedSceneObject(Scene3D_SceneObject* obj) noexcept;
+        void OnSetSelectedSceneObject(Scene3D::ObjectID object) noexcept;
         void OnSceneResetAndLoadFromPath(const std::string& path) noexcept;
 
         template <typename TCamController>
@@ -163,9 +164,9 @@ namespace CoreEngine
                 m_camera_controller->SetYaw(yaw);
                 m_camera_controller->SetPitch(pitch);
                 
-                if (m_selected_object_state.m_object_ptr)
+                if (const auto* obj_ptr = m_scene.GetSceneObject(m_selected_object_state.m_object_id))
                 {
-                    const float selected_obj_bounding_radius = std::max(0.1f, m_selected_object_state.m_object_ptr->GetWorldSpaceMaxBoundingSphereRadius() * 2.0f);
+                    const float selected_obj_bounding_radius = std::max(0.1f, obj_ptr->GetWorldSpaceMaxBoundingSphereRadius() * 2.0f);
                     static_cast<OrbitalCam_CameraController*>(m_camera_controller.get())->SetDistance(selected_obj_bounding_radius);
                 }
             }
@@ -175,9 +176,9 @@ namespace CoreEngine
                 m_camera_controller->SetYaw(yaw);
                 m_camera_controller->SetPitch(pitch);
 
-                if (m_selected_object_state.m_object_ptr)
+                if (const auto* obj_ptr = m_scene.GetSceneObject(m_selected_object_state.m_object_id))
                 {
-                    const float selected_obj_bounding_radius = std::max(0.1f, m_selected_object_state.m_object_ptr->GetWorldSpaceMaxBoundingSphereRadius() * 2.0f);
+                    const float selected_obj_bounding_radius = std::max(0.1f, obj_ptr->GetWorldSpaceMaxBoundingSphereRadius() * 2.0f);
                     static_cast<FollowCam_CameraController*>(m_camera_controller.get())->SetDistance(selected_obj_bounding_radius);
                 }
             }

@@ -51,7 +51,7 @@ namespace CoreEngine
         if (m_scene.GetAndResetLightVecChangeFlag())   { m_indirect_pipeline.SetLightData(m_scene.GetLightVectorConstRef()); } 
 
         m_indirect_pipeline.SetCameraData(cam_matrix, m_camera.GetPosition());
-        m_bt_debug_draw_pipeline.SetCameraMatrixAndFrustumCull(cam_matrix);
+        m_bt_debug_draw_pipeline.SetCameraData(cam_matrix, m_camera.GetPosition());
     }
 
     void Freecam_3D_Layer::OnEvent(Basic_Event& event) noexcept
@@ -74,7 +74,8 @@ namespace CoreEngine
         if (m_draw_bullet_debug)
         {
             m_scene.OnDrawBtDebug();
-            m_bt_debug_draw_pipeline.RenderAndClearData();
+            m_bt_debug_draw_pipeline.Render();
+            m_bt_debug_draw_pipeline.ClearAllData();
         }
     }
 

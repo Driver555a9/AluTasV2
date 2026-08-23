@@ -208,7 +208,7 @@ namespace CoreEngine
         if (m_render_model)
             return m_render_model->GetPosition();
         if (m_physics_object)
-            return PhysicsUtility::BtVector3ToGlm(m_physics_object->GetBody()->getWorldTransform().getOrigin());
+            return PUtil::ToGlm(m_physics_object->GetBody()->getWorldTransform().getOrigin());
         return glm::vec3{};
     }
 
@@ -223,7 +223,7 @@ namespace CoreEngine
             btRigidBody* body = m_physics_object->GetBody();
             btTransform trans = body->getWorldTransform();
             
-            btVector3 final_physics_pos = PhysicsUtility::GlmVec3ToBt(pos);
+            btVector3 final_physics_pos = PUtil::ToBt(pos);
 
             if (m_physics_object->GetShape()->getShapeType() == COMPOUND_SHAPE_PROXYTYPE && 
                 m_physics_object->GetShapeType() == PhysicsShapeType::OWNED_COMPOUND_SHAPE)
@@ -251,7 +251,7 @@ namespace CoreEngine
         if (m_render_model)
             return m_render_model->GetRotation();
         if (m_physics_object)
-            return PhysicsUtility::BtQuatToGlm(m_physics_object->GetBody()->getWorldTransform().getRotation());
+            return PUtil::ToGlm(m_physics_object->GetBody()->getWorldTransform().getRotation());
         return glm::quat{};
     }   
 
@@ -264,7 +264,7 @@ namespace CoreEngine
         if (m_physics_object)
         {
             btTransform trans = m_physics_object->GetBody()->getWorldTransform();
-            trans.setRotation(PhysicsUtility::GlmQuatToBt(rot));
+            trans.setRotation(PUtil::ToBt(rot));
             m_physics_object->GetMotion()->setWorldTransform(trans);
             m_physics_object->GetBody()->setWorldTransform(trans);
         }
@@ -275,7 +275,7 @@ namespace CoreEngine
         if (m_render_model)
             return m_render_model->GetScale();
         if (m_physics_object)
-            return PhysicsUtility::BtVector3ToGlm(m_physics_object->GetShape()->getLocalScaling());
+            return PUtil::ToGlm(m_physics_object->GetShape()->getLocalScaling());
         return glm::vec3{1.0f};
     }
 
@@ -292,7 +292,7 @@ namespace CoreEngine
                 ENGINE_ASSERT (scale.x == scale.y && scale.y == scale.z && "At Scene3D_SceneObject::SetScale(): Non-uniform scaling not supported for spheres.");
                 m_physics_object->GetShape()->setLocalScaling(btVector3(scale.x, scale.x, scale.x));
             }
-            m_physics_object->GetShape()->setLocalScaling(PhysicsUtility::GlmVec3ToBt(scale));
+            m_physics_object->GetShape()->setLocalScaling(PUtil::ToBt(scale));
         }
     }
 
@@ -313,13 +313,13 @@ namespace CoreEngine
 
             const btTransform visual_transform = physics_transform * offset_transform;
 
-            m_render_model->SetPosition(PhysicsUtility::BtVector3ToGlm(visual_transform.getOrigin()));
-            m_render_model->SetRotation(PhysicsUtility::BtQuatToGlm(visual_transform.getRotation()));
+            m_render_model->SetPosition(PUtil::ToGlm(visual_transform.getOrigin()));
+            m_render_model->SetRotation(PUtil::ToGlm(visual_transform.getRotation()));
         }
         else 
         {
-            m_render_model->SetPosition(PhysicsUtility::BtVector3ToGlm(physics_transform.getOrigin()));
-            m_render_model->SetRotation(PhysicsUtility::BtQuatToGlm(physics_transform.getRotation()));
+            m_render_model->SetPosition(PUtil::ToGlm(physics_transform.getOrigin()));
+            m_render_model->SetRotation(PUtil::ToGlm(physics_transform.getRotation()));
         }
     }
 
@@ -383,7 +383,7 @@ namespace CoreEngine
             {
                 btVector3 min_corner, max_corner;
                 rigidBody->getAabb(min_corner, max_corner);
-                return GenerateAABB_Vector(PhysicsUtility::BtVector3ToGlm(min_corner), PhysicsUtility::BtVector3ToGlm(max_corner));
+                return GenerateAABB_Vector(PUtil::ToGlm(min_corner), PUtil::ToGlm(max_corner));
             }
         }
         else if (m_render_model)

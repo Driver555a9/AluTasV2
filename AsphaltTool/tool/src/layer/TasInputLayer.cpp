@@ -1,10 +1,12 @@
 #include "layer/TasInputLayer.h"
 
 #include "Communication.h"
+#include "GuiStyle.h"
 #include "common/Replay.h"
 #include "common/Utility.h"
 #include "core/application/Application.h"
 #include "core/utility/Assert.h"
+#include "core/utility/Units.h"
 #include "imgui.h"
 #include "layer/GuiStyle.h"
 #include "globalstate/ReplayStateManager.h"
@@ -12,6 +14,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <ranges>
 #include <utility>
 
 
@@ -66,9 +69,9 @@ namespace AsphaltTas
 
         // Scope to delete scoped styles
         {
-            if (!std::filesystem::exists(s_replay_folder_path))
+            if (!std::filesystem::exists(REPLAY_FOLDER_PATH))
             {
-                std::filesystem::create_directories(s_replay_folder_path);
+                std::filesystem::create_directories(REPLAY_FOLDER_PATH);
             }
 
             // ReplayStateManager is same thread as us, so no mutex needed
@@ -116,21 +119,6 @@ namespace AsphaltTas
                 ImGui::Checkbox("Speed Up Race Intro", &general_cmd_ref->m_write_meta_data.m_speed_up_pre_race_cinematic);
                 
                 ///////////////////// LEGACY: Skip animations
-                ImGui::SameLine();
-                auto skip_flags = std::to_underlying(general_cmd_ref->m_write_meta_data.m_skip_animation_flags);
-
-                bool skip_intro = skip_flags & std::to_underlying(Communication::SkipAnimationFlags::SKIP_RACE_INTRO);
-                if (ImGui::Checkbox("[Deprecated] Skip Intro", &skip_intro))
-                {
-                    if (skip_intro)
-                        skip_flags |= (std::to_underlying(Communication::SkipAnimationFlags::SKIP_RACE_INTRO) 
-                                     | std::to_underlying(Communication::SkipAnimationFlags::SKIP_RACE_COUNT_DOWN));
-                    else
-                        skip_flags &= ~(std::to_underlying(Communication::SkipAnimationFlags::SKIP_RACE_INTRO)
-                                      | std::to_underlying(Communication::SkipAnimationFlags::SKIP_RACE_COUNT_DOWN));
-                }
-                general_cmd_ref->m_write_meta_data.m_skip_animation_flags = Communication::SkipAnimationFlags(skip_flags);
-
                 ImGui::SameLine();
                 ImGui::Checkbox("Speed Up GUI", &general_cmd_ref->m_write_meta_data.m_speed_up_gui_animations);
 
@@ -197,6 +185,46 @@ namespace AsphaltTas
                 std::vector<Replay>& recorded_replays = ReplayStateManager::GetRecordedReplayListRef();
 
                 std::vector<size_t> indices_to_be_deleted;
+
+                {
+                    if (!m_is_in_delete_all_process)
+                    {
+                        PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Button, GuiStyle::COLOR_RED);
+                        if (ImGui::Button(" Delete all replays ") && ! recorded_replays.empty())
+                        {
+                            m_is_in_delete_all_process = true;
+                            m_delete_all_timer.Restart();
+                        }
+                    }
+                    else 
+                    {
+                        {
+                            PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Button, GuiStyle::COLOR_GREEN);
+                            if (ImGui::Button(" Cancel delete all  "))
+                            {
+                                m_is_in_delete_all_process = false;
+                            }
+                        }
+                        const float secs_elapsed = m_delete_all_timer.GetElapsed<CoreEngine::Units::Second>().Get();
+                        constexpr float SECS_UNTIL_OPTION_UNLOCKS = 3.0f;
+                        ImGui::SameLine();
+                        if (secs_elapsed < SECS_UNTIL_OPTION_UNLOCKS)
+                        {
+                            PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Button, GuiStyle::COLOR_GREY);
+                            ImGui::Button(" Confirm delete all ");
+                        }
+                        else 
+                        {
+                            PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Button, GuiStyle::COLOR_RED);
+                            if (ImGui::Button(" Confirm delete all "))
+                            {
+                                indices_to_be_deleted = std::ranges::to<std::vector>(std::ranges::views::iota(0uz, recorded_replays.size()));
+                                m_is_in_delete_all_process = false;
+                            }
+                        }
+                    }
+                }
+
                 for (size_t i{}; i < recorded_replays.size(); ++i)
                 {
                     Replay& replay = recorded_replays[i]; 
@@ -218,7 +246,7 @@ namespace AsphaltTas
                         ImGui::SameLine();
                         if (ImGui::Button((std::string("Save##NEW_REPLAY_") + std::to_string(i)).c_str()))
                         {
-                            if (Utility::IsValidFilename(replay.GetName()) && Replay::SerializeReplayToFile(replay, s_replay_folder_path + replay.GetName() + ".REPLAY"))
+                            if (Utility::IsValidFilename(replay.GetName()) && Replay::SerializeReplayToFile(replay, REPLAY_FOLDER_PATH + replay.GetName() + Communication::REPLAY_FILE_TYPE))
                             {
                                 indices_to_be_deleted.push_back(i);
                             }
@@ -253,14 +281,63 @@ namespace AsphaltTas
 
             if (ImGui::CollapsingHeader("Load Recorded Replay", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                static std::vector<std::string> s_file_names;
+                enum class ReplaySortMode
+                {
+                    Name,
+                    DateDesc,
+                    DateAsc
+                };
+
+                struct ReplayFile
+                {
+                    ReplayFile(std::string name, std::filesystem::file_time_type write_time) noexcept : m_name(name), m_write_time(write_time)
+                    {
+                        const auto system_time = std::chrono::clock_cast<std::chrono::system_clock>(m_write_time);
+                        const std::time_t time = std::chrono::system_clock::to_time_t(system_time);
+
+                        std::tm local_time{};
+                        localtime_s(&local_time, &time);
+
+                        std::ostringstream date_stream;
+                        date_stream << std::put_time(&local_time, "%Y-%m-%d %H:%M:%S");
+
+                        m_write_time_str = date_stream.str();
+                    };
+                    std::string m_name;
+                    std::filesystem::file_time_type m_write_time;
+                    std::string m_write_time_str;
+                };
+
+                static std::vector<ReplayFile> s_files;
                 static std::filesystem::file_time_type s_last_cached_write_time;
+                static ReplaySortMode s_sort_mode = ReplaySortMode::Name;
+
+                const auto SortFiles = [&]()
+                {
+                    switch (s_sort_mode)
+                    {
+                        case ReplaySortMode::Name:
+                            std::sort(s_files.begin(), s_files.end(), [](const ReplayFile& a, const ReplayFile& b) { return a.m_name < b.m_name; });
+                            break;
+
+                        case ReplaySortMode::DateDesc:
+                            std::sort(s_files.begin(), s_files.end(), [](const ReplayFile& a, const ReplayFile& b){ return a.m_write_time > b.m_write_time; });
+                            break;
+                        case ReplaySortMode::DateAsc:
+                            std::sort(s_files.begin(), s_files.end(), [](const ReplayFile& a, const ReplayFile& b){ return a.m_write_time < b.m_write_time; });
+                            break;
+                        default:
+                            ENGINE_ERROR_PRINT("Error! unkown replay sort mode: " << std::to_underlying(s_sort_mode));
+                            std::sort(s_files.begin(), s_files.end(), [](const ReplayFile& a, const ReplayFile& b) { return a.m_name < b.m_name; });
+                            break;
+                    }
+                };
 
                 const auto ScanFolder = [&]()
                 {
-                    s_file_names.clear();
+                    s_files.clear();
 
-                    for (const auto& entry : std::filesystem::directory_iterator(s_replay_folder_path))
+                    for (const auto& entry : std::filesystem::directory_iterator(REPLAY_FOLDER_PATH))
                     {
                         if (!entry.is_regular_file())
                         {
@@ -269,16 +346,18 @@ namespace AsphaltTas
 
                         const std::filesystem::path& path = entry.path();
 
-                        if (path.extension() == ".REPLAY")
+                        if (path.extension() != Communication::REPLAY_FILE_TYPE)
                         {
-                            s_file_names.push_back(path.filename().string());
+                            continue;
                         }
+
+                        s_files.emplace_back(path.filename().string(), entry.last_write_time());
                     }
 
-                    std::sort(s_file_names.begin(), s_file_names.end());
+                    SortFiles();
                 };
 
-                const auto current_write_time = std::filesystem::last_write_time(s_replay_folder_path);
+                const auto current_write_time = std::filesystem::last_write_time(REPLAY_FOLDER_PATH);
 
                 if (current_write_time != s_last_cached_write_time)
                 {
@@ -286,36 +365,76 @@ namespace AsphaltTas
                     ScanFolder();
                 }
 
-                for (size_t i = 0; i < s_file_names.size(); ++i)
+                const auto GetModeName = [](ReplaySortMode mode) 
                 {
-                    const std::string& file = s_file_names[i];
+                    switch (mode)
+                    {
+                        case ReplaySortMode::Name: return "Order by name";
+                        case ReplaySortMode::DateDesc: return "Order by date Desc";
+                        case ReplaySortMode::DateAsc: return "Order by date Asc";
+                        default: return "Unkown";
+                    }
+                };
+
+                ImGui::TextUnformatted("Sort:");
+                ImGui::SameLine();
+
+                if (ImGui::BeginCombo("##ReplaySort", GetModeName(s_sort_mode)))
+                {
+                    const auto DefineMode = [&GetModeName, &SortFiles](ReplaySortMode mode)
+                    {
+                        if (ImGui::Selectable(GetModeName(mode), s_sort_mode == mode))
+                        {
+                            s_sort_mode = mode;
+                            SortFiles();
+                        }
+                    };
+
+                    DefineMode(ReplaySortMode::Name);
+                    DefineMode(ReplaySortMode::DateDesc);
+                    DefineMode(ReplaySortMode::DateAsc);
+
+                    ImGui::EndCombo();
+                }
+
+                for (size_t i = 0; i < s_files.size(); ++i)
+                {
+                    const ReplayFile& replay_file = s_files[i];
+                    const std::string& file = replay_file.m_name;
 
                     ImGui::TextUnformatted(file.c_str());
 
                     ImGui::SameLine();
                     PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Button, GuiStyle::COLOR_GREEN);
-                    
+
                     if (ImGui::Button((std::string("Load##RECORDED_REPLAY_") + std::to_string(i)).c_str()))
                     {
-                        const std::string full_path = s_replay_folder_path + file;
+                        const std::string full_path = REPLAY_FOLDER_PATH + file;
                         Replay replay = Replay::DeserializeReplayFromFile(full_path);
-                        if (! m_use_transform_override_patch)
+
+                        if (!m_use_transform_override_patch)
                         {
                             for (auto& frame : replay.GetFrameVectorReference())
                             {
-                                frame.m_replay_input.m_skip_override_flags |= ComDllIn::DllReplayInputIn::SkipOverride::TRANSFORM_FORCED;
+                                frame.m_replay_input.m_skip_override_flags |=
+                                    ComDllIn::DllReplayInputIn::SkipOverride::TRANSFORM_FORCED;
                             }
                         }
+
                         ReplayStateManager::QueueReplay(replay, replay.GetLastFrame()->m_replay_input.m_race_frame_tick);
                     }
 
                     ImGui::SameLine();
                     PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Button, GuiStyle::COLOR_RED);
+
                     if (ImGui::Button((std::string("Delete##RECORDED_REPLAY_") + std::to_string(i)).c_str()))
                     {
-                        const std::string full_path = s_replay_folder_path + file;
-                        std::filesystem::remove(full_path);
+                        const std::string full_path = REPLAY_FOLDER_PATH + file;
+                        Utility::SoftDelete(full_path);
                     }
+
+                    ImGui::SameLine();
+                    ImGui::TextDisabled("%s", replay_file.m_write_time_str.c_str());
                 }
             }
         }

@@ -1,6 +1,7 @@
 #include "core/layer/Editor_3D_Layer.h"
 
 //Own includes
+#include "core/scene/Scene3D.h"
 #include "core/utility/MathUtility.h"
 #include "core/utility/PhysicsUtility.h"
 #include "core/utility/CommonUtility.h"
@@ -48,21 +49,25 @@ namespace CoreEngine
         return MathUtility::Ray3D { m_camera.GetPosition(), ray_world, 100'000.0f };
     }
 
-    void Editor_3D_Layer::OnSetSelectedSceneObject(Scene3D_SceneObject* obj) noexcept
+    void Editor_3D_Layer::OnSetSelectedSceneObject(Scene3D::ObjectID object) noexcept
     {
         // Change distance such that OrbitalCamera will always have appropriate distance
-        if (m_selected_object_state.m_object_ptr != obj && obj && m_camera_controller->GetType() == Basic_CameraController::Type::OrbitalCam)
+        if (m_selected_object_state.m_object_id != object && object.IsValid() && m_camera_controller->GetType() == Basic_CameraController::Type::OrbitalCam)
         {
-            const float selected_obj_bounding_radius = std::max(0.1f, obj->GetWorldSpaceMaxBoundingSphereRadius() * 1.5f);
-            static_cast<OrbitalCam_CameraController*>(m_camera_controller.get())->SetDistance(selected_obj_bounding_radius);
+            auto obj_ptr = m_scene.GetSceneObject(object);
+            if (obj_ptr)
+            {
+                const float selected_obj_bounding_radius = std::max(0.1f, obj_ptr->GetWorldSpaceMaxBoundingSphereRadius() * 1.5f);
+                static_cast<OrbitalCam_CameraController*>(m_camera_controller.get())->SetDistance(selected_obj_bounding_radius);
+            }
         }
         
-        m_selected_object_state.m_object_ptr = obj;
+        m_selected_object_state.m_object_id = object;
     }
 
     void Editor_3D_Layer::OnSceneResetAndLoadFromPath(const std::string& path) noexcept
     {
-        OnSetSelectedSceneObject(nullptr); //Insure no dangling pointers
+        OnSetSelectedSceneObject(Scene3D::ObjectID::CreateInvalidID()); //Insure no dangling pointers
         m_scene.LoadFromSerializedFile(path, &m_camera);
     }
     
@@ -84,7 +89,7 @@ namespace CoreEngine
         //////////////////////////////////////////////// 
         if (! m_next_left_click_places_triangle_point)
         {
-            OnSetSelectedSceneObject(scene_hit.m_scene_object_ptr);
+            OnSetSelectedSceneObject(scene_hit.m_scene_object_id);
             return Freecam_3D_Layer::OnMousePressed(e);
         }
 
@@ -93,7 +98,7 @@ namespace CoreEngine
         //////////////////////////////////////////////// 
         glm::vec3 point_pos;
 
-        if (scene_hit.m_scene_object_ptr)
+        if (scene_hit.HasHit())
         {
             point_pos = scene_hit.m_intersection_point;
         }
@@ -120,18 +125,19 @@ namespace CoreEngine
 
     bool Editor_3D_Layer::OnMouseMoved(MouseMovedEvent& e) noexcept
     {
+        auto* selected_object = m_scene.GetSceneObject(m_selected_object_state.m_object_id);
         if (   ImGui::GetIO().WantCaptureMouse
             //Do not move if not clicking left to drag it
             || !m_input_state.m_mouse_is_pressed[GLFW_MOUSE_BUTTON_LEFT]
             //Do nothing if no model selected
-            || !m_selected_object_state.m_object_ptr
+            || !selected_object
             // Do not allow dragging whilst in OrbitalCamera 
             || m_camera_controller->GetType() != Basic_CameraController::Type::FreeCam)
         {
             return Freecam_3D_Layer::OnMouseMoved(e);
         }
 
-        const glm::vec3 obj_position = m_selected_object_state.m_object_ptr->GetPosition();
+        const glm::vec3 obj_position = selected_object->GetPosition();
 
         const MathUtility::Plane plane { .m_point = obj_position, .m_normal_normalized = m_camera.GetForwardDirection() };
         const MathUtility::Raytest3D_Result intersection_point = MathUtility::RayPlaneIntersect(ScreenPointToRay(e.GetX(), e.GetY()), plane);
@@ -141,25 +147,26 @@ namespace CoreEngine
             return Freecam_3D_Layer::OnMouseMoved(e);
         }
 
-        m_selected_object_state.m_object_ptr->SetPosition(intersection_point.m_intersection_point);
+        selected_object->SetPosition(intersection_point.m_intersection_point);
 
         return Freecam_3D_Layer::OnMouseMoved(e);
     }
 
     bool Editor_3D_Layer::OnMouseScrolled(MouseScrolledEvent& e) noexcept
     {
-        if (! m_input_state.m_mouse_is_pressed[GLFW_MOUSE_BUTTON_LEFT] || m_selected_object_state.m_object_ptr == nullptr || ImGui::GetIO().WantCaptureMouse)
+        auto* selected_object = m_scene.GetSceneObject(m_selected_object_state.m_object_id);
+        if (! m_input_state.m_mouse_is_pressed[GLFW_MOUSE_BUTTON_LEFT] || !selected_object || ImGui::GetIO().WantCaptureMouse)
             return Freecam_3D_Layer::OnMouseScrolled(e);
 
-        Basic_Model*   render_model = m_selected_object_state.m_object_ptr->m_render_model.get();
-        PhysicsObject* physics_obj  = m_selected_object_state.m_object_ptr->m_physics_object.get();
+        Basic_Model*   render_model = selected_object->m_render_model.get();
+        PhysicsObject* physics_obj  = selected_object->m_physics_object.get();
 
         if (!render_model && !physics_obj)
         {
             return Freecam_3D_Layer::OnMouseScrolled(e);
         }
 
-        const glm::vec3 obj_position = m_selected_object_state.m_object_ptr->GetPosition();
+        const glm::vec3 obj_position = selected_object->GetPosition();
         
         const glm::vec3 obj_to_camera_vec = m_camera.GetPosition() - obj_position;
 
@@ -167,7 +174,7 @@ namespace CoreEngine
 
         const glm::vec3 moved_pos = obj_position + (obj_to_camera_vec * MOVEMENT_PER_TICK * static_cast<float>(e.GetYOffset()));
 
-        m_selected_object_state.m_object_ptr->SetPosition(moved_pos);
+        selected_object->SetPosition(moved_pos);
 
         return false;
     }
@@ -182,14 +189,14 @@ namespace CoreEngine
         //////////////////////////////////////////////// 
         if (m_camera_controller->GetType() == Basic_CameraController::Type::OrbitalCam)
         {
-            if (const auto* obj = m_selected_object_state.m_object_ptr)
+            if (const auto* obj = m_scene.GetSceneObject(m_selected_object_state.m_object_id))
                 static_cast<OrbitalCam_CameraController*>(m_camera_controller.get())->SetTarget(obj->GetPosition());
             else 
                 OnChangeCameraController<FreeCam_CameraController>();
         }
         else if (m_camera_controller->GetType() == Basic_CameraController::Type::FollowCam)
         {
-            if (const auto* obj = m_selected_object_state.m_object_ptr)
+            if (const auto* obj = m_scene.GetSceneObject(m_selected_object_state.m_object_id))
                 static_cast<FollowCam_CameraController*>(m_camera_controller.get())->SetTarget(obj->GetPosition(), obj->GetRotation());
             else 
                 OnChangeCameraController<FreeCam_CameraController>();
@@ -198,9 +205,10 @@ namespace CoreEngine
         //////////////////////////////////////////////// 
         //---------  Physics objects (e.g. Car) will be updated
         //////////////////////////////////////////////// 
-        if (m_selected_object_state.m_object_ptr && m_selected_object_state.m_object_ptr->m_physics_object && m_selected_object_state.m_physics_receives_input)
+        auto* obj_ptr = m_scene.GetSceneObject(m_selected_object_state.m_object_id);
+        if (obj_ptr && obj_ptr->m_physics_object && m_selected_object_state.m_physics_receives_input)
         {
-            m_selected_object_state.m_object_ptr->m_physics_object->OnInput(m_input_state, delta_time);
+            obj_ptr->m_physics_object->OnInput(m_input_state, delta_time);
         }
 
         Freecam_3D_Layer::OnUpdate(delta_time);
@@ -217,10 +225,11 @@ namespace CoreEngine
     
         const glm::mat4 cam_matrix = m_camera.GetCameraMatrix();
 
-        if (m_selected_object_state.m_object_ptr && m_selected_object_state.m_highlight_aabb_box)
+        const auto* selected_obj_ptr = m_scene.GetSceneObject(m_selected_object_state.m_object_id);
+        if (selected_obj_ptr && m_selected_object_state.m_highlight_aabb_box)
         {
             const glm::vec3 color (1.0f, 0.0f, 0.0f);
-            m_draw_lines_pipeline.SetLineData(m_selected_object_state.m_object_ptr->CalculateAABBDebugLines(), color);
+            m_draw_lines_pipeline.SetLineData(selected_obj_ptr->CalculateAABBDebugLines(), color);
             m_draw_lines_pipeline.SetCameraDataAndFrustumCull(cam_matrix);
             m_draw_lines_pipeline.Render();
             m_draw_lines_pipeline.ClearAllLines();
@@ -446,7 +455,7 @@ namespace CoreEngine
             ImGui::PushStyleColor(ImGuiCol_Button, COLOR_RED);
             if (ImGui::Button("Clear##sceneclear"))
             {
-                OnSetSelectedSceneObject(nullptr);
+                OnSetSelectedSceneObject(Scene3D::ObjectID::CreateInvalidID());
                 m_scene.ClearAll();
             }
             ImGui::PopStyleColor();
@@ -528,7 +537,8 @@ namespace CoreEngine
                 //////////////////////////////////////////////// 
                 //---------  Select desired camera controller / Free cam if no selected object
                 //////////////////////////////////////////////// 
-                if (m_selected_object_state.m_object_ptr)
+                const auto* selected_obj_ptr = m_scene.GetSceneObject(m_selected_object_state.m_object_id);
+                if (selected_obj_ptr)
                 {
                     int cam_controller = static_cast<int>(m_camera_controller->GetType());
                     ImGui::RadioButton("Free Cam", &cam_controller, static_cast<int>(Basic_CameraController::Type::FreeCam));
@@ -673,7 +683,8 @@ namespace CoreEngine
 
     void Editor_3D_Layer::OnImGuiRender_RightOptionPanel() noexcept
     { 
-        if (!m_selected_object_state.m_object_ptr && (m_object_creation_flags == ObjectCreationFlag::NONE) )
+        auto* selected_obj_ptr = m_scene.GetSceneObject(m_selected_object_state.m_object_id);
+        if (!selected_obj_ptr && (m_object_creation_flags == ObjectCreationFlag::NONE) )
         {
             return;
         }
@@ -896,7 +907,7 @@ namespace CoreEngine
                     if (ImGui::Button("Begin Placing Points"))
                     {
                         m_next_left_click_places_triangle_point = true;
-                        OnSetSelectedSceneObject(nullptr);
+                        OnSetSelectedSceneObject(Scene3D::ObjectID::CreateInvalidID());
                     }
                     ImGui::PopStyleColor();
                 }
@@ -966,12 +977,13 @@ namespace CoreEngine
         }
 
         ImGui::PushID(100);
-        if (m_selected_object_state.m_object_ptr && ImGui::CollapsingHeader("Selected Object", ImGuiTreeNodeFlags_DefaultOpen))
+
+        if (selected_obj_ptr && ImGui::CollapsingHeader("Selected Object", ImGuiTreeNodeFlags_DefaultOpen))
         {
             ImGui::Indent();
 
             ImGui::PushStyleColor(ImGuiCol_Text, COLOR_ORANGE);
-            ImGui::TextUnformatted(("Object: " + m_selected_object_state.m_object_ptr->m_name).c_str());
+            ImGui::TextUnformatted(("Object: " + selected_obj_ptr->m_name).c_str());
             ImGui::PopStyleColor();
 
             if (ImGui::CollapsingHeader("General", ImGuiTreeNodeFlags_DefaultOpen))
@@ -980,11 +992,11 @@ namespace CoreEngine
 
                 //--------- Position move
                 const float delta_time_secs = Application::Get()->GetLastFrameTime().ConvertTo<CoreEngine::Units::Second>().Get();
-                const float MOVE_SPEED = 0.5 * m_selected_object_state.m_object_ptr->GetWorldSpaceMaxBoundingSphereRadius();
+                const float MOVE_SPEED = 0.5 * selected_obj_ptr->GetWorldSpaceMaxBoundingSphereRadius();
 
                 ImGui::TextUnformatted("Position");
 
-                glm::vec3 position = m_selected_object_state.m_object_ptr->GetPosition();
+                glm::vec3 position = selected_obj_ptr->GetPosition();
 
                 ImGui::PushStyleColor(ImGuiCol_Text, COLOR_X_AXYS);
                 if (ImGui::ArrowButton("##xleft", ImGuiDir_Left) || (ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left))) 
@@ -1047,14 +1059,14 @@ namespace CoreEngine
                     position = m_camera.GetPosition();
                 }
 
-                if (position != m_selected_object_state.m_object_ptr->GetPosition())
+                if (position != selected_obj_ptr->GetPosition())
                 {
-                    m_selected_object_state.m_object_ptr->SetPosition(position);
+                    selected_obj_ptr->SetPosition(position);
                 }
 
                 //--------- Rotation
                 ImGui::TextUnformatted("Rotation");
-                const glm::quat rot_quat = m_selected_object_state.m_object_ptr->GetRotation();
+                const glm::quat rot_quat = selected_obj_ptr->GetRotation();
                 glm::vec3 rot_euler_degrees = glm::degrees(glm::eulerAngles(rot_quat));
 
                 float delta_x = 0.0f, delta_y = 0.0f, delta_z = 0.0f;
@@ -1064,7 +1076,7 @@ namespace CoreEngine
                 {
                     glm::quat delta = glm::angleAxis(glm::radians(delta_x), glm::vec3(1, 0, 0));
                     #ifndef __INTELLISENSE__ //Shut the fuck up intellisense
-                    m_selected_object_state.m_object_ptr->SetRotation(rot_quat * delta);
+                    selected_obj_ptr->SetRotation(rot_quat * delta);
                     #endif
                 }
                 ImGui::PopStyleColor();
@@ -1074,7 +1086,7 @@ namespace CoreEngine
                 {
                     glm::quat delta = glm::angleAxis(glm::radians(delta_y), glm::vec3(0, 1, 0));
                     #ifndef __INTELLISENSE__
-                    m_selected_object_state.m_object_ptr->SetRotation(rot_quat * delta);
+                    selected_obj_ptr->SetRotation(rot_quat * delta);
                     #endif
                 }
                 ImGui::PopStyleColor();
@@ -1084,20 +1096,20 @@ namespace CoreEngine
                 {
                     glm::quat delta = glm::angleAxis(glm::radians(delta_z), glm::vec3(0, 0, 1));
                     #ifndef __INTELLISENSE__
-                    m_selected_object_state.m_object_ptr->SetRotation(rot_quat * delta);
+                    selected_obj_ptr->SetRotation(rot_quat * delta);
                     #endif
                 }
                 ImGui::PopStyleColor();
 
                 if (ImGui::Button("Set Identity Rot"))
                 {
-                    m_selected_object_state.m_object_ptr->SetRotation(glm::identity<glm::quat>());
+                    selected_obj_ptr->SetRotation(glm::identity<glm::quat>());
                 }
 
-                glm::vec3 scale = m_selected_object_state.m_object_ptr->GetScale();
+                glm::vec3 scale = selected_obj_ptr->GetScale();
                 
-                if (m_selected_object_state.m_object_ptr->m_physics_object 
-                    && m_selected_object_state.m_object_ptr->m_physics_object->GetShapeType() == PhysicsShapeType::SPHERE)
+                if (selected_obj_ptr->m_physics_object 
+                    && selected_obj_ptr->m_physics_object->GetShapeType() == PhysicsShapeType::SPHERE)
                 {
                     ImGui::SliderFloat("Scale##scaleslider1", &scale.x, 0.1f, MAX_OBJ_SCALE_FACTOR);
                     scale.y = scale.z = scale.x;
@@ -1111,19 +1123,19 @@ namespace CoreEngine
                     scale = glm::vec3(1.0f);
                 }
                 
-                if (scale != m_selected_object_state.m_object_ptr->GetScale())
+                if (scale != selected_obj_ptr->GetScale())
                 {
-                    m_selected_object_state.m_object_ptr->SetScale(scale);
+                    selected_obj_ptr->SetScale(scale);
                 }
 
 
                 ImGui::Unindent();
             }  
 
-            if (ImGui::CollapsingHeader("Render") && m_selected_object_state.m_object_ptr->m_render_model)
+            if (ImGui::CollapsingHeader("Render") && selected_obj_ptr->m_render_model)
             {
                 ImGui::Indent();
-                const Basic_Model* model = m_selected_object_state.m_object_ptr->m_render_model.get();
+                const Basic_Model* model = selected_obj_ptr->m_render_model.get();
                 const MathUtility::AABB aabb = model->GetWorldSpaceAABB();
                 const auto min = aabb.min();
                 const auto max = aabb.max();
@@ -1134,11 +1146,11 @@ namespace CoreEngine
                 ImGui::Unindent();
             }
 
-            if (ImGui::CollapsingHeader("Physics") && m_selected_object_state.m_object_ptr->m_physics_object)
+            if (ImGui::CollapsingHeader("Physics") && selected_obj_ptr->m_physics_object)
             {
                 ImGui::Indent();
 
-                PhysicsObject* obj = m_selected_object_state.m_object_ptr->m_physics_object.get();
+                PhysicsObject* obj = selected_obj_ptr->m_physics_object.get();
 
                 bool is_kinematic = obj->IsKinematic();
                 ImGui::Checkbox("Is Kinematic", &is_kinematic);
@@ -1160,7 +1172,7 @@ namespace CoreEngine
 
                 ImGui::Text("Velocity km/h: %.2f", obj->GetVelocityMS().Get() * 3.6f);
 
-                ImGui::TextUnformatted(("Scale: " + CommonUtility::GlmVec3ToString(PhysicsUtility::BtVector3ToGlm(obj->GetShape()->getLocalScaling()))).c_str());
+                ImGui::TextUnformatted(("Scale: " + CommonUtility::GlmVec3ToString(PUtil::ToGlm(obj->GetShape()->getLocalScaling()))).c_str());
 
                 ImGui::Unindent();
             }
@@ -1168,7 +1180,7 @@ namespace CoreEngine
             ImGui::PushStyleColor(ImGuiCol_Button, COLOR_GREEN);
             if (ImGui::Button("Copy"))
             {
-                m_scene.AddObject(std::make_unique<Scene3D_SceneObject>(*m_selected_object_state.m_object_ptr));
+                m_scene.AddObject(std::make_unique<Scene3D_SceneObject>(*selected_obj_ptr));
             }
             ImGui::PopStyleColor();
 
@@ -1177,7 +1189,7 @@ namespace CoreEngine
             ImGui::PushStyleColor(ImGuiCol_Button, COLOR_ORANGE);
             if (ImGui::Button("Unselect"))
             {
-                OnSetSelectedSceneObject(nullptr);
+                OnSetSelectedSceneObject(Scene3D::ObjectID::CreateInvalidID());
             }
             ImGui::PopStyleColor();
 
@@ -1186,8 +1198,8 @@ namespace CoreEngine
             ImGui::PushStyleColor(ImGuiCol_Button, COLOR_RED);
             if (ImGui::Button("Delete"))
             {
-                Scene3D_SceneObject* obj = m_selected_object_state.m_object_ptr;
-                OnSetSelectedSceneObject(nullptr);
+                Scene3D::ObjectID obj = m_selected_object_state.m_object_id;
+                OnSetSelectedSceneObject(Scene3D::ObjectID::CreateInvalidID());
                 m_scene.RemoveObject(obj);
             }
             ImGui::PopStyleColor();
@@ -1240,7 +1252,8 @@ namespace CoreEngine
 
         m_bottom_panel_height_relative = ImGui::GetWindowHeight() / io.DisplaySize.y;
 
-        if (m_selected_object_state.m_object_ptr && m_selected_object_state.m_object_ptr->m_render_model)
+        auto selected_obj_ptr = m_scene.GetSceneObject(m_selected_object_state.m_object_id);
+        if (selected_obj_ptr && selected_obj_ptr->m_render_model)
         {
             const auto DrawImage = [](GLuint id, ImVec2 size) -> void 
             {
@@ -1270,7 +1283,7 @@ namespace CoreEngine
 
             const ImVec2 image_size(image_width, image_width);
 
-            const std::vector<Mesh>& meshes = m_selected_object_state.m_object_ptr->m_render_model->GetMeshVectorConstReference();
+            const std::vector<Mesh>& meshes = selected_obj_ptr->m_render_model->GetMeshVectorConstReference();
 
             const auto DrawOrPlaceholder = [&](std::shared_ptr<Texture> tex, const char* tooltip_msg)
             {
@@ -1279,7 +1292,7 @@ namespace CoreEngine
                 else DrawPlaceholderX(image_size);
                 if (ImGui::IsItemHovered()) 
                 { 
-                    ImGui::SetTooltip(tooltip_msg); 
+                    ImGui::SetTooltip("%s", tooltip_msg); 
                 }
             };
 

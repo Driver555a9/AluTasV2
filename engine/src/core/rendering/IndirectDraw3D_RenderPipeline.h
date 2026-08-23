@@ -15,6 +15,12 @@ namespace CoreEngine
     class IndirectDraw3D_RenderPipeline
     {
     public:
+        //Maintain valid std140 alignment
+        struct CameraRenderData
+        {
+            glm::mat4 m_cam_matrix;
+            glm::vec3 m_camera_position; GLfloat padding;
+        };
         //////////////////////////////////////////////// 
         //---------  Constructor
         //////////////////////////////////////////////// 
@@ -31,6 +37,7 @@ namespace CoreEngine
         void SetLightData(const std::vector<Light>& lights) noexcept;
         //Call if camera state changed
         void SetCameraData(const glm::mat4& cam_matrix, const glm::vec3& cam_pos) noexcept;
+        [[nodiscard]] CameraRenderData GetCameraRenderData() const noexcept { return m_camera_render_data; }
         void Render() noexcept;
 
         [[nodiscard]] Shader& GetShaderProgramReference() noexcept;
@@ -67,13 +74,6 @@ namespace CoreEngine
             GLuint m_light_size               = 0;
         };
         
-        //Maintain valid std140 alignment
-        struct CameraRenderData
-        {
-            glm::mat4 camMatrix;
-            glm::vec3 camPos; GLfloat padding;
-        };
-
         //////////////////////////////////////////////// 
         //---------  CPU Side Data
         //////////////////////////////////////////////// 
@@ -82,6 +82,7 @@ namespace CoreEngine
         std::vector<glm::mat4>                       m_mesh_transforms;
         std::vector<std::shared_ptr<MaterialPBR>>    m_material_ptrs;
         RenderConfig                                 m_render_config;
+        SSBO_SizesData m_cpu_ssbo_size_copy;
 
         //////////////////////////////////////////////// 
         //--------- GPU Side Data

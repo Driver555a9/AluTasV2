@@ -7,9 +7,6 @@ namespace CoreEngine
 
     class PointsModel : public Basic_Model
     {
-    private:
-        glm::vec3 m_color;
-
     public:
         explicit PointsModel(std::vector<Mesh>&& meshes, const glm::vec3& position, const glm::quat& rotation, const glm::vec3& color) noexcept;
         
@@ -20,6 +17,9 @@ namespace CoreEngine
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
         [[nodiscard]] glm::vec3 GetColor() const noexcept;
+        
+    private:
+        glm::vec3 m_color;
     };
 
 }

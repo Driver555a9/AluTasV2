@@ -1,8 +1,7 @@
 #pragma once
 
 #include "core/layer/Layer.h"
-
-#include "Communication.h"
+#include "core/utility/Timer.h"
 
 #include <string>
 
@@ -28,10 +27,12 @@ namespace AsphaltTas
         static void DeleteInstance() noexcept;
 
     private:
-        bool m_use_transform_override_patch = true;
+        bool m_use_transform_override_patch = false;
+        bool m_is_in_delete_all_process = false;
+        CoreEngine::Timer m_delete_all_timer;
 
         static inline TasInputLayer* s_instance = nullptr;
-        constexpr static inline std::string s_replay_folder_path = "replays/";
+        constexpr static inline std::string REPLAY_FOLDER_PATH = "replays/";
 
     };
 }

@@ -284,7 +284,7 @@ namespace BulletTypes
                 }
 
                 TriangleExtract extractor(arr);
-                extractor.Reserve(1024);
+                extractor.Reserve(200'000);
                 multimat->ProcessAllTriangles(&extractor, {-10E9f, -10E9f, -10E9f}, {10E9f, 10E9f, 10E9f});
 
                 const std::vector<BinaryTriangle>& triangles = extractor.GetTriangles();

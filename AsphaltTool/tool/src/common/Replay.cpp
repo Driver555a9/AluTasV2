@@ -108,28 +108,28 @@ namespace AsphaltTas
         m_frame_interval_micros = interval;   
     }
 
-    enum class ReplayVersion : uint32_t
+    enum class ReplayVersionMajor : uint32_t
     {
-        VERSION_1 = 1, // Core features that are mandatory
-        VERSION_2 = 2, // Added: bool RespawnButton for respawn button press inputs
-        VERSION_3 = 3, // Added: RACE_PROGRESS, CAR_RPM, CP, GEAR - datapoints for RacerStates
-        NEWEST    = VERSION_3
+        VERSION_MAJOR_1 = 1, // Core features that are mandatory
+        VERSION_MAJOR_2 = 2, // Added: bool RespawnButton for respawn button press inputs
+        VERSION_MAJOR_3 = 3, // Added: RACE_PROGRESS, CAR_RPM, CP, GEAR - datapoints for RacerStates
+        VERSION_MAJOR_4 = 4, // REMOVED BARREL STATE VALUES - Fundamentally incompatible with modern versions of tool if version < 4
+        NEWEST          = VERSION_MAJOR_4
     };
 
-    constexpr std::strong_ordering operator<=>(ReplayVersion lhs, ReplayVersion rhs)
+    constexpr std::strong_ordering operator<=>(ReplayVersionMajor lhs, ReplayVersionMajor rhs)
     {
         return static_cast<uint32_t>(lhs) <=> static_cast<uint32_t>(rhs);
     }
 
     namespace SerializeKeys
     {
-        
         namespace Meta
         {
             constexpr char ROOT []           = "Meta";
+            constexpr char VERSION[]         = "ManifestVersion";
             constexpr char TITLE[]           = "Title";
             constexpr char TIMESTAMP[]       = "Timestamp";
-            constexpr char VERSION[]         = "ManifestVersion";
             constexpr char FRAME_INTERVAL[]  = "FrameInterval";
         }
 
@@ -200,9 +200,9 @@ namespace AsphaltTas
 
         nlohmann::ordered_json j;
 
+        j[SerializeKeys::Meta::ROOT][SerializeKeys::Meta::VERSION]          = ReplayVersionMajor::NEWEST;
         j[SerializeKeys::Meta::ROOT][SerializeKeys::Meta::TITLE]            = replay.GetName();
         j[SerializeKeys::Meta::ROOT][SerializeKeys::Meta::TIMESTAMP]        = std::time(nullptr);
-        j[SerializeKeys::Meta::ROOT][SerializeKeys::Meta::VERSION]          = ReplayVersion::NEWEST;
         j[SerializeKeys::Meta::ROOT][SerializeKeys::Meta::FRAME_INTERVAL]   = replay.GetFrameIntervalMicros();
 
         j[SerializeKeys::ReplayInputs::ROOT] = nlohmann::ordered_json::array();
@@ -224,20 +224,7 @@ namespace AsphaltTas
                 tick[SerializeKeys::ReplayInputs::STEER_BITS] = FloatToDecimal(in.m_steer_value);
                 tick[SerializeKeys::ReplayInputs::BRAKE_BITS] = FloatToDecimal(in.m_brake_value);
                 tick[SerializeKeys::ReplayInputs::ACCEL_BITS] = FloatToDecimal(in.m_accelerator_value);
-
                 tick[SerializeKeys::ReplayInputs::NITRO_ACTIVATIONS] = in.m_nitro_activation_count_this_frame;
-
-                {
-                    nlohmann::ordered_json arr = nlohmann::ordered_json::array();
-                    arr.push_back(FloatToDecimal(in.m_barrel_angular_velocities_vec3.x));
-                    arr.push_back(FloatToDecimal(in.m_barrel_angular_velocities_vec3.y));
-                    arr.push_back(FloatToDecimal(in.m_barrel_angular_velocities_vec3.z));
-
-                    tick[SerializeKeys::ReplayInputs::BARREL_ANGULAR_VELOCITIES] = arr;
-                }
-
-                tick[SerializeKeys::ReplayInputs::BARREL_RBX_2228] = FloatToDecimal(in.m_value_rbx_2228);
-                tick[SerializeKeys::ReplayInputs::BARREL_RBX_222C] = FloatToDecimal(in.m_value_rbx_222C);
                 tick[SerializeKeys::ReplayInputs::RESPAWN_BUTTON]  = in.m_respawn_button_press;
 
                 j[SerializeKeys::ReplayInputs::ROOT].push_back(tick);
@@ -298,7 +285,13 @@ namespace AsphaltTas
             simdjson::ondemand::parser parser_pass1;
             auto doc_pass1 = parser_pass1.iterate(padded_json_pass1);
 
-            const ReplayVersion replay_version { static_cast<uint32_t>(doc_pass1[SerializeKeys::Meta::ROOT][SerializeKeys::Meta::VERSION].get_uint32()) };
+            const ReplayVersionMajor replay_version { static_cast<uint32_t>(doc_pass1[SerializeKeys::Meta::ROOT][SerializeKeys::Meta::VERSION].get_uint32()) };
+
+            if (replay_version < ReplayVersionMajor::VERSION_MAJOR_4) 
+            {
+                ENGINE_ERROR_PRINT("Replay version unsupported. Version must at least be V4 to be compatible with this tool.");
+                return {};
+            }
     
             for (auto rs : doc_pass1[SerializeKeys::RacerStates::ROOT].get_array())
             {
@@ -324,7 +317,7 @@ namespace AsphaltTas
     
                 racer_state.m_nitro_bar_value = DecimalToFloat(rs[SerializeKeys::RacerStates::NITRO_BAR].value());
 
-                if (replay_version >= ReplayVersion::VERSION_3)
+                if (replay_version >= ReplayVersionMajor::VERSION_MAJOR_3)
                 {
                     racer_state.m_race_progress_percentage = DecimalToFloat(rs[SerializeKeys::RacerStates::RACE_PROGRESS].value());
                     racer_state.m_rpm        = DecimalToFloat(rs[SerializeKeys::RacerStates::CAR_RPM].value());
@@ -341,8 +334,8 @@ namespace AsphaltTas
         auto doc = parser.iterate(padded_json);
     
         Replay replay;
+        const ReplayVersionMajor replay_version { static_cast<uint32_t>(doc[SerializeKeys::Meta::ROOT][SerializeKeys::Meta::VERSION].get_uint32()) };
         replay.SetName(std::string(doc[SerializeKeys::Meta::ROOT][SerializeKeys::Meta::TITLE].get_string().value()));
-        const ReplayVersion replay_version { static_cast<uint32_t>(doc[SerializeKeys::Meta::ROOT][SerializeKeys::Meta::VERSION].get_uint32()) };
         replay.SetFrameIntervalMicros(doc[SerializeKeys::Meta::ROOT][SerializeKeys::Meta::FRAME_INTERVAL].get_uint32());
     
         size_t index = 0;
@@ -358,20 +351,8 @@ namespace AsphaltTas
             out_input.m_accelerator_value = DecimalToFloat(input[SerializeKeys::ReplayInputs::ACCEL_BITS].value());
     
             out_input.m_nitro_activation_count_this_frame = input[SerializeKeys::ReplayInputs::NITRO_ACTIVATIONS].get_uint32();
-    
-            {
-                auto arr = input[SerializeKeys::ReplayInputs::BARREL_ANGULAR_VELOCITIES].get_array();
-                size_t k = 0;
-                for (auto v : arr)
-                {
-                    out_input.m_barrel_angular_velocities_vec3[k++] = DecimalToFloat(v.value());
-                }
-            }
-    
-            out_input.m_value_rbx_2228 = DecimalToFloat(input[SerializeKeys::ReplayInputs::BARREL_RBX_2228].value());
-            out_input.m_value_rbx_222C = DecimalToFloat(input[SerializeKeys::ReplayInputs::BARREL_RBX_222C].value());
 
-            if (replay_version >= ReplayVersion::VERSION_2)
+            if (replay_version >= ReplayVersionMajor::VERSION_MAJOR_2)
             {
                 out_input.m_respawn_button_press = input[SerializeKeys::ReplayInputs::RESPAWN_BUTTON]->get_bool();
             }

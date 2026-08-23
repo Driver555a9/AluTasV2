@@ -5,6 +5,7 @@
 #include <sstream>
 #include <iomanip>
 #include <array>
+#include <string_view>
 
 #include "core/utility/Units.h" 
 
@@ -79,5 +80,13 @@ namespace AsphaltTas
 
             return std::find(reserved.begin(), reserved.end(), upper) == reserved.end();
         }
+
+        template <typename T, typename... Args>
+        constexpr bool EqualsAny(T&& val, Args&&... args)
+        {
+            return ((val == args) || ...);
+        }
+
+        bool SoftDelete(std::string_view path) noexcept;
     }
 }

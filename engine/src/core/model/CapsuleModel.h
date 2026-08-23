@@ -13,6 +13,7 @@ namespace CoreEngine
 
     public:
         explicit CapsuleModel(float radius, float cylinder_height, glm::vec3 position, glm::quat rotation, glm::vec3 color) noexcept;
+        explicit CapsuleModel(float radius, float cylinder_height, int up_axis, glm::vec3 position, glm::quat rotation, glm::vec3 colo) noexcept;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //-------- Basic_Model Abstract Methods

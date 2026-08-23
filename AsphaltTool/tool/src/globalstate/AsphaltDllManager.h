@@ -4,6 +4,8 @@
 
 #include "Communication.h"
 
+#include "core/rendering/BulletDebugDraw_RenderPipeline.h"
+
 #include <optional>
 #include <mutex>
 
@@ -38,12 +40,13 @@ namespace AsphaltTas
     {  
         void UpdateCurrentCommunicationState() noexcept;
 
+        [[nodiscard]] std::vector<CoreEngine::BulletDebugDraw_RenderPipeline::CompletedStaticMesh> TakeNewlyCompletedStaticMeshes() noexcept;
+        
         [[nodiscard]] ScopeLockedAccess<std::optional<ComDllOut::DllStateOut>> GetDllStateOutLockResultRef() noexcept;
-        [[nodiscard]] ScopeLockedAccess<ComDllIn::DllReplayInputIn> GetDllReplayInputInRef() noexcept;
         [[nodiscard]] ScopeLockedAccess<ComDllIn::DllGeneralCommandsIn> GetDllGeneralCommandsInRef() noexcept;
+        [[nodiscard]] ScopeLockedAccess<std::unique_ptr<BulletTypes::DebugDrawStream::DebugFrameData>> GetDllOutDebugFrameDataResultRef() noexcept;
 
         [[nodiscard]] std::optional<ComDllOut::DllStateOut> GetDllStateOutCopy() noexcept;
-        [[nodiscard]] ComDllIn::DllReplayInputIn GetDllReplayInputsInCopy() noexcept;
         [[nodiscard]] ComDllIn::DllGeneralCommandsIn GetDllGeneralCommandsInCopy() noexcept;
 
         void InjectIntoGame();

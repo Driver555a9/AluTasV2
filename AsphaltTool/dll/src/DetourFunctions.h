@@ -4,7 +4,10 @@
 #include <cstdint>
 #include <vector>
 
+#define HAS_GET_MAIN_MODULE_FUNCTION
 #include "BulletTypes.h"
+
+[[nodiscard]] uintptr_t GetMainGameModule() noexcept;
 
 namespace AsphaltDLL
 {
@@ -43,9 +46,24 @@ namespace AsphaltDLL
         // Handles both game side logic (nitro, drift etc.) and calls Physics Update function
         // Does not run whilst in pause menu for whatever reason
         ////////////////////////////////////////////////////////////
-        namespace OnNewFrameWithPhysics 
+        namespace PhysicsContextNewFrame 
         {
             void QueueSkipSubsequentTicks(uint32_t amount) noexcept;
+            bool SetupHook() noexcept;
+            bool RemoveHook() noexcept;
+            bool EnableHook() noexcept;
+            bool DisableHook() noexcept;
+            [[nodiscard]] HookState GetHookState() noexcept;
+        }
+
+        ////////////////////////////////////////////////////////////
+        // Function called is wrapper around bullet world
+        // [rdx] is float seconds interval time from last call
+        // Function internally increments a counter with [rdx] and does as many physics ticks until that counter is < 0, subtracting PF each tick
+        // [rcx] is a proxy between game world and discretedynamicsworld
+        ////////////////////////////////////////////////////////////
+        namespace PhysicsWorldWrapperNewTick
+        {
             bool SetupHook() noexcept;
             bool RemoveHook() noexcept;
             bool EnableHook() noexcept;
@@ -66,12 +84,21 @@ namespace AsphaltDLL
         }
 
         ////////////////////////////////////////////////////////////
-        // Function called on each Bullet Physics step. 
-        // [rdx] is float seconds interval time from last call
-        // Function internally increments a counter with [rdx] and does as many physics ticks until that counter is < 0, subtracting PF each tick
-        // [rcx] is a proxy between game world and discretedynamicsworld
+        // DiscreteDynamicsWorldDestructor
         ////////////////////////////////////////////////////////////
-        namespace NewBulletPhysicsTick
+        namespace DiscreteDynamicsWorldDestructor
+        {
+            bool SetupHook() noexcept;
+            bool RemoveHook() noexcept;
+            bool EnableHook() noexcept;
+            bool DisableHook() noexcept;
+            [[nodiscard]] HookState GetHookState() noexcept;
+        }
+
+        //////////////////////////////////////////////////////////
+        // PhysicsContext MERSENNE TWISTER PRNG - used for Barrel Rolls, must be reset per race!
+        //////////////////////////////////////////////////////////
+        namespace PhysicsContextMersenneTwisterPRNG
         {
             bool SetupHook() noexcept;
             bool RemoveHook() noexcept;
@@ -256,7 +283,7 @@ namespace AsphaltDLL
         // Called on dynamic object wreck e.g. taffic or racer
         // Deploys breakables specifically (not main wreck entrypoint)
         ///////////////////////////////////////
-        namespace OnWreck
+        namespace OnWreckDeployBreakables
         {
             std::uint64_t GetMonotonicWreckSessionCount() noexcept;
             bool SetupHook() noexcept;
@@ -346,6 +373,18 @@ namespace AsphaltDLL
         // Writes CP value we can read
         ///////////////////////////////////////
         namespace OnUpdateCheckpoint
+        {
+            bool SetupHook() noexcept;
+            bool RemoveHook() noexcept;
+            bool EnableHook() noexcept;
+            bool DisableHook() noexcept;
+            [[nodiscard]] HookState GetHookState() noexcept;
+        }
+
+        ///////////////////////////////////////
+        // Handles racer track location logic
+        ///////////////////////////////////////
+        namespace SegmentResolve
         {
             bool SetupHook() noexcept;
             bool RemoveHook() noexcept;

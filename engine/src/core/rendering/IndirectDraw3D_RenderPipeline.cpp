@@ -36,7 +36,7 @@ namespace CoreEngine
         glDepthFunc(GL_GREATER);
         glClearDepth(0.0);
 
-        glClear(GL_DEPTH_BUFFER_BIT);
+        //glClear(GL_DEPTH_BUFFER_BIT);
     //------------------- Cull face for performance
         if (m_render_config.m_use_cull_face)
         {
@@ -65,6 +65,7 @@ namespace CoreEngine
         m_mesh_transform_ssbo.BindBase();
         m_texture_indices_ssbo.BindBase();
         m_light_ssbo.BindBase();
+        m_ssbo_sizes_ubo.BindBase();
 
         m_shader_program.Activate();
 
@@ -76,7 +77,6 @@ namespace CoreEngine
         m_indirect_command_buffer.Unbind();
         m_vao.Unbind();
         m_camera_ubo.Unbind();
-
     }
 
     void IndirectDraw3D_RenderPipeline::SetSceneData(const std::vector<const Basic_Model*>& model_vec, const std::vector<Light>& lights_vec) noexcept
@@ -171,12 +171,12 @@ namespace CoreEngine
         m_light_ssbo.SetNewData(lights_vec.data(), lights_vec.size() * sizeof(Light), SSBO_BINDING::IndirectDraw3D_LIGHTS);
 
         //Store lengths of SSBO
-        SSBO_SizesData ssbo_sizes {};
-        ssbo_sizes.m_active_draw_indices_size = m_active_draw_indices.size();
-        ssbo_sizes.m_mesh_transform_size      = m_mesh_transforms.size();
-        ssbo_sizes.m_materials_size           = m_material_ptrs.size();
-        ssbo_sizes.m_light_size               = lights_vec.size();
-        m_ssbo_sizes_ubo.SetSubData(&ssbo_sizes, sizeof(SSBO_SizesData), 0);
+        //SSBO_SizesData ssbo_sizes {};
+        m_cpu_ssbo_size_copy.m_active_draw_indices_size = m_active_draw_indices.size();
+        m_cpu_ssbo_size_copy.m_mesh_transform_size      = m_mesh_transforms.size();
+        m_cpu_ssbo_size_copy.m_materials_size           = m_material_ptrs.size();
+        m_cpu_ssbo_size_copy.m_light_size               = lights_vec.size();
+        m_ssbo_sizes_ubo.SetSubData(&m_cpu_ssbo_size_copy, sizeof(SSBO_SizesData), 0);
         
         //Store mesh data
         m_vbo.SetNewData(temp_mesh_vertices);
@@ -257,18 +257,18 @@ namespace CoreEngine
     {
         m_light_ssbo.SetNewData(lights_vec.data(), lights_vec.size() * sizeof(Light), SSBO_BINDING::IndirectDraw3D_LIGHTS);
 
-        SSBO_SizesData ssbo_sizes {};
-        ssbo_sizes.m_active_draw_indices_size = m_active_draw_indices.size();
-        ssbo_sizes.m_mesh_transform_size      = m_mesh_transforms.size();
-        ssbo_sizes.m_materials_size           = m_material_ptrs.size();
-        ssbo_sizes.m_light_size               = lights_vec.size();
-        m_ssbo_sizes_ubo.SetSubData(&ssbo_sizes, sizeof(SSBO_SizesData), 0);
+        //SSBO_SizesData ssbo_sizes {};
+        m_cpu_ssbo_size_copy.m_active_draw_indices_size = m_active_draw_indices.size();
+        m_cpu_ssbo_size_copy.m_mesh_transform_size      = m_mesh_transforms.size();
+        m_cpu_ssbo_size_copy.m_materials_size           = m_material_ptrs.size();
+        m_cpu_ssbo_size_copy.m_light_size               = lights_vec.size();
+        m_ssbo_sizes_ubo.SetSubData(&m_cpu_ssbo_size_copy, sizeof(SSBO_SizesData), 0);
     }
 
     void IndirectDraw3D_RenderPipeline::SetCameraData(const glm::mat4& cam_matrix, const glm::vec3& cam_pos) noexcept
     {
-        m_camera_render_data.camMatrix = cam_matrix;
-        m_camera_render_data.camPos    = cam_pos;
+        m_camera_render_data.m_cam_matrix = cam_matrix;
+        m_camera_render_data.m_camera_position    = cam_pos;
         m_camera_ubo.SetSubData(&m_camera_render_data, sizeof(CameraRenderData), 0);
     }
 

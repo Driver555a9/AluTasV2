@@ -33,8 +33,8 @@ namespace CoreEngine
 
         if (m_physics_type != PhysicsObjectType::NONE)
         {
-            m_physics_object_config.m_start_transform.setOrigin(PhysicsUtility::GlmVec3ToBt(m_position));
-            m_physics_object_config.m_start_transform.setRotation(PhysicsUtility::GlmQuatToBt(m_rotation));
+            m_physics_object_config.m_start_transform.setOrigin(PUtil::ToBt(m_position));
+            m_physics_object_config.m_start_transform.setRotation(PUtil::ToBt(m_rotation));
 
             if (m_physics_type == PhysicsObjectType::Ordinary)
             {
@@ -148,9 +148,9 @@ namespace CoreEngine
             const uint32_t index1 = earcut_indices[i+1];
             const uint32_t index2 = earcut_indices[i+2];
 
-            const btVector3 v0(PhysicsUtility::GlmVec3ToBt(points[index0].m_position));
-            const btVector3 v1(PhysicsUtility::GlmVec3ToBt(points[index1].m_position));
-            const btVector3 v2(PhysicsUtility::GlmVec3ToBt(points[index2].m_position));
+            const btVector3 v0(PUtil::ToBt(points[index0].m_position));
+            const btVector3 v1(PUtil::ToBt(points[index1].m_position));
+            const btVector3 v2(PUtil::ToBt(points[index2].m_position));
 
             triangle_mesh->addTriangle(v0, v1, v2);
         }
@@ -169,7 +169,7 @@ namespace CoreEngine
     {
         m_render_model = std::make_unique<BoxModel>(half_extents, glm::vec3(0.0f), glm::identity<glm::quat>(), color);
         m_physics_object_config.m_shape_type       = PhysicsShapeType::BOX;
-        m_physics_object_config.m_box_half_extents = PhysicsUtility::GlmVec3ToBt(half_extents);
+        m_physics_object_config.m_box_half_extents = PUtil::ToBt(half_extents);
     }
 
     void Scene3D_ObjectBuilder::RenderAndCollision_SetSphere(const float radius, const glm::vec3& color) noexcept
@@ -183,7 +183,7 @@ namespace CoreEngine
     {
         ENGINE_ASSERT (m_render_model && "At Scene3D_ObjectBuilder::SetBtBoxShape_FromGivenRenderModelExtents(): Render model must be initialized before this method.");
         m_physics_object_config.m_shape_type       = PhysicsShapeType::BOX;
-        m_physics_object_config.m_box_half_extents = PhysicsUtility::GlmVec3ToBt(m_render_model->GetWorldSpaceAABB().m_half_extents);
+        m_physics_object_config.m_box_half_extents = PUtil::ToBt(m_render_model->GetWorldSpaceAABB().m_half_extents);
     }
 
     void Scene3D_ObjectBuilder::CollisionShape_SetStaticTriangleMeshFromModel() noexcept
@@ -202,9 +202,9 @@ namespace CoreEngine
                 const GLuint idx1 = indices[i + 1];
                 const GLuint idx2 = indices[i + 2];
 
-                const btVector3 v0(PhysicsUtility::GlmVec3ToBt(vertices[idx0].m_position));
-                const btVector3 v1(PhysicsUtility::GlmVec3ToBt(vertices[idx1].m_position));
-                const btVector3 v2(PhysicsUtility::GlmVec3ToBt(vertices[idx2].m_position));
+                const btVector3 v0(PUtil::ToBt(vertices[idx0].m_position));
+                const btVector3 v1(PUtil::ToBt(vertices[idx1].m_position));
+                const btVector3 v2(PUtil::ToBt(vertices[idx2].m_position));
 
                 triangle_mesh->addTriangle(v0, v1, v2);
             }

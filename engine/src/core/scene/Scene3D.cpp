@@ -26,7 +26,7 @@ namespace CoreEngine
     {
         m_physics_world.OnUpdate(delta_time);
 
-        for (std::unique_ptr<Scene3D_SceneObject>& object : m_scene_objects)
+        for (const auto& [object, generation] : m_slots)
         {
             object->SyncRenderTransformWithPhysics();
         }
@@ -48,12 +48,12 @@ namespace CoreEngine
     const std::vector<const Basic_Model*> Scene3D::GetRenderModelVector() const noexcept
     {   
         std::vector<const Basic_Model*> models;
-        models.reserve(m_scene_objects.size());
+        models.reserve(m_slots.size());
 
-        for (const std::unique_ptr<Scene3D_SceneObject>& scene_obj : m_scene_objects)
+        for (const auto& [object, generation] : m_slots)
         {
-            if (scene_obj->m_render_model)
-                models.push_back(scene_obj->m_render_model.get());
+            if (object && object->m_render_model)
+                models.push_back(object->m_render_model.get());
         }
 
         return models;
@@ -67,56 +67,89 @@ namespace CoreEngine
     std::vector<glm::vec3> Scene3D::GetDebugLinesAllObjects() const noexcept
     {
         std::vector<glm::vec3> lines_out;
-        lines_out.reserve(m_scene_objects.size() * 12); //12 for rectangle prism, improve this guess
+        lines_out.reserve(m_slots.size() * 12);
         
-        for (const auto& obj : m_scene_objects)
+        for (const auto& [object, generation] : m_slots)
         {
-            const std::vector<glm::vec3>& lines_obj = obj->CalculateAABBDebugLines();
+            const std::vector<glm::vec3>& lines_obj = object->CalculateAABBDebugLines();
             lines_out.insert(lines_out.end(), lines_obj.begin(), lines_obj.end());
         }
         return lines_out;
     }
 
-    std::vector<std::unique_ptr<Scene3D_SceneObject>>& Scene3D::GetSceneObjectsRef() noexcept
+    std::vector<Scene3D::Slot>& Scene3D::GetSlotVectorRef() noexcept
     {
-        return m_scene_objects;
+        return m_slots;
     }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //-------- Adding / Removing objects
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-    void Scene3D::AddObject(std::unique_ptr<Scene3D_SceneObject> obj) noexcept
-    {
-        m_scene_objects.push_back(std::move(obj));
-        m_object_added_or_deleted = true;
-    }
-
     Scene3D_ObjectBuilder Scene3D::CreateObjectBuilder() noexcept
     {
         return Scene3D_ObjectBuilder {m_physics_world.GetDynamicsWorldPtr()};
     }
 
-    void Scene3D::AddObjectFromBuilder(Scene3D_ObjectBuilder&& builder) noexcept
+    Scene3D::ObjectID Scene3D::AddObject(std::unique_ptr<Scene3D_SceneObject> obj) noexcept
     {
-        m_scene_objects.push_back(builder.Finalize());
-        m_object_added_or_deleted = true;
-    }
+        uint32_t target_index = 0;
 
-    bool Scene3D::RemoveObject(const Scene3D_SceneObject* object_ptr) noexcept
-    {
-        const bool removed = std::erase_if(m_scene_objects, [object_ptr](const auto& object) -> bool { return object.get() == object_ptr; });
-        if (removed)
+        if (!m_free_indices.empty())
         {
-            m_object_added_or_deleted = true;
+            target_index = m_free_indices.back();
+            m_free_indices.pop_back();
+            m_slots[target_index].m_object = std::move(obj);
         }
-        return removed;
+        else
+        {
+            target_index = static_cast<uint32_t>(m_slots.size());
+            m_slots.push_back(Slot{ .m_object = std::move(obj), .m_generation = 0 });
+        }
+
+        m_object_added_or_deleted = true;
+
+        ObjectID id{ target_index, m_slots[target_index].m_generation };
+
+        m_object_count++;
+
+        return id;
     }
 
-    bool Scene3D::RemoveObject(const std::size_t index) noexcept
+    Scene3D::ObjectID Scene3D::AddObjectFromBuilder(Scene3D_ObjectBuilder&& builder) noexcept
     {
-        if (index >= m_scene_objects.size())
+        return AddObject(builder.Finalize());
+    }
+
+    Scene3D_SceneObject* Scene3D::GetSceneObject(ObjectID handle) const noexcept
+    {
+        if (!handle.IsValid() || handle.m_index >= m_slots.size())
+            return nullptr;
+
+        const Slot& slot = m_slots[handle.m_index];
+
+        if (slot.m_generation != handle.m_generation)
+            return nullptr;
+
+        return slot.m_object.get();
+    }
+
+    bool Scene3D::RemoveObject(ObjectID handle) noexcept
+    {
+        if (!handle.IsValid() || handle.m_index >= m_slots.size())
             return false;
-        m_scene_objects.erase(m_scene_objects.begin() + index);
+
+        Slot& slot = m_slots[handle.m_index];
+
+        if (slot.m_generation != handle.m_generation || !slot.m_object)
+            return false;
+
+
+        slot.m_object.reset();
+        slot.m_generation++; 
+        m_free_indices.push_back(handle.m_index);
+
+        m_object_count--;
+
         m_object_added_or_deleted = true;
         return true;
     }
@@ -148,25 +181,41 @@ namespace CoreEngine
 
     void Scene3D::ClearAllSceneObjects() noexcept
     {
-        m_scene_objects.clear();
+        for (auto& slot : m_slots)
+        {
+            slot.m_object.reset();
+            slot.m_generation++;
+        }
+        m_free_indices.clear();
+
+        m_free_indices.reserve(m_slots.size());
+        for (uint32_t i = 0; i < static_cast<uint32_t>(m_slots.size()); ++i)
+        {
+            m_free_indices.push_back(i);
+        }
         m_object_added_or_deleted = true;
+
+        m_object_count = 0;
     }
 
     void Scene3D::ClearAll() noexcept
     {
-        m_scene_objects.clear();
-        m_light_sources.clear();
+        ClearAllSceneObjects();
+        ClearAllLightSources();
+
         btIDebugDraw* debug_draw = m_physics_world.GetDynamicsWorldPtr()->getDebugDrawer();
         m_physics_world = PhysicsWorld();
         SetDebugDrawer(debug_draw);
-
-        m_object_added_or_deleted = true;
-        m_light_added_or_deleted  = true;
     }
 
-    size_t Scene3D::GetAmountObjects() noexcept
+    size_t Scene3D::GetAmountObjects() const noexcept
     {
-        return m_scene_objects.size();
+        if (m_object_count < 0) [[unlikely]] 
+        {
+            const_cast<Scene3D*>(this)->m_object_count = 0;
+            ENGINE_ERROR_PRINT("SCENE3D OBJECT COUNT NEGATIVE - THIS SHOULD NEVER HAPPEN.");
+        }
+        return m_object_count;
     }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -190,8 +239,8 @@ namespace CoreEngine
         json_obj[_SerializeKey::Meta::Root][_SerializeKey::Meta::Version]       = _SerializeKey::Meta::Value::ManifestVersion;
         json_obj[_SerializeKey::Meta::Root][_SerializeKey::Meta::TimestampNow]  = std::time(nullptr);
 
-        json_obj[_SerializeKey::SceneInfo::Root][_SerializeKey::SceneInfo::AmountObjects] = m_scene_objects.size();
-        json_obj[_SerializeKey::SceneInfo::Root][_SerializeKey::SceneInfo::AmountLights]  =  m_light_sources.size();
+        json_obj[_SerializeKey::SceneInfo::Root][_SerializeKey::SceneInfo::AmountObjects] = GetAmountObjects();
+        json_obj[_SerializeKey::SceneInfo::Root][_SerializeKey::SceneInfo::AmountLights]  = m_light_sources.size();
         
         ///////////////////////////////////////////////////
         //-------- Camera
@@ -210,8 +259,9 @@ namespace CoreEngine
         //-------- Objects
         ///////////////////////////////////////////////////
         json_obj[_SerializeKey::SceneData::Root][_SerializeKey::SceneData::SceneObjects]  = nlohmann::json::array();
-        for (const auto& object : m_scene_objects) 
+        for (const auto& [object, generation] : m_slots) 
         {
+            if (!object) continue;
             json_obj[_SerializeKey::SceneData::Root][_SerializeKey::SceneData::SceneObjects].push_back(object->SerializeToJson());
         }
 
@@ -247,7 +297,7 @@ namespace CoreEngine
 
         {
             const auto& scene_info_root_json = json.at(_SerializeKey::SceneInfo::Root);
-            m_scene_objects.reserve(scene_info_root_json.at(_SerializeKey::SceneInfo::AmountObjects).get<size_t>());
+            m_slots.reserve(scene_info_root_json.at(_SerializeKey::SceneInfo::AmountObjects).get<size_t>());
             m_light_sources.reserve(scene_info_root_json.at(_SerializeKey::SceneInfo::AmountLights).get<size_t>());
         }
 
@@ -260,7 +310,7 @@ namespace CoreEngine
             const auto& scene_objects_json   = scene_data_root_json.at(_SerializeKey::SceneData::SceneObjects);
             for (const auto& object_json : scene_objects_json)
             {
-                m_scene_objects.push_back(std::make_unique<Scene3D_SceneObject>(object_json, m_physics_world.GetDynamicsWorldPtr()));
+                (void)AddObject(std::make_unique<Scene3D_SceneObject>(object_json, m_physics_world.GetDynamicsWorldPtr()));
             }
             
             m_object_added_or_deleted = true;
@@ -316,9 +366,14 @@ namespace CoreEngine
         RaycastHit closest_hit {};
         float closest_dist_along_ray = std::numeric_limits<float>::max();
 
-        for (size_t scene_obj_index {0}; scene_obj_index < m_scene_objects.size(); ++scene_obj_index)
+        for (size_t scene_obj_index {0}; scene_obj_index < m_slots.size(); ++scene_obj_index)
         {
-            const Scene3D_SceneObject& object = *m_scene_objects[scene_obj_index];
+            const auto& slot = m_slots[scene_obj_index];
+
+            if (!slot.m_object)
+                continue;
+
+            const Scene3D_SceneObject& object = *slot.m_object;
 
             if (! object.m_render_model) continue;
             const Basic_Model* model = object.m_render_model.get();
@@ -396,7 +451,7 @@ namespace CoreEngine
                     const float triangle_dist_along_ray = glm::dot(result.m_intersection_point - model_space_ray.m_origin, model_space_ray.m_direction_normalized);
                     if (closest_dist_along_ray < triangle_dist_along_ray) continue;
 
-                    closest_hit.m_scene_object_ptr   = m_scene_objects[scene_obj_index].get();
+                    closest_hit.m_scene_object_id    = ObjectID{static_cast<uint32_t>(scene_obj_index), slot.m_generation};
                     closest_hit.m_intersection_point = glm::vec3(model_matrix * glm::vec4(result.m_intersection_point, 1.0f));
 
                     glm::vec3 normal = glm::normalize(glm::cross(vert1 - vert0, vert2 - vert0));
@@ -413,6 +468,6 @@ namespace CoreEngine
         if (closest_dist_along_ray < ray.m_max_ray_length)
             return closest_hit;
 
-        return { nullptr };
+        return {};
     }
 }

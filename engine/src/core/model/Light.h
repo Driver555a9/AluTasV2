@@ -46,5 +46,5 @@ namespace CoreEngine
         }
     };
 
-    static_assert(sizeof(Light) == 32, "Light must be 24 bytes");
+    static_assert(sizeof(Light) == 32, "Light must be 32 bytes");
 }

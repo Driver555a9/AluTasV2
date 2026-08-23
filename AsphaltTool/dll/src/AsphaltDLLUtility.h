@@ -1,14 +1,17 @@
 #pragma once
 
 #include <cstdint>
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-
+#include <iomanip>
+#include <fstream>
+#include <unordered_map>
 #include <string_view>
 #include <iostream>
 #include <optional>
 #include <vector>
-#include <array>
+#include <mutex>
+
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 
 #include "BulletTypes.h"
 
@@ -58,6 +61,13 @@ namespace AsphaltDLL
             }
         }
 
+        template <typename T, typename... Args>
+        requires (std::same_as<std::remove_cvref_t<T>, std::remove_cvref_t<Args>> && ...)
+        constexpr bool EqualsAny(T&& val, Args&&... args)
+        {
+            return ((val == args) || ...);
+        }
+
         std::string LPCWSTRToString(LPCWSTR lpcwstr) noexcept;
 
         [[nodiscard]] BulletTypes::Quaternion RotationFromTransform(const BulletTypes::Transform& mat) noexcept;
@@ -72,26 +82,153 @@ namespace AsphaltDLL
             constexpr std::string_view  BLUE    = "\033[34m";
             constexpr std::string_view  WHITE   = "\033[37m";
         }
+
+        template <typename TVal>
+        class DebugValCompare
+        {
+        public:
+            explicit DebugValCompare(const std::string& log_file_path) noexcept : m_log_file_path(log_file_path)
+            {
+                m_log_file.open(m_log_file_path, std::ios::out | std::ios::trunc);
+                if (m_log_file.is_open())
+                {
+                    m_log_file << "--- DebugValCompare Session Started ---\n";
+                    m_log_file.flush();
+                }
+            }
+
+            ~DebugValCompare()
+            {
+                if (m_log_file.is_open())
+                {
+                    m_log_file << "--- DebugValCompare Session Ended ---\n";
+                    m_log_file.close();
+                }
+            }
+
+            DebugValCompare(const DebugValCompare&) = delete;
+            DebugValCompare& operator=(const DebugValCompare&) = delete;
+
+            void AddValue(uint32_t tick, TVal val) noexcept
+            {
+                std::lock_guard<std::mutex> lock(m_mutex);
+
+                auto it = m_value_at_tick.find(tick);
+                if (it == m_value_at_tick.end())
+                {
+                    m_log_file << "[ADDED]    Tick " << tick << " | Rec: " << val << "\n";
+                    m_value_at_tick[tick] = val;
+                }
+                else
+                {
+                    const TVal& recorded_val = it->second;
+
+                    if (m_log_file.is_open())
+                    {
+                        if constexpr (std::is_floating_point_v<TVal>)
+                        {
+                            m_log_file << std::setprecision(8) << std::fixed;
+                        }
+
+                        if (recorded_val == val)
+                        {
+                            m_log_file << "[MATCH]    Tick " << tick << " | Rec: " << recorded_val << " == Cur: " << val << "\n";
+                        }
+                        else
+                        {
+                            m_log_file << "[MISMATCH] Tick " << tick << " | Rec: " << recorded_val << " != Cur: " << val << "\n";
+                        }
+                        m_log_file.flush();
+                    }
+                }
+            }
+
+            void ClearRecordedData() noexcept
+            {
+                std::lock_guard<std::mutex> lock(m_mutex);
+                m_value_at_tick.clear();
+                if (m_log_file.is_open())
+                {
+                    m_log_file << "--- Data Cleared ---\n";
+                    m_log_file.flush();
+                }
+            }
+
+        private:
+            std::string m_log_file_path;
+            std::ofstream m_log_file;
+            std::unordered_map<uint32_t, TVal> m_value_at_tick;
+            std::mutex m_mutex;
+        };
+
+        template <typename TVal>
+        class DebugValForce
+        {
+        public:
+            explicit DebugValForce() noexcept = default;
+            ~DebugValForce() = default;
+
+            DebugValForce(const DebugValForce&) = delete;
+            DebugValForce& operator=(const DebugValForce&) = delete;
+
+            void ForceValue(uint32_t tick, TVal& val) noexcept
+            {
+                std::lock_guard<std::mutex> lock(m_mutex);
+
+                auto it = m_value_at_tick.find(tick);
+                if (it == m_value_at_tick.end())
+                {
+                    m_value_at_tick[tick] = val;
+                }
+                else
+                {
+                    val = it->second;
+                }
+            }
+
+            void ClearRecordedData() noexcept
+            {
+                std::lock_guard<std::mutex> lock(m_mutex);
+                m_value_at_tick.clear();
+            }
+
+        private:
+            std::unordered_map<uint32_t, TVal> m_value_at_tick;
+            std::mutex m_mutex;
+        };
     }
 }
 
 #if defined(_MSC_VER)
-    #define ___FILENAME_HELPER_MACRO___ (std::strrchr(__FILE__, '/') ? std::strrchr(__FILE__, '/') + 1 : std::strrchr(__FILE__, '\\') ? std::strrchr(__FILE__, '\\') + 1 : __FILE__)
+    consteval const char* GetFileName(const char* path) 
+    {
+        const char* file = path;
+        for (const char* p = path; *p; ++p) 
+        {
+            if (*p == '/' || *p == '\\') 
+            {
+                file = p + 1;
+            }
+        }
+        return file;
+    }
+
+    #define __FILENAME__HELPER__ GetFileName(__FILE__)
 
     #define DLL_ERROR_PRINT(expr) std::cout << ::AsphaltDLL::Utility::ColorCodes::RED \
-    << "\n[ERROR] File: " << ___FILENAME_HELPER_MACRO___ << ::AsphaltDLL::Utility::ColorCodes::GREEN \
+    << "\n[ERROR] File: " << __FILENAME__HELPER__ << ::AsphaltDLL::Utility::ColorCodes::GREEN \
     << " Line " << __LINE__ << ": " << ::AsphaltDLL::Utility::ColorCodes::RESET << expr << std::endl
 
     #define DLL_ERROR_PRINT_NO_TEXT() std::cout << ::AsphaltDLL::Utility::ColorCodes::RED \
-    << "\n[ERROR] File: " << ___FILENAME_HELPER_MACRO___ << ::AsphaltDLL::Utility::ColorCodes::GREEN \
+    << "\n[ERROR] File: " << __FILENAME__HELPER__ << ::AsphaltDLL::Utility::ColorCodes::GREEN \
     << " Line " << __LINE__ << ::AsphaltDLL::Utility::ColorCodes::RESET << std::endl
 
     #define DLL_INFO_LOG(expr) std::cout << ::AsphaltDLL::Utility::ColorCodes::YELLOW \
-    << "\n[INFO] File: " << ___FILENAME_HELPER_MACRO___ << ::AsphaltDLL::Utility::ColorCodes::GREEN \
+    << "\n[INFO] File: " << __FILENAME__HELPER__ << ::AsphaltDLL::Utility::ColorCodes::GREEN \
     << " Line " << __LINE__ << ": " << ::AsphaltDLL::Utility::ColorCodes::RESET << expr << std::endl
 
     #define DLL_DEBUG_PRINT(expr) std::cout << ::AsphaltDLL::Utility::ColorCodes::BLUE \
-    << "\n[ERROR] File: " << ___FILENAME_HELPER_MACRO___ << ::AsphaltDLL::Utility::ColorCodes::GREEN \
+    << "\n[ERROR] File: " << __FILENAME__HELPER__ << ::AsphaltDLL::Utility::ColorCodes::GREEN \
     << " Line " << __LINE__ << ": " << ::AsphaltDLL::Utility::ColorCodes::RESET << expr << std::endl
 #elif defined(__GNUC__)
 

@@ -5,6 +5,7 @@
 #include "core/model/CapsuleModel.h"
 #include "core/model/Model.h"
 #include "core/scene/CameraController.h"
+#include "core/scene/Scene3D.h"
 #include "glm/geometric.hpp"
 #include "layer/GuiStyle.h"
 #include "globalstate/AsphaltDllManager.h"
@@ -156,7 +157,7 @@ namespace AsphaltTas
 
     void TrackViewerLayer::LoadTrackFromFile(const std::string& path) noexcept
     {
-        m_selected_object_state.m_object_ptr = nullptr;
+        m_selected_object_state.m_object_id = CoreEngine::Scene3D::ObjectID::CreateInvalidID();
         m_show_non_triangle_meshes = true;
         m_scene.ClearAllSceneObjects();
         
@@ -343,7 +344,6 @@ namespace AsphaltTas
                     {
                         radius         = implicit_dims.y;
                         half_height    = implicit_dims.x;
-                        mesh_alignment = glm::angleAxis(-glm::half_pi<float>(), glm::vec3(0.0f, 0.0f, 1.0f));
                     }
                     else if (up_axis == 1)
                     {
@@ -354,12 +354,8 @@ namespace AsphaltTas
                     {
                         radius         = implicit_dims.x;
                         half_height    = implicit_dims.z;
-                        mesh_alignment = glm::angleAxis(glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
                     }
-
                     const float cylinder_height = half_height * 2.0f; 
-
-                    glm::quat final_mesh_rotation = rotation * mesh_alignment;
 
                     std::stringstream ss;
                     ss << name_prefix << "Capsule"
@@ -372,7 +368,7 @@ namespace AsphaltTas
                     const glm::vec3 color = m_color_defs[COLOR_DEFS_INDEX_CAPSULE];
 
                     CoreEngine::Scene3D_ObjectBuilder builder = m_scene.CreateObjectBuilder();
-                    builder.RenderModel_SetExisting(std::make_unique<CoreEngine::CapsuleModel>(radius, cylinder_height, position, final_mesh_rotation, color));
+                    builder.RenderModel_SetExisting(std::make_unique<CoreEngine::CapsuleModel>(radius, cylinder_height, position, rotation, color));
                     
                     builder.SetPosition(position);
                     builder.SetRotation(rotation);
@@ -395,7 +391,6 @@ namespace AsphaltTas
                     {
                         radius         = implicit_dims.y; 
                         half_height    = implicit_dims.x;
-                        mesh_alignment = glm::angleAxis(-glm::half_pi<float>(), glm::vec3(0.0f, 0.0f, 1.0f));
                     }
                     else if (up_axis == 1)
                     {
@@ -406,11 +401,9 @@ namespace AsphaltTas
                     {
                         radius         = implicit_dims.x;
                         half_height    = implicit_dims.z;
-                        mesh_alignment = glm::angleAxis(glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
                     }
 
                     const float total_height = half_height * 2.0f; 
-                    glm::quat final_mesh_rotation = rotation * mesh_alignment;
 
                     std::stringstream ss;
                     ss << name_prefix << "Cylinder"
@@ -424,7 +417,7 @@ namespace AsphaltTas
 
                     CoreEngine::Scene3D_ObjectBuilder builder = m_scene.CreateObjectBuilder();
                     
-                    builder.RenderModel_SetExisting(std::make_unique<CoreEngine::CylinderModel>(radius, total_height, position, final_mesh_rotation, color));
+                    builder.RenderModel_SetExisting(std::make_unique<CoreEngine::CylinderModel>(radius, total_height, up_axis, position, rotation, color));
                     
                     builder.SetPosition(position);
                     builder.SetRotation(rotation); 
@@ -600,7 +593,7 @@ namespace AsphaltTas
                 PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Button, GuiStyle::COLOR_GREEN);
                 if (ImGui::Button("Load Replay"))
                 {
-                    ImGuiFileDialog::Instance()->OpenDialog("LoadReplayForTrackViewKey", "Load Replay", ".REPLAY");
+                    ImGuiFileDialog::Instance()->OpenDialog("LoadReplayForTrackViewKey", "Load Replay", Communication::REPLAY_FILE_TYPE.c_str());
                 }
             }
 
@@ -695,7 +688,8 @@ namespace AsphaltTas
                 //////////////////////////////////////////////// 
                 //---------  Select desired camera controller / Free cam if no selected object
                 //////////////////////////////////////////////// 
-                if (m_selected_object_state.m_object_ptr)
+                auto selected_obj_ptr = m_scene.GetSceneObject(m_selected_object_state.m_object_id);
+                if (selected_obj_ptr)
                 {
                     int cam_controller = static_cast<int>(m_camera_controller->GetType());
                     ImGui::RadioButton("Free Cam", &cam_controller, static_cast<int>(CoreEngine::Basic_CameraController::Type::FreeCam));
@@ -935,7 +929,8 @@ namespace AsphaltTas
 
     void TrackViewerLayer::OnImGuiRender_RightOptionPanel() noexcept
     { 
-        if (!m_selected_object_state.m_object_ptr && (m_object_creation_flags == ObjectCreationFlag::NONE) )
+        auto selected_obj_ptr = m_scene.GetSceneObject(m_selected_object_state.m_object_id);
+        if (!selected_obj_ptr && (m_object_creation_flags == ObjectCreationFlag::NONE) )
         {
             return;
         }
@@ -1018,12 +1013,12 @@ namespace AsphaltTas
         }
 
         ImGui::PushID(100);
-        if (m_selected_object_state.m_object_ptr && ImGui::CollapsingHeader("Selected Object", ImGuiTreeNodeFlags_DefaultOpen))
+        if (selected_obj_ptr && ImGui::CollapsingHeader("Selected Object", ImGuiTreeNodeFlags_DefaultOpen))
         {
             ImGui::Indent();
 
             ImGui::PushStyleColor(ImGuiCol_Text, COLOR_ORANGE);
-            ImGui::TextUnformatted(("Object: " + m_selected_object_state.m_object_ptr->m_name).c_str());
+            ImGui::TextUnformatted(("Object: " + selected_obj_ptr->m_name).c_str());
             ImGui::PopStyleColor();
 
             if (ImGui::CollapsingHeader("General", ImGuiTreeNodeFlags_DefaultOpen))
@@ -1032,11 +1027,11 @@ namespace AsphaltTas
 
                 //--------- Position move
                 const float delta_time_secs = CoreEngine::Application::Get()->GetLastFrameTime().ConvertTo<CoreEngine::Units::Second>().Get();
-                const float MOVE_SPEED = 0.5 * m_selected_object_state.m_object_ptr->GetWorldSpaceMaxBoundingSphereRadius();
+                const float MOVE_SPEED = 0.5 * selected_obj_ptr->GetWorldSpaceMaxBoundingSphereRadius();
 
                 ImGui::TextUnformatted("Position");
 
-                glm::vec3 position = m_selected_object_state.m_object_ptr->GetPosition();
+                glm::vec3 position = selected_obj_ptr->GetPosition();
 
                 ImGui::PushStyleColor(ImGuiCol_Text, COLOR_X_AXYS);
                 if (ImGui::ArrowButton("##xleft", ImGuiDir_Left) || (ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left))) 
@@ -1099,14 +1094,14 @@ namespace AsphaltTas
                     position = m_camera.GetPosition();
                 }
 
-                if (position != m_selected_object_state.m_object_ptr->GetPosition())
+                if (position != selected_obj_ptr->GetPosition())
                 {
-                    m_selected_object_state.m_object_ptr->SetPosition(position);
+                    selected_obj_ptr->SetPosition(position);
                 }
 
                 //--------- Rotation
                 ImGui::TextUnformatted("Rotation");
-                const glm::quat rot_quat = m_selected_object_state.m_object_ptr->GetRotation();
+                const glm::quat rot_quat = selected_obj_ptr->GetRotation();
                 glm::vec3 rot_euler_degrees = glm::degrees(glm::eulerAngles(rot_quat));
 
                 float delta_x = 0.0f, delta_y = 0.0f, delta_z = 0.0f;
@@ -1116,7 +1111,7 @@ namespace AsphaltTas
                 {
                     glm::quat delta = glm::angleAxis(glm::radians(delta_x), glm::vec3(1, 0, 0));
                     #ifndef __INTELLISENSE__ //Shut the fuck up intellisense
-                    m_selected_object_state.m_object_ptr->SetRotation(rot_quat * delta);
+                    selected_obj_ptr->SetRotation(rot_quat * delta);
                     #endif
                 }
                 ImGui::PopStyleColor();
@@ -1126,7 +1121,7 @@ namespace AsphaltTas
                 {
                     glm::quat delta = glm::angleAxis(glm::radians(delta_y), glm::vec3(0, 1, 0));
                     #ifndef __INTELLISENSE__
-                    m_selected_object_state.m_object_ptr->SetRotation(rot_quat * delta);
+                    selected_obj_ptr->SetRotation(rot_quat * delta);
                     #endif
                 }
                 ImGui::PopStyleColor();
@@ -1136,20 +1131,20 @@ namespace AsphaltTas
                 {
                     glm::quat delta = glm::angleAxis(glm::radians(delta_z), glm::vec3(0, 0, 1));
                     #ifndef __INTELLISENSE__
-                    m_selected_object_state.m_object_ptr->SetRotation(rot_quat * delta);
+                    selected_obj_ptr->SetRotation(rot_quat * delta);
                     #endif
                 }
                 ImGui::PopStyleColor();
 
                 if (ImGui::Button("Set Identity Rot"))
                 {
-                    m_selected_object_state.m_object_ptr->SetRotation(glm::identity<glm::quat>());
+                    selected_obj_ptr->SetRotation(glm::identity<glm::quat>());
                 }
 
-                glm::vec3 scale = m_selected_object_state.m_object_ptr->GetScale();
+                glm::vec3 scale = selected_obj_ptr->GetScale();
                 
-                if (m_selected_object_state.m_object_ptr->m_physics_object 
-                    && m_selected_object_state.m_object_ptr->m_physics_object->GetShapeType() == CoreEngine::PhysicsShapeType::SPHERE)
+                if (selected_obj_ptr->m_physics_object 
+                    && selected_obj_ptr->m_physics_object->GetShapeType() == CoreEngine::PhysicsShapeType::SPHERE)
                 {
                     ImGui::SliderFloat("Scale##scaleslider1", &scale.x, 0.1f, MAX_OBJ_SCALE_FACTOR);
                     scale.y = scale.z = scale.x;
@@ -1163,19 +1158,19 @@ namespace AsphaltTas
                     scale = glm::vec3(1.0f);
                 }
                 
-                if (scale != m_selected_object_state.m_object_ptr->GetScale())
+                if (scale != selected_obj_ptr->GetScale())
                 {
-                    m_selected_object_state.m_object_ptr->SetScale(scale);
+                    selected_obj_ptr->SetScale(scale);
                 }
 
 
                 ImGui::Unindent();
             }  
 
-            if (ImGui::CollapsingHeader("Render", ImGuiTreeNodeFlags_DefaultOpen) && m_selected_object_state.m_object_ptr->m_render_model)
+            if (ImGui::CollapsingHeader("Render", ImGuiTreeNodeFlags_DefaultOpen) && selected_obj_ptr->m_render_model)
             {
                 ImGui::Indent();
-                const CoreEngine::Basic_Model* model = m_selected_object_state.m_object_ptr->m_render_model.get();
+                const CoreEngine::Basic_Model* model = selected_obj_ptr->m_render_model.get();
                 const CoreEngine::MathUtility::AABB aabb = model->GetWorldSpaceAABB();
                 const auto min = aabb.min();
                 const auto max = aabb.max();
@@ -1189,7 +1184,7 @@ namespace AsphaltTas
             ImGui::PushStyleColor(ImGuiCol_Button, COLOR_ORANGE);
             if (ImGui::Button("Unselect"))
             {
-                OnSetSelectedSceneObject(nullptr);
+                OnSetSelectedSceneObject(CoreEngine::Scene3D::ObjectID::CreateInvalidID());
             }
             ImGui::PopStyleColor();
 
@@ -1198,8 +1193,8 @@ namespace AsphaltTas
             ImGui::PushStyleColor(ImGuiCol_Button, COLOR_RED);
             if (ImGui::Button("Delete"))
             {
-                CoreEngine::Scene3D_SceneObject* obj = m_selected_object_state.m_object_ptr;
-                OnSetSelectedSceneObject(nullptr);
+                CoreEngine::Scene3D::ObjectID obj = m_selected_object_state.m_object_id;
+                OnSetSelectedSceneObject(CoreEngine::Scene3D::ObjectID::CreateInvalidID());
                 m_scene.RemoveObject(obj);
             }
             ImGui::PopStyleColor();
@@ -1252,7 +1247,8 @@ namespace AsphaltTas
 
         m_bottom_panel_height_relative = ImGui::GetWindowHeight() / io.DisplaySize.y;
 
-        if (m_selected_object_state.m_object_ptr && m_selected_object_state.m_object_ptr->m_render_model)
+        const auto selected_obj_ptr = m_scene.GetSceneObject(m_selected_object_state.m_object_id);
+        if (selected_obj_ptr && selected_obj_ptr->m_render_model)
         {
             const auto DrawImage = [](GLuint id, ImVec2 size) -> void 
             {
@@ -1282,7 +1278,7 @@ namespace AsphaltTas
 
             const ImVec2 image_size(image_width, image_width);
 
-            const std::vector<CoreEngine::Mesh>& meshes = m_selected_object_state.m_object_ptr->m_render_model->GetMeshVectorConstReference();
+            const std::vector<CoreEngine::Mesh>& meshes = selected_obj_ptr->m_render_model->GetMeshVectorConstReference();
 
             const auto DrawOrPlaceholder = [&](std::shared_ptr<CoreEngine::Texture> tex, const char* tooltip_msg)
             {
@@ -1337,11 +1333,13 @@ namespace AsphaltTas
 
         const glm::vec3 offset = show ? glm::vec3(1'000'000.0f) : glm::vec3(-1'000'000.0f);
 
-        auto& objects = m_scene.GetSceneObjectsRef();
+        std::vector<CoreEngine::Scene3D::Slot>& slots = m_scene.GetSlotVectorRef();
 
-        for (auto& obj : objects)
+        for (CoreEngine::Scene3D::Slot& slot : slots)
         {
-            if (obj->m_render_model && obj->m_render_model->GetModelType() != CoreEngine::Basic_Model::ModelType::POINTS_MODEL)
+            auto* obj = slot.m_object.get();
+
+            if (obj && obj->m_render_model && obj->m_render_model->GetModelType() != CoreEngine::Basic_Model::ModelType::POINTS_MODEL)
             {
                 obj->SetPosition(obj->GetPosition() + offset);
             }
@@ -1357,7 +1355,7 @@ namespace AsphaltTas
         constexpr CoreEngine::Window::WindowCreationConfig config 
         {
             .m_title                       = "TrackView   ",
-            .m_relative_size               = {0.9f, 0.9f},
+            .m_relative_size               = {1.0f, 0.95f},
             .m_callback_disable_flags      = {},
             .m_imgui_flags                 = {},
             .m_MSAA_sample_count           = 8,

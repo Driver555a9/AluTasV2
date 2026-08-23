@@ -20,6 +20,7 @@ namespace AsphaltTas
         static constexpr const ImVec4 COLOR_TRANSPARENT  {0, 0, 0, 0};
         static constexpr const ImVec4 COLOR_BLACK        {0, 0, 0, 1};
         static constexpr const ImVec4 COLOR_WHITE        {1, 1, 1, 1};
+        static constexpr const ImVec4 COLOR_GREY         {0.7, 0.7, 0.7, 1};
 
         struct ScopedStyleColor 
         {

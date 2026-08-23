@@ -72,7 +72,7 @@ namespace AsphaltTas
         PUSH_SCOPED_STYLE_VAR(ImGuiStyleVar_WindowBorderSize, 0.0f);
         PUSH_SCOPED_STYLE_VAR(ImGuiStyleVar_WindowRounding, 0.0f);
         
-        if (! ImGui::Begin("Free Flight", nullptr, flags))
+        if (! ImGui::Begin("Speedometer", nullptr, flags))
         {
             ImGui::End();
             return;

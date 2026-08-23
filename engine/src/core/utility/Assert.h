@@ -8,18 +8,32 @@
 #define ENGINE_ASSERT(expr) assert(expr)
 
 #if defined(_MSC_VER)
-    #define ___FILENAME_HELPER_MACRO___ (std::strrchr(__FILE__, '/') ? std::strrchr(__FILE__, '/') + 1 : std::strrchr(__FILE__, '\\') ? std::strrchr(__FILE__, '\\') + 1 : __FILE__)
+
+    consteval const char* GetFileName(const char* path) 
+    {
+        const char* file = path;
+        for (const char* p = path; *p; ++p) 
+        {
+            if (*p == '/' || *p == '\\') 
+            {
+                file = p + 1;
+            }
+        }
+        return file;
+    }
+
+    #define __FILENAME__HELPER__ GetFileName(__FILE__)
 
     #define ENGINE_ERROR_PRINT(expr) std::cout << ::CoreEngine::ColorCodes::GetColor(::CoreEngine::ColorCodes::RED) \
-    << "\n[ERROR] File: " << ___FILENAME_HELPER_MACRO___ << ::CoreEngine::ColorCodes::GetColor(::CoreEngine::ColorCodes::GREEN) \
+    << "\n[ERROR] File: " << __FILENAME__HELPER__ << ::CoreEngine::ColorCodes::GetColor(::CoreEngine::ColorCodes::GREEN) \
     << " Line " << __LINE__ << ": " << ::CoreEngine::ColorCodes::GetColor(::CoreEngine::ColorCodes::RESET) << expr << std::endl
 
     #define ENGINE_ERROR_PRINT_NO_TEXT() std::cout << ::CoreEngine::ColorCodes::GetColor(::CoreEngine::ColorCodes::RED) \
-    << "\n[ERROR] File: " << ___FILENAME_HELPER_MACRO___ << ::CoreEngine::ColorCodes::GetColor(::CoreEngine::ColorCodes::GREEN) \
+    << "\n[ERROR] File: " << __FILENAME__HELPER__ << ::CoreEngine::ColorCodes::GetColor(::CoreEngine::ColorCodes::GREEN) \
     << " Line " << __LINE__ << ::CoreEngine::ColorCodes::GetColor(::CoreEngine::ColorCodes::RESET) << std::endl
 
     #define ENGINE_INFO_LOG(expr) std::cout << ::CoreEngine::ColorCodes::GetColor(::CoreEngine::ColorCodes::YELLOW) \
-    << "\n[INFO] File: " << ___FILENAME_HELPER_MACRO___ << ::CoreEngine::ColorCodes::GetColor(::CoreEngine::ColorCodes::GREEN) \
+    << "\n[INFO] File: " << __FILENAME__HELPER__ << ::CoreEngine::ColorCodes::GetColor(::CoreEngine::ColorCodes::GREEN) \
     << " Line " << __LINE__ << ": " << ::CoreEngine::ColorCodes::GetColor(::CoreEngine::ColorCodes::RESET) << expr << std::endl
 #elif defined(__GNUC__)
 

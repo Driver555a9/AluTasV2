@@ -1,11 +1,17 @@
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#define HAS_GET_MAIN_MODULE_FUNCTION
+#include "BulletTypes.h"
+
+#include "Tests.h"
 
 #include "Communication.h"
-#define NOMINMAX
+
 #include "BulletTypes.h"
 #include "AsphaltDLLUtility.h"
 #include "DetourFunctions.h"
 #include "AsphaltDLL.h"
-#include "Tests.h"
 #include "BulletSerializer.h"
 
 #include <unordered_map>
@@ -16,6 +22,87 @@ namespace AsphaltDLL
 {
     namespace Tests
     {
+        void LoadCustomTrack() noexcept
+        {
+            BulletTypes::DiscreteDynamicsWorld* world = reinterpret_cast<BulletTypes::DiscreteDynamicsWorld*>(
+                GameDLLState::g_current_state.m_resolved_addresses.m_discrete_dynamics_world_instance_address
+            );
+
+            static bool once = false;
+            if (!once && world)
+            {
+                constexpr float half_x = 50000.0f;
+                constexpr float half_y = 50000.0f;
+                constexpr float half_z = 2.5f;
+
+                constexpr int num_triangles = 12;
+                constexpr int num_vertices = 8;
+
+                auto* vertices = new float[num_vertices * 3]
+                {
+                    -half_x, -half_y, -half_z,
+                    half_x, -half_y, -half_z,
+                    half_x, -half_y,  half_z,
+                    -half_x, -half_y,  half_z,
+                    -half_x,  half_y, -half_z,
+                    half_x,  half_y, -half_z,
+                    half_x,  half_y,  half_z,
+                    -half_x,  half_y,  half_z
+                };
+
+                auto* indices = new int[num_triangles * 3]
+                {
+                    0, 1, 2,   0, 2, 3,
+                    4, 6, 5,   4, 7, 6,
+                    3, 2, 6,   3, 6, 7,
+                    0, 5, 1,   0, 4, 5,
+                    0, 7, 4,   0, 3, 7,
+                    1, 5, 6,   1, 6, 2
+                };
+
+                auto* surface_materials = new uint8_t[num_triangles];
+                constexpr uint8_t FORCED_MAT_ID = 0;
+                std::memset(surface_materials, FORCED_MAT_ID, num_triangles);
+
+                auto* mesh_interface = BulletTypes::TriangleIndexVertexMaterialArray::ConstructForSurfaceIndices(num_triangles, indices, num_vertices, vertices, surface_materials);
+                auto* multi_shape    = BulletTypes::MultimaterialTriangleMeshShape::Construct(mesh_interface);
+
+                float mass = 0.0f;
+                auto info = BulletTypes::RigidBodyConstructionInfo(mass, multi_shape);
+                auto* rb = BulletTypes::RigidBody::Construct(info);
+                //rb->m_collision_flags |= BulletTypes::CF_DISABLE_VISUALIZE_OBJECT; // Prevents crash
+
+                for (int i = 0; i < world->m_rigid_bodies.m_size; ++i)
+                {
+                    BulletTypes::RigidBody* body = world->m_rigid_bodies.m_data[i];
+
+                    if (!body || !body->m_broadphase_proxy_ptr) continue;
+
+                    float width = body->m_broadphase_proxy_ptr->m_aabb_max.x - body->m_broadphase_proxy_ptr->m_aabb_min.x;
+
+                    if (width > 600.0f) // main map
+                    {
+                        rb->m_user_object_pointer = body->m_user_object_pointer;
+                        rb->m_transform_matrix.RotateX(0.1f);
+                        world->DynamicsWorld::AddRigidBody(rb);
+                        //world->RemoveRigidBody(body);
+                        break;
+                    }
+                }  
+                for (int i = 0; i < world->m_non_static_rigid_bodies.m_size; ++i)
+                {
+                    BulletTypes::RigidBody* body = world->m_non_static_rigid_bodies.m_data[i];
+
+                    if (!body || !body->m_broadphase_proxy_ptr) continue;
+
+                    body->m_transform_matrix.m_origin += {0, 0, 50};
+                }  
+                world->UpdateAabbs(); 
+
+                once = true;
+            }
+        }
+
         void PrintCollisionObjectTest(BulletTypes::CollisionObject* obj) noexcept
         {
             if (!obj)
@@ -97,8 +184,8 @@ namespace AsphaltDLL
             auto leaves = DetourFunctions::BVHBroadphaseTraversal::DumpAllLeaves();
             for (auto& leaf : leaves)
             {
-                if (! leaf.m_broadphase_proxy || !leaf.m_broadphase_proxy->m_client_body || !leaf.m_broadphase_proxy->m_client_body->m_collision_shape_ptr) continue;
-                auto* shape = leaf.m_broadphase_proxy->m_client_body->m_collision_shape_ptr;
+                if (! leaf.m_broadphase_proxy || !leaf.m_broadphase_proxy->m_client_object || !leaf.m_broadphase_proxy->m_client_object->m_collision_shape_ptr) continue;
+                auto* shape = leaf.m_broadphase_proxy->m_client_object->m_collision_shape_ptr;
 
                 BulletTypes::MultimaterialTriangleMeshShape* multimat = nullptr;
                 if (shape->m_shape_type == BulletTypes::BroadphaseNativeTypes::MULTIMATERIAL_TRIANGLE_MESH_PROXYTYPE)
@@ -166,7 +253,7 @@ namespace AsphaltDLL
                     {
                         auto* p = triangle_material_base + tri * triangle_material_stride;
                         *p = FORCED_MATERIAL;
-                        /*std::array<unsigned char, 7> roads = {0, 5, 6, 1, 4, 13, 14};
+                        /*std::array<unsigned m_client_objects = {0, 5, 6, 1, 4, 13, 14};
                         std::array<unsigned char, 7> walls = {3, 7, 8, 9, 10, 11, 12};
                         bool changed = false;
                         for(int i{}; i < roads.size(); i++)
@@ -222,7 +309,7 @@ namespace AsphaltDLL
             }
 
             log << "////////////// BroadphaseProxy //////////////\n";
-            log << "client_body: "  << proxy->m_client_body << "\n";
+            log << "client_body: "  << proxy->m_client_object << "\n";
             log << "filter_group: " << proxy->m_collision_filter_group << "\n";
             log << "filter_mask: "  << proxy->m_collision_filter_mask << "\n";
             log << "unique_id: " << proxy->m_unique_id << "\n";
@@ -538,8 +625,8 @@ namespace AsphaltDLL
                     log << "///////////////////////////////////////////////////\n\n";
 
                     PrintProxyInfo(log, leaf.m_broadphase_proxy) 
-                    && PrintCollisionObjectInfo(log, leaf.m_broadphase_proxy->m_client_body) 
-                    && PrintCollisionShapeInfo(log, leaf.m_broadphase_proxy->m_client_body->m_collision_shape_ptr);
+                    && PrintCollisionObjectInfo(log, leaf.m_broadphase_proxy->m_client_object) 
+                    && PrintCollisionShapeInfo(log, leaf.m_broadphase_proxy->m_client_object->m_collision_shape_ptr);
                     
                     if ((i % 10) == 0) log.flush();
                 }
@@ -567,7 +654,7 @@ namespace AsphaltDLL
                     continue;
                 }
 
-                auto* object = proxy->m_client_body;
+                auto* object = proxy->m_client_object;
                 if (!object)
                 {
                     DLL_ERROR_PRINT("Err no object: Proxy: " << std::hex << proxy << std::dec );

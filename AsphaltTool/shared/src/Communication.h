@@ -11,7 +11,7 @@
 #include <atomic>
 #include <type_traits>
 
-#include "BulletTypes.h"
+#include "BulletDebugDrawStream.h"
 
 namespace Communication
 {
@@ -38,8 +38,9 @@ namespace Communication
     };
 
     constexpr char DLL_DUMPED_TRACK_FILE_NAME[] = "objects.TRACK";
+    constexpr static inline std::string REPLAY_FILE_TYPE   = ".NEOREPLAY";
 
-    constexpr uint32_t CURRENT_NON_NEGOTIABLE_COMMUNICATION_VERSION = 2; // Detect dll ABI missmatches
+    constexpr uint32_t CURRENT_NON_NEGOTIABLE_COMMUNICATION_VERSION = 4; // Detect dll ABI missmatches
 
     namespace DllOut
     {
@@ -60,19 +61,12 @@ namespace Communication
             //// Accelerator
             float m_accelerator_value = 1;
 
-            //// Barrel-Angular-Patch
-            BulletTypes::UnalignedVector3 m_barrel_angular_velocities_vec3 = {};
-
-            //// Barrel-RBX Values-Patch
-            float m_value_rbx_2228 = {};
-            float m_value_rbx_222C = {};
-
             // Respawn button press
             bool m_respawn_button_press = false;
 
-            uint8_t __ignore__padding__[3];
+            uint8_t __ignore__padding__[7];
         };
-        static_assert(sizeof(RecordedReplayInputData) == 8 * sizeof(float) + 2 * sizeof(std::uint32_t) + 4 * sizeof(uint8_t), "No packing should occur");
+        static_assert(sizeof(RecordedReplayInputData) == 3 * sizeof(float) + 2 * sizeof(std::uint32_t) + 8 * sizeof(uint8_t), "No packing should occur");
 
         struct RecordedRacerState
         {
@@ -84,6 +78,10 @@ namespace Communication
             std::uint32_t m_checkpoint {};
             std::uint32_t m_gear {};
             std::uint32_t m_continuous_override_on_flags = 0;
+            uint32_t m_path {};
+            uint32_t m_segment {};
+            float    m_mu {};
+            uint8_t  m_pad[4];
 
             constexpr static std::uint32_t CONTINUOUS_OVERRIDE_TRANSFORM = 1 << 0;
             constexpr static std::uint32_t CONTINUOUS_OVERRIDE_VELOCITY  = 1 << 1;
@@ -93,7 +91,7 @@ namespace Communication
             constexpr static uintptr_t OFFSET_TRANSFORM = 0x20;
             constexpr static uintptr_t OFFSET_VELOCITY  = 0x160; 
         };
-        static_assert(sizeof(RecordedRacerState) == 22 * sizeof(float) + 3 * sizeof(uint32_t), "No packing should occur");
+        static_assert(sizeof(RecordedRacerState) == 23 * sizeof(float) + 5 * sizeof(uint32_t) + 4 * sizeof(uint8_t), "No packing should occur");
 
         struct RecordedCameraState 
         {
@@ -129,6 +127,7 @@ namespace Communication
             uintptr_t m_game_target_fps_interval_address          = NO_VALID_RESOLVED_ADDRESS;
             uintptr_t m_discrete_dynamics_world_instance_address  = NO_VALID_RESOLVED_ADDRESS;
             uintptr_t m_physics_world_wrapper_address             = NO_VALID_RESOLVED_ADDRESS;
+            uintptr_t m_physics_context_address                   = NO_VALID_RESOLVED_ADDRESS;
 
             uintptr_t m_nitro_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
             uintptr_t m_brake_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
@@ -147,6 +146,7 @@ namespace Communication
                 m_game_target_fps_interval_address          = NO_VALID_RESOLVED_ADDRESS;
                 m_discrete_dynamics_world_instance_address  = NO_VALID_RESOLVED_ADDRESS;
                 m_physics_world_wrapper_address             = NO_VALID_RESOLVED_ADDRESS;
+                m_physics_context_address                   = NO_VALID_RESOLVED_ADDRESS;
 
                 m_nitro_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
                 m_brake_func_spoofed_rcx_arg         = NO_VALID_RESOLVED_ADDRESS;
@@ -157,7 +157,7 @@ namespace Communication
                 m_is_paused_func_spoofed_rcx_arg     = NO_VALID_RESOLVED_ADDRESS;
             }
         };
-        static_assert(sizeof(ResolvedAddresses) == 14 * sizeof(uintptr_t), "No packing should occur");
+        static_assert(sizeof(ResolvedAddresses) == 15 * sizeof(uintptr_t), "No packing should occur");
 
         struct XInputState 
         {
@@ -188,16 +188,19 @@ namespace Communication
             std::uint32_t m_replay_speed_factor             = 1;
             std::uint32_t m_dump_track_request_id           = 0; // While dump request > last_completed_dump, objects.TRACK will be dumped
             std::uint32_t m_last_completed_dump_request_id  = 0;
+            int m_bullet_debug_draw_flags                   = BulletTypes::DebugDrawStream::DBG_MAX_DEBUG_DRAW_MODE;
             RaceStatusState m_race_status_state             = RaceStatusState::IN_MENU;
             bool m_apply_physics_interval_override          = false;
             bool m_gui_is_hidden                            = false;
             bool m_speed_up_pre_race_cinematic              = false;
             bool m_speed_up_gui_animations                  = false;
             bool m_is_currently_paused                      = false;
-            uint8_t __ignore_padding__[6];  
+            bool m_update_debug_draw_stream                 = false;
+            uint8_t __ignore_padding__[1];  
         };
-        static_assert(sizeof(DllStateMetaData) == sizeof(ReplayMode) + 6 * sizeof(std::uint32_t) + sizeof(float) + sizeof(SkipAnimationFlags) + sizeof(RaceStatusState)
-                            + 11 * sizeof(bool), "No packing should occur");
+        static_assert(sizeof(DllStateMetaData) == sizeof(ReplayMode) + 6 * sizeof(std::uint32_t) + sizeof(int) + sizeof(float) + sizeof(SkipAnimationFlags) + 
+                      sizeof(RaceStatusState) + 7 * sizeof(bool), "No packing should occur");
+                      
 
         struct DllStateOut
         {   
@@ -213,6 +216,7 @@ namespace Communication
             XInputState m_xinput_state {};
             DllStateMetaData m_meta_data {};
 
+            constexpr size_t GetActiveByteSize() const noexcept { return sizeof(DllStateOut); }
             [[nodiscard]] inline std::uint64_t GetMonotonicPacketID() noexcept { return m_monotonic_packet_id; }
             inline void IncreasePacketIDToHighest() noexcept { m_monotonic_packet_id = DllStateOut::s_monotonic_packet_counter.fetch_add(1, std::memory_order_acq_rel); }
             inline DllStateOut() noexcept : m_monotonic_packet_id(DllStateOut::s_monotonic_packet_counter.fetch_add(1, std::memory_order_acq_rel)) {}
@@ -247,14 +251,6 @@ namespace Communication
             //// Accelerator
             float m_accelerator_value {};
 
-            ////////// Implementation related
-            //// Barrel-Angular-Patch
-            BulletTypes::UnalignedVector3 m_barrel_angular_velocities_vec3 = {};
-
-            //// Barrel-RBX Values-Patch
-            float m_value_rbx_2228 = {};
-            float m_value_rbx_222C = {};
-
             // Skips
             enum SkipOverride : std::uint32_t
             {
@@ -263,10 +259,8 @@ namespace Communication
                 BRAKE            = 1 << 1, 
                 NITRO_ACTIVATION = 1 << 2, 
                 ACCELERATOR      = 1 << 3, 
-                BARREL_ANGULAR   = 1 << 4, 
-                BARREL_RBX       = 1 << 5,
-                RESPAWN_BUTTON   = 1 << 6,
-                TRANSFORM_FORCED = 1 << 7
+                RESPAWN_BUTTON   = 1 << 4,
+                TRANSFORM_FORCED = 1 << 5
             };
             std::uint32_t m_skip_override_flags = SkipOverride::NONE;
 
@@ -279,8 +273,10 @@ namespace Communication
             // Patch for rare inexplicable fuckups
             BulletTypes::UnalignedTransform m_racer_transform_mat4x4 {};
             BulletTypes::UnalignedVector3 m_racer_velocity_vec3 {};
+
+            constexpr size_t GetActiveByteSize() const noexcept { return sizeof(DllReplayInputIn); }
         };
-        static_assert(sizeof(DllReplayInputIn) == 8 * sizeof(float) + 3 * sizeof(std::uint32_t) + 8 * sizeof(uint8_t) 
+        static_assert(sizeof(DllReplayInputIn) == 3 * sizeof(float) + 3 * sizeof(std::uint32_t) + 8 * sizeof(uint8_t) 
                     + sizeof(BulletTypes::UnalignedTransform) + sizeof(BulletTypes::UnalignedVector3), "No packing should occur");
 
         struct WriteRacerState
@@ -335,6 +331,7 @@ namespace Communication
             std::uint32_t m_on_replay_end_skip_tick_count   = 0; 
             std::uint32_t m_dump_track_request_id           = 0;       // This must be greater than out states index for dump to happen
             std::uint32_t m_replay_speed_factor             = 1;
+            int m_bullet_debug_draw_flags                   = BulletTypes::DebugDrawStream::DBG_MAX_DEBUG_DRAW_MODE;
             bool m_apply_physics_interval_override          = false;   // true changes game behaviour
             bool m_request_dll_shutdown                     = false;   // Alternative to extern C func RequestShutdown call
             bool m_hide_gui                                 = false;
@@ -342,10 +339,11 @@ namespace Communication
             bool m_speed_up_gui_animations                  = false;
             bool m_request_track_reset                      = false;
             bool m_acknowledge_quick_restart_pause          = false;
-            uint8_t __ignore__padding__[1];
+            bool m_update_debug_draw_stream                 = false;
+            uint8_t __ignore__padd__[4];
         };
-        static_assert(sizeof(WriteMetaData) == sizeof(CommandType) + sizeof(ReplayMode) + 5 * sizeof(std::uint32_t) + sizeof(float) + sizeof(SkipAnimationFlags) +
-                                           8 * sizeof(bool), "No packing should occur");
+        static_assert(sizeof(WriteMetaData) == sizeof(CommandType) + sizeof(ReplayMode) + 5 * sizeof(std::uint32_t) + sizeof(float) +
+                      sizeof(SkipAnimationFlags) + sizeof(int) + 8 * sizeof(bool) + 4* sizeof(uint8_t), "No packing should occur");
 
         struct DllGeneralCommandsIn
         {
@@ -358,6 +356,7 @@ namespace Communication
             WriteCameraState m_write_camera_state = {};
             WriteMetaData m_write_meta_data       = {};
 
+            constexpr size_t GetActiveByteSize() const noexcept { return sizeof(DllGeneralCommandsIn); }
             [[nodiscard]] inline std::uint64_t GetMonotonicPacketID() noexcept { return m_monotonic_packet_id; }
             inline void IncreasePacketIDToHighest() noexcept { m_monotonic_packet_id = DllGeneralCommandsIn::s_monotonic_packet_counter.fetch_add(1, std::memory_order_acq_rel); }
             inline DllGeneralCommandsIn() noexcept : m_monotonic_packet_id(DllGeneralCommandsIn::s_monotonic_packet_counter.fetch_add(1, std::memory_order_acq_rel)) {}
@@ -368,7 +367,9 @@ namespace Communication
     namespace SharedMemory 
     {
         template <typename T, std::uint32_t Size>
-        requires std::is_trivially_copyable_v<T> && std::is_trivially_destructible_v<T>
+        requires std::is_trivially_copyable_v<T> && std::is_trivially_destructible_v<T> 
+        && requires(const T& obj) { { obj.GetActiveByteSize() } -> std::convertible_to<std::size_t>; }
+
         struct alignas(64) SharedRingBuffer
         {
             static_assert(Size > 0, "Ring Buffer size must not be empty.");
@@ -399,8 +400,16 @@ namespace Communication
                 const uint32_t w = m_write_idx.load(std::memory_order_relaxed);
                 const uint32_t r = m_read_idx.load(std::memory_order_acquire);
                 if ((w - r) >= Size)
+                {
                     m_read_idx.store(r + 1, std::memory_order_relaxed);
-                m_data[w % Size] = value;
+                }
+                size_t bytes_to_copy = sizeof(T);
+                if constexpr (requires(const T& v) { { v.GetActiveByteSize() } -> std::convertible_to<std::size_t>; })
+                {
+                    const size_t reported = value.GetActiveByteSize();
+                    bytes_to_copy = (reported < sizeof(T)) ? reported : sizeof(T);
+                }
+                std::memcpy(&m_data[w % Size], &value, bytes_to_copy);
                 m_write_idx.store(w + 1, std::memory_order_release);
             }
 
@@ -415,7 +424,14 @@ namespace Communication
                 const uint32_t w = m_write_idx.load(std::memory_order_acquire);
                 if (r == w) return false;
 
-                out = m_data[r % Size];
+                size_t bytes_to_copy = sizeof(T);
+                if constexpr (requires(const T& v) { { v.GetActiveByteSize() } -> std::convertible_to<std::size_t>; })
+                {
+                    const size_t reported = m_data[r % Size].GetActiveByteSize();
+                    bytes_to_copy = (reported < sizeof(T)) ? reported : sizeof(T);
+                }
+                std::memcpy(&out, &m_data[r % Size], bytes_to_copy);
+
                 m_read_idx.store(r + 1, std::memory_order_release);
                 return true;
             }
@@ -453,6 +469,10 @@ namespace Communication
             constexpr static uint32_t DLL_OUT_SECONDARY_BUFF_SIZE = 5000;
             constexpr static uint32_t DLL_IN_REPLAY_BUFF_SIZE     = 1000;
             constexpr static uint32_t DLL_IN_GENERAL_BUFF_SIZE    = 500;
+            constexpr static uint32_t DLL_OUT_DEBUG_DRAW_STREAM_BUFF_SIZE      = 3;
+            constexpr static uint32_t DLL_OUT_DEBUG_DRAW_STATIC_MESH_BUFF_SIZE = 1000;
+            
+            std::atomic<uint32_t> m_non_negotiable_communication_version {0xFFFFFFFF}; // Must be set by external tool - must match DLLs value
 
             // WRITE: DLL - READ: Remote Tool -> This is used for all recorded data by the dll. External tools must never write here
             SharedRingBuffer<DllOut::DllStateOut, DLL_OUT_BUFF_SIZE>  m_dll_out_buffer;
@@ -468,7 +488,9 @@ namespace Communication
             // Frame agnostic (new frame function will clear this buffer in one go)
             SharedRingBuffer<DllIn::DllGeneralCommandsIn, DLL_IN_GENERAL_BUFF_SIZE>  m_dll_in_buffer_general;
 
-            std::atomic<uint32_t> m_non_negotiable_communication_version {0xFFFFFFFF}; // Must be set by external tool - must match DLLs value
+            // WRITE: DLL - READ: Remote Tool -> This is used for live display of btDebugDraw
+            SharedRingBuffer<BulletTypes::DebugDrawStream::DebugFrameData, DLL_OUT_DEBUG_DRAW_STREAM_BUFF_SIZE> m_dll_out_debug_draw_stream;
+            SharedRingBuffer<BulletTypes::DebugDrawStream::CachedMeshDefinitionChunk, DLL_OUT_DEBUG_DRAW_STATIC_MESH_BUFF_SIZE> m_dll_out_debug_draw_static_meshes;
         };
 
         constexpr size_t  SHARED_MEMORY_SIZE  = sizeof(SharedState);
