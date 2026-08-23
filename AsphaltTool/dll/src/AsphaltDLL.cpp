@@ -93,7 +93,7 @@ namespace AsphaltDLL
             EXPAND_HOOK(DetourFunctions::CameraUpdate),
             //EXPAND_HOOK(DetourFunctions::BarrelRollStabilization),
             //EXPAND_HOOK(DetourFunctions::BarrelYawStabilization),
-            //EXPAND_HOOK(DetourFunctions::FinalRacerTransformWriter),
+            EXPAND_HOOK(DetourFunctions::FinalRacerTransformWriter),
             EXPAND_HOOK(DetourFunctions::OnWreckDeployBreakables),
             //EXPAND_HOOK(DetourFunctions::OnRespawnButtonPressed), //CRASHES GAME ON REMOVE!
             EXPAND_HOOK(DetourFunctions::GetPhysicsInterval),
@@ -115,7 +115,7 @@ namespace AsphaltDLL
             ///////////////////////// Experimental /////////////////////////
             // EXPAND_HOOK(DetourFunctions::Experimental::InitiateNewFrame),
             // EXPAND_HOOK(DetourFunctions::Experimental::NewFrameSubscriberList),
-            // EXPAND_HOOK(DetourFunctions::Experimental::MainFpsLimiter),
+             //EXPAND_HOOK(DetourFunctions::Experimental::MainFpsLimiter),
             // EXPAND_HOOK(DetourFunctions::Experimental::QueryPerformanceCounterHook),
             // EXPAND_HOOK(DetourFunctions::Experimental::OnRaycastVehicleUpdate),
             // EXPAND_HOOK(DetourFunctions::Experimental::PhysicsWorldRaycast)

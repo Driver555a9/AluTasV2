@@ -114,7 +114,7 @@ namespace AsphaltTas
                 ///////////////////// End of replay tick skip
                 ImGui::TextUnformatted("Replay End Tick Skip :");
                 ImGui::SameLine();
-                ImGui::SliderInt("##Replay End Tick Skip", (int*)&general_cmd_ref->m_write_meta_data.m_on_replay_end_skip_tick_count, 0, 500);
+                ImGui::SliderInt("##Replay End Tick Skip", (int*)&general_cmd_ref->m_write_meta_data.m_on_replay_end_skip_tick_count, 0, 1000);
                 
                 ImGui::Checkbox("Speed Up Race Intro", &general_cmd_ref->m_write_meta_data.m_speed_up_pre_race_cinematic);
                 

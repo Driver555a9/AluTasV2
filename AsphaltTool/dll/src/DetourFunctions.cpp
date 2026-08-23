@@ -248,8 +248,8 @@ namespace AsphaltDLL
                         auto& curr_meta = GameDLLState::g_current_state.m_meta_data;
                             
                         curr_meta.m_physics_interval                        = meta_cmd.m_physics_interval;
-                        curr_meta.m_fixed_frame_interval_micros             = std::clamp<uint32_t>(meta_cmd.m_fixed_frame_interval_micros, 4167, 33'333);
-                        curr_meta.m_game_target_fps_interval_micros         = std::clamp<uint32_t>(meta_cmd.m_game_target_fps_interval_micros, 200, 66'666);
+                        curr_meta.m_fixed_frame_interval_micros             = std::clamp<uint32_t>(meta_cmd.m_fixed_frame_interval_micros, 4167, 8333);
+                        curr_meta.m_game_target_fps_interval_micros         = std::clamp<uint32_t>(meta_cmd.m_game_target_fps_interval_micros, 1, 100'000);
                         curr_meta.m_replay_mode_status                      = meta_cmd.m_replay_mode;
                         curr_meta.m_apply_physics_interval_override         = meta_cmd.m_apply_physics_interval_override; 
                         curr_meta.m_gui_is_hidden                           = meta_cmd.m_hide_gui;
