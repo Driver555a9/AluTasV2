@@ -689,7 +689,6 @@ namespace BulletTypes
                                                                  int material_stride, const void* triangle_materials_base, int material_index_stride) noexcept
         {
             using Fn = TriangleIndexVertexMaterialArray*(*)(void*, int, uintptr_t, int, int, uintptr_t, int, int, uintptr_t, int, uintptr_t, int);
-
             return reinterpret_cast<Fn>(GetMainModule() + 0x636973C)(storage,num_triangles,
                 reinterpret_cast<uintptr_t>(triangle_index_base), triangle_index_stride, num_vertices,
                 reinterpret_cast<uintptr_t>(vertex_base), vertex_stride, num_materials, reinterpret_cast<uintptr_t>(material_base),
@@ -704,7 +703,6 @@ namespace BulletTypes
 
             TriangleIndexVertexMaterialArray* storage = static_cast<TriangleIndexVertexMaterialArray*>(operator new(sizeof(TriangleIndexVertexMaterialArray)));
             std::memset(storage, 0, sizeof(TriangleIndexVertexMaterialArray));
-
             return CallConstructor(storage, num_triangles, triangle_indices, index_stride, num_vertices, vertex_positions,
                             vertex_stride, 1, &dummy_material, sizeof(dummy_material), triangle_surface_ids, sizeof(uint8_t));
         }

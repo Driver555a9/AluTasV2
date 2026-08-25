@@ -123,7 +123,7 @@ namespace Communication
             uintptr_t m_local_racer_base_address                  = NO_VALID_RESOLVED_ADDRESS; // points to BulletTypes::RigidBody!
             uintptr_t m_camera_state_base_address                 = NO_VALID_RESOLVED_ADDRESS;
             uintptr_t m_nitro_bar_encrypted_address               = NO_VALID_RESOLVED_ADDRESS; 
-            uintptr_t m_steering_struct_base_address              = NO_VALID_RESOLVED_ADDRESS; // Offset to gear = 0xC0
+            uintptr_t m_steering_struct_base_address              = NO_VALID_RESOLVED_ADDRESS;
             uintptr_t m_game_target_fps_interval_address          = NO_VALID_RESOLVED_ADDRESS;
             uintptr_t m_discrete_dynamics_world_instance_address  = NO_VALID_RESOLVED_ADDRESS;
             uintptr_t m_physics_world_wrapper_address             = NO_VALID_RESOLVED_ADDRESS;

@@ -4,7 +4,6 @@
 #include "BulletTypes.h"
 #include "Tests.h"
 #include "Timer.h"
-
 #include "BulletDebugDrawStream.h"
 #include "Communication.h"
 #include "BulletSerializer.h"
@@ -956,7 +955,8 @@ namespace AsphaltDLL
                         if (GameDLLState::g_current_state.m_resolved_addresses.m_steering_struct_base_address != NO_VALID_RESOLVED_ADDRESS)
                         {
                             const auto gear_addr = GameDLLState::g_current_state.m_resolved_addresses.m_steering_struct_base_address;
-                            GameDLLState::g_current_state.m_racer_state.m_gear = *reinterpret_cast<uint32_t*>(gear_addr);
+                            constexpr uintptr_t OFFSET_TO_GEAR = 0xC0;
+                            GameDLLState::g_current_state.m_racer_state.m_gear = *reinterpret_cast<uint32_t*>(gear_addr + OFFSET_TO_GEAR);
                             constexpr uintptr_t OFFSET_TO_RPM = 0x1D8;
                             GameDLLState::g_current_state.m_racer_state.m_rpm = *reinterpret_cast<float*>(gear_addr + OFFSET_TO_RPM);
                         }
@@ -1107,7 +1107,7 @@ namespace AsphaltDLL
                 constexpr uint32_t FIXED_SEED = 0; // NEVER CHANGE THIS
                 constexpr float F_CONSTANT = 4294967296.0f;
                 constexpr float D_CONSTANT = 4294967296.0;
-                // Anti accidental change protection
+                // Anti change protection
                 static_assert(F_CONSTANT == 4294967296.0f);  
                 static_assert(D_CONSTANT == 4294967296.0);
                 static_assert(FIXED_SEED == 0);
