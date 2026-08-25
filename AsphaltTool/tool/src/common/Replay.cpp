@@ -141,9 +141,9 @@ namespace AsphaltTas
             constexpr char BRAKE_BITS[]                = "Brake";
             constexpr char ACCEL_BITS[]                = "Accel";
             constexpr char NITRO_ACTIVATIONS[]         = "NitroActivations";
-            constexpr char BARREL_ANGULAR_VELOCITIES[] = "BarrelAngular";
+            /*constexpr char BARREL_ANGULAR_VELOCITIES[] = "BarrelAngular";
             constexpr char BARREL_RBX_2228[]           = "BarrelRBX2228";
-            constexpr char BARREL_RBX_222C[]           = "BarrelRBX222C";
+            constexpr char BARREL_RBX_222C[]           = "BarrelRBX222C";*/
             constexpr char RESPAWN_BUTTON[]            = "RespawnButton";
         }
 

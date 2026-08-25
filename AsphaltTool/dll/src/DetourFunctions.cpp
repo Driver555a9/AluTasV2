@@ -249,7 +249,7 @@ namespace AsphaltDLL
                             
                         curr_meta.m_physics_interval                        = meta_cmd.m_physics_interval;
                         curr_meta.m_fixed_frame_interval_micros             = std::clamp<uint32_t>(meta_cmd.m_fixed_frame_interval_micros, 4167, 8333);
-                        curr_meta.m_game_target_fps_interval_micros         = std::clamp<uint32_t>(meta_cmd.m_game_target_fps_interval_micros, 1, 100'000);
+                        curr_meta.m_game_target_fps_interval_micros         = std::clamp<uint32_t>(meta_cmd.m_game_target_fps_interval_micros, 1, 1'000'000);
                         curr_meta.m_replay_mode_status                      = meta_cmd.m_replay_mode;
                         curr_meta.m_apply_physics_interval_override         = meta_cmd.m_apply_physics_interval_override; 
                         curr_meta.m_gui_is_hidden                           = meta_cmd.m_hide_gui;
@@ -932,6 +932,8 @@ namespace AsphaltDLL
 
                         *p_in_delta_micros = GameDLLState::g_current_state.m_meta_data.m_fixed_frame_interval_micros;
 
+                        GameDLLState::g_current_state.m_racer_state.m_nitro_bar_value = UpdateNitroBar::ReadNitroBar();
+
                         if (GameDLLState::g_replay_current_frame_inputs.has_value())
                         {
                             if (! (GameDLLState::g_replay_current_frame_inputs->m_skip_override_flags & ComDllIn::DllReplayInputIn::SkipOverride::NITRO_ACTIVATION))
@@ -1459,7 +1461,6 @@ namespace AsphaltDLL
                         {
                             UpdateNitroBar::WriteNitroBar(nitro_before);
                         }
-                        GameDLLState::g_current_state.m_racer_state.m_nitro_bar_value = UpdateNitroBar::ReadNitroBar();
                     }
                 }
             }
@@ -1505,7 +1506,6 @@ namespace AsphaltDLL
                     {
                         UpdateNitroBar::WriteNitroBar(nitro_before);
                     }
-                    GameDLLState::g_current_state.m_racer_state.m_nitro_bar_value = UpdateNitroBar::ReadNitroBar();
                 }
             }
         }
@@ -2317,12 +2317,11 @@ namespace AsphaltDLL
 
                 uintptr_t DETOUR_FUNCTION_DEF Detour_OnUpdateCheckpoint(uintptr_t a1) noexcept
                 {
-                    uintptr_t real_ret = RealOnUpdateCheckpointCall(a1);
                     {
                         LOCK_CURRENT_STATE_MUTEX();
                         GameDLLState::g_current_state.m_racer_state.m_checkpoint = *reinterpret_cast<uint32_t*>(a1 + 0x24C);
                     }
-                    return real_ret;
+                    return RealOnUpdateCheckpointCall(a1);
                 }
             }
 

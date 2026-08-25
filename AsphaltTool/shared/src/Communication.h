@@ -40,7 +40,7 @@ namespace Communication
     constexpr char DLL_DUMPED_TRACK_FILE_NAME[] = "objects.TRACK";
     constexpr static inline std::string REPLAY_FILE_TYPE   = ".NEOREPLAY";
 
-    constexpr uint32_t CURRENT_NON_NEGOTIABLE_COMMUNICATION_VERSION = 4; // Detect dll ABI missmatches
+    constexpr uint32_t CURRENT_NON_NEGOTIABLE_COMMUNICATION_VERSION = 5; // Detect dll ABI missmatches
 
     namespace DllOut
     {
