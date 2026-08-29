@@ -274,6 +274,19 @@ namespace AsphaltTas
         {
             ComSharedMem::SharedState* shared = ComSharedMem::GetSharedState();
             shared->m_non_negotiable_communication_version = Communication::CURRENT_NON_NEGOTIABLE_COMMUNICATION_VERSION;
+
+            const auto path = std::filesystem::current_path();
+            const std::wstring path_str = path.wstring();
+            if (path_str.size() < Communication::SharedMemory::SharedState::EXTERNAL_TOOL_PATH_SIZE)
+            {
+                std::wmemcpy(shared->m_directory_external_tool, path_str.c_str(), static_cast<uint32_t>(path_str.size() + 1));
+                shared->m_directory_external_tool_size = path_str.size();
+            }
+            else
+            {
+                shared->m_directory_external_tool[0] = L'\0';
+                shared->m_directory_external_tool_size = 0;
+            }
             
             if (IsInjected()) return;
 

@@ -2,8 +2,9 @@
 
 //std imports
 #include <memory>
+#include <string>
 #include <vector>
-#include <iostream>
+#include <optional>
 #include <functional>
 
 //personal imports
@@ -98,6 +99,9 @@ namespace CoreEngine
             }
         }
 
+        void SetImGuiFontGlobal(const std::optional<std::string>& path) noexcept;
+        const std::optional<std::string>& GetGlobalImGuiFontPath() noexcept;
+
         //////////////////////////////////////////////// 
         //--------- Glfw callbacks
         //////////////////////////////////////////////// 
@@ -127,6 +131,7 @@ namespace CoreEngine
         std::vector<Window::Handle> m_window_layer_stacks_to_delete_next_frame;
         std::vector<std::pair<Window::WindowCreationConfig, std::vector<LayerFactory>>> m_window_creations_to_add_next_frame;
 
+        std::optional<std::string> m_active_global_font_path = std::nullopt;               
         bool                      m_stop_flag        {false};
         Units::MicroSecond        m_frame_delta_time {0};
         ApplicationConfig         m_original_config  {};

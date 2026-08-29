@@ -67,12 +67,12 @@ namespace AsphaltDLL
 
                 if (status != MH_OK)
                 {
-                    DLL_ERROR_PRINT("Failed to create Hook: Status: " << MH_StatusToString(status) << " Target: " 
+                    DLL_ERROR_LOG_FILE("Failed to create Hook: Status: " << MH_StatusToString(status) << " Target: " 
                     << function_name << "() in module: " << Utility::LPCWSTRToString(module_name));
                     return false;
                 }
 
-                DLL_INFO_LOG("Successfully installed Hook for: " << function_name << "() in module: " << Utility::LPCWSTRToString(module_name));
+                DLL_INFO_LOG_FILE("Successfully installed Hook for: " << function_name << "() in module: " << Utility::LPCWSTRToString(module_name));
                 state.store(HookState::InPlaceDisabled, std::memory_order::release);
                 return true;
             }
@@ -84,7 +84,7 @@ namespace AsphaltDLL
                 HMODULE module_hmod = GetModuleHandleW(module_name);
                 if (!module_hmod)
                 {
-                    DLL_ERROR_PRINT("Failed to get module handle for: " << Utility::LPCWSTRToString(module_name));
+                    DLL_ERROR_LOG_FILE("Failed to get module handle for: " << Utility::LPCWSTRToString(module_name));
                     return false;
                 }
 
@@ -95,12 +95,12 @@ namespace AsphaltDLL
                 
                 if (status != MH_OK)
                 {
-                    DLL_ERROR_PRINT("MinHook Error: " << MH_StatusToString(status) << " For Module: " 
+                    DLL_ERROR_LOG_FILE("MinHook Error: " << MH_StatusToString(status) << " For Module: " 
                     << Utility::LPCWSTRToString(module_name) << " at Address: " << *out_real_function_address);
                     return false;
                 }
 
-                DLL_INFO_LOG("Successfully installed Hook in Module: " << Utility::LPCWSTRToString(module_name) 
+                DLL_INFO_LOG_FILE("Successfully installed Hook in Module: " << Utility::LPCWSTRToString(module_name) 
                 << " at offset: 0x" << std::hex << std::uppercase << offset << std::dec);
                 state.store(HookState::InPlaceDisabled, std::memory_order::release);
                 
@@ -117,11 +117,11 @@ namespace AsphaltDLL
                 if (success)
                 {
                     state.store(HookState::NotInPlace, std::memory_order::release);
-                    DLL_INFO_LOG("Successfully removed hook at address: 0x" << std::hex << std::uppercase << real_function_address << std::dec);
+                    DLL_INFO_LOG_FILE("Successfully removed hook at address: 0x" << std::hex << std::uppercase << real_function_address << std::dec);
                 }
                 else
                 {
-                    DLL_ERROR_PRINT("Failed to remove Hook: " << MH_StatusToString(status) << " Address: 0x" << std::hex << std::uppercase << real_function_address << std::dec);
+                    DLL_ERROR_LOG_FILE("Failed to remove Hook: " << MH_StatusToString(status) << " Address: 0x" << std::hex << std::uppercase << real_function_address << std::dec);
                 }
 
                 return success;
@@ -138,11 +138,11 @@ namespace AsphaltDLL
                 if (success)
                 {
                     state.store(HookState::InPlaceEnabled, std::memory_order::release);
-                    DLL_INFO_LOG("Successfully enabled hook at address: 0x" << std::hex << std::uppercase << real_function_address << std::dec);
+                    DLL_INFO_LOG_FILE("Successfully enabled hook at address: 0x" << std::hex << std::uppercase << real_function_address << std::dec);
                 }
                 else 
                 {
-                    DLL_ERROR_PRINT("Failed to enable Hook: " << MH_StatusToString(status) << " Address: 0x" << std::hex << std::uppercase << real_function_address << std::dec);
+                    DLL_ERROR_LOG_FILE("Failed to enable Hook: " << MH_StatusToString(status) << " Address: 0x" << std::hex << std::uppercase << real_function_address << std::dec);
                 }
 
                 return success;
@@ -158,11 +158,11 @@ namespace AsphaltDLL
                 if (success)
                 {
                     state.store(HookState::InPlaceDisabled, std::memory_order::release);
-                    DLL_INFO_LOG("Successfully disabled hook at Address: 0x" << std::hex << std::uppercase << real_function_address << std::dec);
+                    DLL_INFO_LOG_FILE("Successfully disabled hook at Address: 0x" << std::hex << std::uppercase << real_function_address << std::dec);
                 }
                 else 
                 {
-                    DLL_ERROR_PRINT("Failed to disable Hook: " << MH_StatusToString(status) << " Address: 0x" << std::hex << std::uppercase << real_function_address << std::dec);
+                    DLL_ERROR_LOG_FILE("Failed to disable Hook: " << MH_StatusToString(status) << " Address: 0x" << std::hex << std::uppercase << real_function_address << std::dec);
                 }
 
                 return success;
@@ -173,7 +173,7 @@ namespace AsphaltDLL
                 HMODULE module_hmod = GetModuleHandleW(module_name);
                 if (!module_hmod)
                 {
-                    DLL_ERROR_PRINT("Failed to get module handle for: " << Utility::LPCWSTRToString(module_name));
+                    DLL_ERROR_LOG_FILE("Failed to get module handle for: " << Utility::LPCWSTRToString(module_name));
                     return;
                 }
 
@@ -185,7 +185,7 @@ namespace AsphaltDLL
                     std::memcpy(targetAddress, bytes, size);
                     VirtualProtect(targetAddress, size, oldProtect, &oldProtect);
                 }
-                DLL_INFO_LOG("Successfully patched memory in module: " << Utility::LPCWSTRToString(module_name) << " Offset: 0x" << std::hex 
+                DLL_INFO_LOG_FILE("Successfully patched memory in module: " << Utility::LPCWSTRToString(module_name) << " Offset: 0x" << std::hex 
                 << std::uppercase << offset << std::dec << " Size: " << size);
             }
         } 
@@ -217,13 +217,14 @@ namespace AsphaltDLL
                     static bool once = false;
                     if (!once)
                     {
-                        DLL_ERROR_PRINT("Non negotiable communication version missmatch: Expected: " << Communication::CURRENT_NON_NEGOTIABLE_COMMUNICATION_VERSION
+                        DLL_ERROR_LOG_FILE("Non negotiable communication version missmatch: Expected: " << Communication::CURRENT_NON_NEGOTIABLE_COMMUNICATION_VERSION
                                      << " Actual: " << shared->m_non_negotiable_communication_version << " Commands ignored.");
                         once = true; 
                     }
                     return;
                 }
 
+                bool request_shutdown = false;
                 while (in_buff.TryPop(command))
                 {
                     const ComDllIn::WriteMetaData& meta_cmd = command.m_write_meta_data;
@@ -234,7 +235,7 @@ namespace AsphaltDLL
                     {
                         if (meta_cmd.m_request_dll_shutdown)
                         {
-                            RequestShutdown();
+                            request_shutdown = true;
                         }
 
                         if ( GameDLLState::g_current_state.m_meta_data.m_replay_mode_status != Communication::ReplayMode::Inactive
@@ -306,7 +307,7 @@ namespace AsphaltDLL
                         } 
                         else 
                         {
-                            DLL_ERROR_PRINT("Could not snap Racer to given transform because Racer base address is null.");
+                            DLL_ERROR_LOG_FILE("Could not snap Racer to given transform because Racer base address is null.");
                         }
 
                         if (racer_cmd.m_nitro_bar_value >= 0.0f)
@@ -355,9 +356,14 @@ namespace AsphaltDLL
                         }
                         else 
                         {
-                            DLL_ERROR_PRINT("Could not snap Camera to given transform because Camera base address is null.");
+                            DLL_ERROR_LOG_FILE("Could not snap Camera to given transform because Camera base address is null.");
                         }
                     }
+                }
+
+                if (request_shutdown)
+                {
+                    RequestShutdown();
                 }
             }
 
@@ -460,7 +466,7 @@ namespace AsphaltDLL
                     static bool once = false;
                     if (!once)
                     {
-                        DLL_ERROR_PRINT("Non negotiable communication version missmatch: Expected: " << Communication::CURRENT_NON_NEGOTIABLE_COMMUNICATION_VERSION
+                        DLL_ERROR_LOG_FILE("Non negotiable communication version missmatch: Expected: " << Communication::CURRENT_NON_NEGOTIABLE_COMMUNICATION_VERSION
                                      << " Actual: " << shared->m_non_negotiable_communication_version << " Replay Inputs ignored.");
                         once = true; 
                     }
@@ -564,7 +570,7 @@ namespace AsphaltDLL
 
                 if (! world)
                 {
-                    DLL_INFO_LOG("Could not export track because Dynamics World is unresolved");
+                    DLL_INFO_LOG_FILE("Could not export track because Dynamics World is unresolved");
                     return false;
                 }
 
@@ -575,7 +581,7 @@ namespace AsphaltDLL
                 std::vector<BulletTypes::CollisionObject*> objects;
                 objects.reserve(ghost_objects.m_size + rigid_bodies.m_size);
 
-                DLL_INFO_LOG("Exporting - RigidBodies: " << rigid_bodies.m_size << " - GhostObjects: " << ghost_objects.m_size 
+                DLL_INFO_LOG_FILE("Exporting - RigidBodies: " << rigid_bodies.m_size << " - GhostObjects: " << ghost_objects.m_size 
                     << " - Non Static RigidBodies: " << non_static_rigid_bodies.m_size);
 
                 for (size_t i {}; i < rigid_bodies.m_size; ++i)
@@ -610,7 +616,7 @@ namespace AsphaltDLL
                 auto* world = std::bit_cast<BulletTypes::DiscreteDynamicsWorld*>(GameDLLState::g_current_state.m_resolved_addresses.m_discrete_dynamics_world_instance_address);
                 if (!world) return false;
 
-                if (g_debug_draw_call_counter++ == 0)
+                if (g_debug_draw_call_counter++ == 1)
                 {
                     StateManager::g_debug_draw_stream.PushResetAllDataDrawCmd();
                     ComSharedMem::GetSharedState()->m_dll_out_debug_draw_stream.PushOverwrite(g_debug_draw_stream.GetStagingFrameData());
@@ -630,6 +636,14 @@ namespace AsphaltDLL
                 const auto IsWithin = [](BulletTypes::UnalignedVector3 a, BulletTypes::UnalignedVector3 b, BulletTypes::UnalignedVector3 margin)
                 {
                     return std::abs(a.x - b.x) < margin.x && std::abs(a.y - b.y) < margin.y && std::abs(a.z - b.z) < margin.z;
+                };
+
+                const auto DebugDrawObjectNormal = [&world](BulletTypes::CollisionObject* obj)
+                {
+                    const auto flags = obj->m_collision_flags;
+                    obj->m_collision_flags &= ~BulletTypes::CF_DISABLE_VISUALIZE_OBJECT;
+                    world->DebugDrawObject(obj->m_transform_matrix, obj->m_collision_shape_ptr, {0, 0, 1});
+                    obj->m_collision_flags = flags;
                 };
 
                 const auto camera_pos = GameDLLState::g_current_state.m_camera_state.m_camera_position_vec3;
@@ -672,7 +686,7 @@ namespace AsphaltDLL
                             }
                             else
                             {
-                                DLL_ERROR_PRINT("Unexpected multimaterial triangle mesh shape without TriangleIndexVertexMaterialArray!");
+                                DLL_ERROR_LOG_FILE("Unexpected multimaterial triangle mesh shape without TriangleIndexVertexMaterialArray!");
                             }
                         }
 
@@ -683,14 +697,14 @@ namespace AsphaltDLL
                     }
                     else
                     {
-                        world->DebugDrawObject(body->m_transform_matrix, body->m_collision_shape_ptr, {0, 1, 0});
+                        DebugDrawObjectNormal(body);
                     }
                 }
 
                 for (int i = 0; i < world->m_non_static_rigid_bodies.m_size; i++)
                 {
                     auto* body = world->m_non_static_rigid_bodies.m_data[i];
-                    world->DebugDrawObject(body->m_transform_matrix, body->m_collision_shape_ptr, {1, 0, 0});
+                    DebugDrawObjectNormal(body);
                 }
                 for (int i = 0; i < world->m_ghost_objects.m_size; i++)
                 {
@@ -699,7 +713,7 @@ namespace AsphaltDLL
                     {
                         continue; // hide annoying camera ghost sphere
                     }
-                    world->DebugDrawObject(ghost->m_transform_matrix, ghost->m_collision_shape_ptr, {0, 0, 1});
+                    DebugDrawObjectNormal(ghost);
                 }
 
                 /*int flags_without_objects = GameDLLState::g_current_state.m_meta_data.m_bullet_debug_draw_flags;
@@ -721,7 +735,7 @@ namespace AsphaltDLL
             {
                 if (! g_last_equilibrium_state.has_value())
                 {
-                    DLL_INFO_LOG("Could not restore equilibrium state - none avaiable.");
+                    DLL_INFO_LOG_FILE("Could not restore equilibrium state - none avaiable.");
                     return false;
                 }
 
@@ -729,7 +743,7 @@ namespace AsphaltDLL
 
                 if (base == NO_VALID_RESOLVED_ADDRESS)
                 {
-                    DLL_INFO_LOG("Could not restore equilibrium state - racer base is null.");
+                    DLL_INFO_LOG_FILE("Could not restore equilibrium state - racer base is null.");
                     return false;
                 }
 
@@ -797,7 +811,7 @@ namespace AsphaltDLL
                             }
                             else 
                             {
-                                DLL_ERROR_PRINT("Failed to export track, despite request.");
+                                DLL_ERROR_LOG_FILE("Failed to export track, despite request.");
                             }
                         }
                         
@@ -1045,6 +1059,7 @@ namespace AsphaltDLL
 
                     if (debug_draw)
                     {
+                        LOCK_CURRENT_STATE_MUTEX();
                         StateManager::OnExecuteDebugDrawToStream();
                     }
                 }
@@ -1089,6 +1104,47 @@ namespace AsphaltDLL
                 constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x555CAA0;
                 return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, 
                     reinterpret_cast<LPVOID>(&Detour_DiscreteDynamicsWorldDestructor), &g_real_function_address, reinterpret_cast<LPVOID*>(&RealDiscreteDynamicsWorldDestructorCall), g_hook_state);
+            }
+
+            bool RemoveHook() noexcept { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }
+            bool EnableHook() noexcept { return _Implementation::EnableHook(g_real_function_address, g_hook_state); }
+            bool DisableHook() noexcept { return _Implementation::DisableHook(g_real_function_address, g_hook_state);}
+            HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire); }
+        }
+
+        namespace ProcessCollisionPolicyGetShouldCollide
+        {
+            namespace
+            {
+                std::atomic<HookState> g_hook_state = HookState::NotInPlace;
+
+                LPVOID g_real_function_address = nullptr;
+
+                using ProcessCollisionPolicyGetShouldCollide_t = bool (DETOUR_FUNCTION_DEF*)(uintptr_t a1, BulletTypes::BroadphaseProxy*, BulletTypes::BroadphaseProxy*);
+                ProcessCollisionPolicyGetShouldCollide_t RealProcessCollisionPolicyGetShouldCollideCall = nullptr;
+
+                bool DETOUR_FUNCTION_DEF Detour_ProcessCollisionPolicyGetShouldCollide(uintptr_t a1, BulletTypes::BroadphaseProxy* proxy_0, BulletTypes::BroadphaseProxy* proxy_1) noexcept
+                {
+                    BulletTypes::CollisionObject* obj_0 = proxy_0->m_client_object;
+                    BulletTypes::CollisionObject* obj_1 = proxy_1->m_client_object;
+
+                    if (obj_0 && obj_1) 
+                    {
+                        if (obj_0->IsCustomHackedObject() || obj_1->IsCustomHackedObject())
+                        {
+                            return true;
+                        }
+                    }
+
+                    return RealProcessCollisionPolicyGetShouldCollideCall(a1, proxy_0, proxy_1);
+                }
+            }
+
+            bool SetupHook() noexcept
+            {
+                constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x555BB10;
+                return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, 
+                    reinterpret_cast<LPVOID>(&Detour_ProcessCollisionPolicyGetShouldCollide), &g_real_function_address, reinterpret_cast<LPVOID*>(&RealProcessCollisionPolicyGetShouldCollideCall), g_hook_state);
             }
 
             bool RemoveHook() noexcept { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }
@@ -1232,13 +1288,13 @@ namespace AsphaltDLL
             {
                 if (GameDLLState::g_current_state.m_resolved_addresses.m_steer_func_spoofed_rcx_arg == NO_VALID_RESOLVED_ADDRESS)
                 {
-                    DLL_ERROR_PRINT("Could not spoof call to steer value function because rcx arg is not resolved yet");
+                    DLL_ERROR_LOG_FILE("Could not spoof call to steer value function because rcx arg is not resolved yet");
                     return false;
                 }
 
                 if (!RealSteeringValueCall)
                 {
-                    DLL_ERROR_PRINT("Could not spoof call to steer value function because hook is not in place");
+                    DLL_ERROR_LOG_FILE("Could not spoof call to steer value function because hook is not in place");
                     return false;
                 }
 
@@ -1297,13 +1353,13 @@ namespace AsphaltDLL
             {
                 if (GameDLLState::g_current_state.m_resolved_addresses.m_brake_func_spoofed_rcx_arg == NO_VALID_RESOLVED_ADDRESS)
                 {
-                    DLL_ERROR_PRINT("Could not spoof call to brake value function because rcx arg is not resolved yet");
+                    DLL_ERROR_LOG_FILE("Could not spoof call to brake value function because rcx arg is not resolved yet");
                     return false;
                 }
 
                 if (!RealBrakeValueCall)
                 {
-                    DLL_ERROR_PRINT("Could not spoof call to brake value function because hook is not in place");
+                    DLL_ERROR_LOG_FILE("Could not spoof call to brake value function because hook is not in place");
                     return false;
                 }
 
@@ -1399,12 +1455,12 @@ namespace AsphaltDLL
             {
                 if (RealNitroEnableCall == nullptr)
                 {
-                    DLL_ERROR_PRINT("Could not spoof call to enable nitro: hook is not in place.");
+                    Utility::LogToFile("Could not spoof call to enable nitro: hook is not in place.");
                     return;
                 }
                 if (GameDLLState::g_current_state.m_resolved_addresses.m_nitro_func_spoofed_rcx_arg == NO_VALID_RESOLVED_ADDRESS)
                 {
-                    DLL_ERROR_PRINT("Could not spoof call to enable nitro: verify global rcx arg pointer is not null.");
+                    Utility::LogToFile("Could not spoof call to enable nitro: verify global rcx arg pointer is not null.");
                     return;
                 }
                 while (count-- > 0)
@@ -2088,12 +2144,12 @@ namespace AsphaltDLL
             {
                 if (RealOnRespawnButtonPressedCall == nullptr)
                 {
-                    DLL_ERROR_PRINT("Could not spoof call to respawn button: hook not in place.");
+                    Utility::LogToFile("Could not spoof call to respawn button: hook not in place.");
                     return;
                 }
                 if (GameDLLState::g_current_state.m_resolved_addresses.m_respawn_func_spoofed_rcx_arg == NO_VALID_RESOLVED_ADDRESS)
                 {
-                    DLL_ERROR_PRINT("Could not spoof call to respawn button: verify global rcx arg pointer is not null.");
+                    Utility::LogToFile("Could not spoof call to respawn button: verify global rcx arg pointer is not null.");
                     return;
                 }
                 
@@ -2544,7 +2600,7 @@ namespace AsphaltDLL
             {
                 if (!a2 || !RealProcessLevelResetFadePhaseCall) 
                 {
-                    DLL_ERROR_PRINT("Can not spoof call to level reset without func pointer or invalid a2*");
+                    Utility::LogToFile("Can not spoof call to level reset without func pointer or invalid a2*");
                     return;
                 }
                 __try 
@@ -2553,7 +2609,7 @@ namespace AsphaltDLL
                 }
                 __except (EXCEPTION_EXECUTE_HANDLER)
                 {
-                    DLL_ERROR_PRINT("Exception at reset level phade phase");
+                    Utility::LogToFile("Exception at reset level phade phase");
                 }
             }
 

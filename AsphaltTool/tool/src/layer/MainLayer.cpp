@@ -43,6 +43,8 @@ namespace AsphaltTas
         DllStateUpdateService::LaunchThread();
 
         s_instance = this;
+
+        CoreEngine::Application::Get()->SetImGuiFontGlobal("custom_font.ttf");
     }
 
     MainLayer::~MainLayer() noexcept 

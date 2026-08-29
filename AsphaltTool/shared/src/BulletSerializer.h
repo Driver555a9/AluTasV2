@@ -25,6 +25,7 @@ namespace BulletTypes
         };
 
         constexpr uint32_t MAGIC_HEADER = 0x4C4F4342; // BCOL
+        static_assert(MAGIC_HEADER == 0x4C4F4342);
 
         namespace Keys
         {
@@ -502,8 +503,7 @@ namespace BulletTypes
                     if (scaled_src->m_internal_triangle_shape)
                     {
                         auto cloned_internal = CloneExtractedShape(scaled_src->m_internal_triangle_shape.get());
-                        dst->m_internal_triangle_shape.reset( static_cast<MultiMatExtractedShape*>(cloned_internal.release())
-                        );
+                        dst->m_internal_triangle_shape.reset(static_cast<MultiMatExtractedShape*>(cloned_internal.release()));
                     }
                     return dst;
                 }

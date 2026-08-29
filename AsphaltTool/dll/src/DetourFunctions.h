@@ -95,6 +95,18 @@ namespace AsphaltDLL
             [[nodiscard]] HookState GetHookState() noexcept;
         }
 
+        ////////////////////////////////////////////////////////////
+        // Processes collision pairs - hook because our custom rigidbodies may have no valid m_user_object_ptr
+        ////////////////////////////////////////////////////////////
+        namespace ProcessCollisionPolicyGetShouldCollide
+        {
+            bool SetupHook() noexcept;
+            bool RemoveHook() noexcept;
+            bool EnableHook() noexcept;
+            bool DisableHook() noexcept;
+            [[nodiscard]] HookState GetHookState() noexcept;
+        }
+
         //////////////////////////////////////////////////////////
         // PhysicsContext MERSENNE TWISTER PRNG - used for Barrel Rolls, must be reset per race!
         //////////////////////////////////////////////////////////

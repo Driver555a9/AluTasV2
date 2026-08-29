@@ -1016,6 +1016,7 @@ namespace BulletTypes
             CO_USER_TYPE         = 32,
             CO_FEATHERSTONE_LINK = 64
         };
+
         void**              m_vtable_ptr;                  
         uint8_t             m_header_padding[24];          
         Transform           m_transform_matrix;             
@@ -1027,7 +1028,7 @@ namespace BulletTypes
         float               m_contact_processing_threshold;  
         BroadphaseProxy*    m_broadphase_proxy_ptr;          
         CollisionShape*     m_collision_shape_ptr;           
-        void*               m_extension_pointer;             
+        void*               m_extension_pointer;        // We can use this to indicate its our own object (not a default game object), if own this == 1
         CollisionShape*     m_root_collision_shape_ptr;         
         int                 m_collision_flags;               
         int                 m_island_tag_1;                  
@@ -1070,6 +1071,17 @@ namespace BulletTypes
         [[nodiscard]] bool IsGhostObject() noexcept
         {
             return m_internal_type == CO_GHOST_OBJECT;
+        }
+
+        void SetCustomHackedObject() noexcept
+        {
+            m_extension_pointer = reinterpret_cast<void*>(1uz);
+            m_collision_flags |= BulletTypes::CF_DISABLE_VISUALIZE_OBJECT; // Prevents certain crashes
+        }
+
+        [[nodiscard]] bool IsCustomHackedObject() noexcept
+        {
+            return std::bit_cast<uintptr_t>(m_extension_pointer) == 1;
         }
     };
     static_assert(offsetof(CollisionObject, m_transform_matrix)     == 0x20);

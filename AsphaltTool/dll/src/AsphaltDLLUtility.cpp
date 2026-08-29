@@ -10,6 +10,11 @@
 
 namespace AsphaltDLL::Utility
 {
+    namespace
+    {
+        std::ofstream g_debug_log;
+    } 
+
     void InitConsole() noexcept 
     {
         AllocConsole();
@@ -50,6 +55,34 @@ namespace AsphaltDLL::Utility
         FillConsoleOutputCharacter(hConsole, ' ', cellCount, coord, &count);
         FillConsoleOutputAttribute(hConsole, csbi.wAttributes, cellCount, coord, &count);
         SetConsoleCursorPosition(hConsole, coord);
+    }
+
+    bool InitDebugLog(const std::filesystem::path& path) noexcept
+    {
+        g_debug_log.open(path.c_str(), std::ios::out | std::ios::trunc);
+        if (!g_debug_log.is_open()) return false;
+        g_debug_log<< "=== Debug log started ===" << std::endl;
+        return true;
+    }
+
+    void ShutdownDebugLog() noexcept
+    {
+        if (!g_debug_log.is_open())
+            return;
+
+        g_debug_log << "=== Debug log stopped ===" << std::endl;
+        g_debug_log.flush();
+        g_debug_log.close();
+    }
+
+    void LogToFile(const std::string& str) noexcept
+    {
+        g_debug_log << str << std::endl;
+    }
+
+    void LogToFile(const char* str) noexcept
+    {
+        g_debug_log << str << std::endl;
     }
 
     float RandomFloat(float min, float max) noexcept

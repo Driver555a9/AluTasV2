@@ -471,6 +471,7 @@ namespace Communication
             constexpr static uint32_t DLL_IN_GENERAL_BUFF_SIZE    = 500;
             constexpr static uint32_t DLL_OUT_DEBUG_DRAW_STREAM_BUFF_SIZE      = 3;
             constexpr static uint32_t DLL_OUT_DEBUG_DRAW_STATIC_MESH_BUFF_SIZE = 1000;
+            constexpr static uint32_t EXTERNAL_TOOL_PATH_SIZE = 32767;
             
             std::atomic<uint32_t> m_non_negotiable_communication_version {0xFFFFFFFF}; // Must be set by external tool - must match DLLs value
 
@@ -491,6 +492,10 @@ namespace Communication
             // WRITE: DLL - READ: Remote Tool -> This is used for live display of btDebugDraw
             SharedRingBuffer<BulletTypes::DebugDrawStream::DebugFrameData, DLL_OUT_DEBUG_DRAW_STREAM_BUFF_SIZE> m_dll_out_debug_draw_stream;
             SharedRingBuffer<BulletTypes::DebugDrawStream::CachedMeshDefinitionChunk, DLL_OUT_DEBUG_DRAW_STATIC_MESH_BUFF_SIZE> m_dll_out_debug_draw_static_meshes;
+
+            // Path of external tool
+            wchar_t m_directory_external_tool[EXTERNAL_TOOL_PATH_SIZE];
+            uint32_t m_directory_external_tool_size = 0; // 0 = ignore
         };
 
         constexpr size_t  SHARED_MEMORY_SIZE  = sizeof(SharedState);

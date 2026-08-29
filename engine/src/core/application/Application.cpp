@@ -1,7 +1,7 @@
 #include "core/application/Application.h"
 
 //Own includes
-
+#include "GLFW/glfw3.h"
 #include "core/event/WindowEvents.h"
 #include "core/event/InputEvents.h"
 #include "core/event/ApplicationStateEvents.h"
@@ -12,10 +12,10 @@
 #include "core/utility/Assert.h"
 #include "core/utility/Performance.h"
 
-//ImGUI
-#include "imgui/imgui.h"
-#include "imgui/imgui_impl_glfw.h"
-#include "imgui/imgui_impl_opengl3.h"
+#include "imgui.h"
+
+#include <filesystem>
+#include <optional>
 
 namespace CoreEngine
 {
@@ -266,6 +266,58 @@ namespace CoreEngine
     {
         ENGINE_ASSERT(s_application_instance_ptr && "Can not call Get() if no instance of application exists.");
         return s_application_instance_ptr;
+    }
+
+    void Application::SetImGuiFontGlobal(const std::optional<std::string>& path_opt) noexcept
+    {
+        if (! path_opt.has_value())
+        {
+            m_active_global_font_path = std::nullopt;
+            return;
+        }
+
+        const std::string& path = path_opt.value();
+        if (path.empty()) return;
+
+        std::error_code ec;
+        if (!std::filesystem::is_regular_file(path, ec) || ec) return;
+
+        m_active_global_font_path = path;
+
+        GLFWwindow* originalGLFW = glfwGetCurrentContext();
+        ImGuiContext* originalImGui = ImGui::GetCurrentContext();
+
+        for (auto& wls : m_window_layer_stacks)
+        {
+            if (!wls || !wls->m_window_ptr) continue;
+
+            GLFWwindow* window = wls->m_window_ptr->GetGLFWwindow();
+            if (!window) continue;
+
+            glfwMakeContextCurrent(window);
+
+            ImGuiContext* context = wls->m_window_ptr->GetImGuiContext();
+            if (!context) continue;
+
+            ImGui::SetCurrentContext(context);
+
+            ImGuiIO& io = ImGui::GetIO();
+
+            ImFont* font = io.Fonts->AddFontFromFileTTF(path.c_str(), 18.0f);
+
+            if (font)
+            {
+                io.FontDefault = font;
+            }
+        }
+
+        ImGui::SetCurrentContext(originalImGui);
+        glfwMakeContextCurrent(originalGLFW);
+    }
+
+    const std::optional<std::string>& Application::GetGlobalImGuiFontPath() noexcept
+    {
+        return m_active_global_font_path;
     }
 
     //////////////////////////////////////////////// 

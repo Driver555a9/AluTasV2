@@ -64,14 +64,29 @@ namespace AsphaltDLL
                 constexpr uint8_t FORCED_MAT_ID = 0;
                 std::memset(surface_materials, FORCED_MAT_ID, num_triangles);
 
-                auto* mesh_interface = BulletTypes::TriangleIndexVertexMaterialArray::ConstructForSurfaceIndices(num_triangles, indices, num_vertices, vertices, surface_materials);
-                auto* multi_shape    = BulletTypes::MultimaterialTriangleMeshShape::Construct(mesh_interface);
+                BulletTypes::TriangleIndexVertexMaterialArray* mesh_interface = BulletTypes::TriangleIndexVertexMaterialArray::ConstructForSurfaceIndices(num_triangles, indices, num_vertices, vertices, surface_materials);
+                BulletTypes::MultimaterialTriangleMeshShape* multi_shape = BulletTypes::MultimaterialTriangleMeshShape::Construct(mesh_interface);
+                auto tri_rb_info = BulletTypes::RigidBodyConstructionInfo(0.0f, multi_shape);
+                tri_rb_info.m_restitution = 0.8f;
+                tri_rb_info.m_friction = 0.5f;
+                BulletTypes::RigidBody* tri_mesh_rigidbody = BulletTypes::RigidBody::Construct(tri_rb_info);
+                tri_mesh_rigidbody->SetCustomHackedObject();
 
-                float mass = 0.0f;
-                auto info = BulletTypes::RigidBodyConstructionInfo(mass, multi_shape);
-                auto* rb = BulletTypes::RigidBody::Construct(info);
-                //rb->m_collision_flags |= BulletTypes::CF_DISABLE_VISUALIZE_OBJECT; // Prevents crash
+                BulletTypes::SphereShape* ball = BulletTypes::SphereShape::Construct(10.0f);
+                BulletTypes::Vector3 local_inertia{0, 0, 0};
+                const float mass = 200.0f;
+                ball->CalculateLocalInertia(mass, local_inertia);
+                auto ball_rb_info = BulletTypes::RigidBodyConstructionInfo(mass, ball, local_inertia);
+                ball_rb_info.m_restitution = 0.8f;
+                ball_rb_info.m_friction = 0.2f;
+                ball_rb_info.m_angular_damping = 0.0f;
+                ball_rb_info.m_linear_damping = 0.0f;
 
+                BulletTypes::RigidBody* ball_rigidbody = BulletTypes::RigidBody::Construct(ball_rb_info);
+                ball_rigidbody->m_transform_matrix.m_origin = {0, 0, 100, 1};
+                ball_rigidbody->SetCustomHackedObject();
+
+                //// Copy valid user object from main map
                 for (int i = 0; i < world->m_rigid_bodies.m_size; ++i)
                 {
                     BulletTypes::RigidBody* body = world->m_rigid_bodies.m_data[i];
@@ -82,21 +97,43 @@ namespace AsphaltDLL
 
                     if (width > 600.0f) // main map
                     {
-                        rb->m_user_object_pointer = body->m_user_object_pointer;
-                        rb->m_transform_matrix.RotateX(0.1f);
-                        world->DynamicsWorld::AddRigidBody(rb);
-                        //world->RemoveRigidBody(body);
+                        // These are used a lot but we can not construct them, so copy existing for now
+                        ball_rigidbody->m_user_object_pointer = body->m_user_object_pointer;
+                        tri_mesh_rigidbody->m_user_object_pointer = body->m_user_object_pointer;
                         break;
                     }
                 }  
-                for (int i = 0; i < world->m_non_static_rigid_bodies.m_size; ++i)
+
+                // TP racer to ball
+                if (GameDLLState::g_current_state.m_resolved_addresses.m_local_racer_base_address)
+                {
+                    auto* car = reinterpret_cast<BulletTypes::RigidBody*>(GameDLLState::g_current_state.m_resolved_addresses.m_local_racer_base_address);
+                    car->m_transform_matrix.m_origin = {10, 10, 10, 1};
+                    car->m_linear_velocity = {0, 0, 0};
+                }
+                // Add ball and ground
+                world->DynamicsWorld::AddRigidBody(tri_mesh_rigidbody);
+                world->DynamicsWorld::AddRigidBody(ball_rigidbody);
+
+                ///// Removes all non custom static objects
+                for (int i = 0; i < world->m_rigid_bodies.m_size; ++i)
+                {
+                    BulletTypes::RigidBody* body = world->m_rigid_bodies.m_data[i];
+                    if (! body->IsCustomHackedObject()) world->RemoveRigidBody(body);
+                }
+
+                ///// Removes all non custom ghost objects
+                for (int i = 0; i < world->m_ghost_objects.m_size; ++i)
+                {
+                    BulletTypes::GhostObject* ghost = world->m_ghost_objects.m_data[i];
+                    if (! ghost->IsCustomHackedObject()) world->RemoveCollisionObject(ghost);
+                }
+
+                /*for (int i = 0; i < world->m_non_static_rigid_bodies.m_size; ++i)
                 {
                     BulletTypes::RigidBody* body = world->m_non_static_rigid_bodies.m_data[i];
+                }*/
 
-                    if (!body || !body->m_broadphase_proxy_ptr) continue;
-
-                    body->m_transform_matrix.m_origin += {0, 0, 50};
-                }  
                 world->UpdateAabbs(); 
 
                 once = true;
@@ -650,21 +687,21 @@ namespace AsphaltDLL
                 const auto* proxy = leaf.m_broadphase_proxy;
                 if (!proxy)
                 {
-                    DLL_ERROR_PRINT("Err no proxy: ");
+                    DLL_ERROR_LOG_FILE("Err no proxy: ");
                     continue;
                 }
 
                 auto* object = proxy->m_client_object;
                 if (!object)
                 {
-                    DLL_ERROR_PRINT("Err no object: Proxy: " << std::hex << proxy << std::dec );
+                    DLL_ERROR_LOG_FILE("Err no object: Proxy: " << std::hex << proxy << std::dec );
                     continue;
                 }
 
                 auto* shape = object->m_collision_shape_ptr;
                 if (!shape)
                 {
-                    DLL_ERROR_PRINT("Err no shape: Proxy: " << std::hex << proxy << std::dec);
+                    DLL_ERROR_LOG_FILE("Err no shape: Proxy: " << std::hex << proxy << std::dec);
                     continue;
                 }
 
@@ -714,7 +751,7 @@ namespace AsphaltDLL
 
             BulletTypes::RaycastOutput output = SpoofCallToCastRay(ray_start, ray_end, layer_mask, flags);
 
-            DLL_INFO_LOG
+            DLL_INFO_LOG_FILE
             (
                 "\nHas Hit : " << output.m_has_hit
                 << "\nBody*   : " << std::hex << output.m_hit_body_ptr << std::dec

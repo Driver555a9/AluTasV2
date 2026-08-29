@@ -1,6 +1,7 @@
 #include "AsphaltDLL.h"
 
 #include "AsphaltDLLUtility.h"
+#include "Communication.h"
 #include "DetourFunctions.h"
 
 #include "MinHook.h"
@@ -37,16 +38,28 @@ namespace AsphaltDLL
 {
     DWORD WINAPI Loop(LPVOID) noexcept
     {
-        Utility::InitConsole();
+        //Utility::InitConsole();
+        const auto* shared = ComSharedMem::GetSharedState();
+
+        bool use_fallback_log_loc = true;
+        if (shared->m_directory_external_tool_size > 0 && shared->m_directory_external_tool_size < Communication::SharedMemory::SharedState::EXTERNAL_TOOL_PATH_SIZE)
+        {
+            const std::wstring directory(shared->m_directory_external_tool, shared->m_directory_external_tool_size);
+            use_fallback_log_loc = ! Utility::InitDebugLog(directory + L"\\dll_debug_log.txt");
+        }
+        if (use_fallback_log_loc)
+        {
+            Utility::InitDebugLog("dll_debug_log.txt");
+        }
 
         if (MH_Initialize() == MH_OK)
         {
-            DLL_INFO_LOG("Successfully initialized MinHook.");
+            DLL_INFO_LOG_FILE("Successfully initialized MinHook.");
             SetupHooks();
         }
         else
         {
-            DLL_ERROR_PRINT("Failed to initialize MinHook.");
+            DLL_ERROR_LOG_FILE("Failed to initialize MinHook.");
         }
 
         while (g_running.load(std::memory_order::acquire))
@@ -63,7 +76,9 @@ namespace AsphaltDLL
 
         MH_Uninitialize();
         Communication::SharedMemory::ShutdownSharedMemory();
-        Utility::ShutdownConsole();
+
+        //Utility::ShutdownConsole();
+        Utility::ShutdownDebugLog();
 
         FreeLibraryAndExitThread(g_hmodule, 0);
     }
@@ -81,6 +96,7 @@ namespace AsphaltDLL
             EXPAND_HOOK(DetourFunctions::PhysicsWorldWrapperNewTick),
             EXPAND_HOOK(DetourFunctions::InternalSingleStepSimulation),
             EXPAND_HOOK(DetourFunctions::DiscreteDynamicsWorldDestructor),
+            EXPAND_HOOK(DetourFunctions::ProcessCollisionPolicyGetShouldCollide),
             EXPAND_HOOK(DetourFunctions::BarrelRandomLerp),
             EXPAND_HOOK(DetourFunctions::BarrelRandomBool),
             EXPAND_HOOK(DetourFunctions::BrakeValue),
@@ -153,7 +169,7 @@ namespace AsphaltDLL
 
     void Shutdown() noexcept
     {
-        DLL_INFO_LOG("Shutdown initiated...");
+        DLL_INFO_LOG_FILE("Shutdown initiated...");
         g_running.store(false, std::memory_order::release);
     }
 }

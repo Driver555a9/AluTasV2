@@ -1,4 +1,5 @@
 #include "core/application/Window.h"
+#include "core/application/Application.h"
 
 #include "core/utility/Assert.h"
 #include "core/application/Application.h"
@@ -8,6 +9,8 @@
 //std
 #include <iostream>
 #include <algorithm>
+#include <optional>
+#include <filesystem>
 
 #ifdef _WIN32
     #define GLFW_EXPOSE_NATIVE_WIN32
@@ -125,11 +128,37 @@ namespace CoreEngine
 
         ImGuiIO& io = ImGui::GetIO();
 
-        ImFontConfig cfg;
-        cfg.FontDataOwnedByAtlas = false;
-        io.Fonts->AddFontFromMemoryTTF(JET_BRAINS_MONO_BOLD, JET_BRAINS_MONO_BOLD_length, 18.0f, &cfg);
-        ImGui::StyleColorsDark();
+        const std::optional<std::string>& font_path = Application::Get()->GetGlobalImGuiFontPath();
+        bool added_custom = false;
+        if (font_path.has_value())
+        {
+            const std::string& path = font_path.value();
 
+            std::error_code ec;
+            if (! path.empty() && std::filesystem::is_regular_file(path, ec) && !ec)
+            {
+                ImFont* font = io.Fonts->AddFontFromFileTTF(font_path->c_str(), 18.0f);
+                if (font)
+                {
+                    io.FontDefault = font;
+                    added_custom = true;
+                }
+            }
+        }
+        
+        if (! added_custom)
+        {
+            Application::Get()->SetImGuiFontGlobal(std::nullopt);
+            ImFontConfig cfg;
+            cfg.FontDataOwnedByAtlas = false;
+            ImFont* font = io.Fonts->AddFontFromMemoryTTF(JET_BRAINS_MONO_BOLD, JET_BRAINS_MONO_BOLD_length, 18.0f, &cfg);
+            if (font)
+            {
+                io.FontDefault = font;
+            }
+        }
+
+        ImGui::StyleColorsDark();
         io.ConfigFlags |= config.m_imgui_flags;
 
         if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)

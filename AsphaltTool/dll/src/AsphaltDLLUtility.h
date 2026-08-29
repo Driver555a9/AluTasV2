@@ -3,12 +3,16 @@
 #include <cstdint>
 #include <iomanip>
 #include <fstream>
+#include <string>
 #include <unordered_map>
 #include <string_view>
 #include <iostream>
 #include <optional>
 #include <vector>
 #include <mutex>
+#include <sstream>
+#include <format>
+#include <filesystem>
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -22,6 +26,11 @@ namespace AsphaltDLL
         void InitConsole() noexcept;
         void ShutdownConsole() noexcept;
         void ClearConsole() noexcept;
+
+        bool InitDebugLog(const std::filesystem::path& path) noexcept;
+        void ShutdownDebugLog() noexcept;
+        void LogToFile(const std::string& str) noexcept;
+        void LogToFile(const char* str) noexcept;
 
         [[nodiscard]] float RandomFloat(float min, float max) noexcept;
         [[nodiscard]] int RandomInt(int min, int max) noexcept;
@@ -219,32 +228,77 @@ namespace AsphaltDLL
     << "\n[ERROR] File: " << __FILENAME__HELPER__ << ::AsphaltDLL::Utility::ColorCodes::GREEN \
     << " Line " << __LINE__ << ": " << ::AsphaltDLL::Utility::ColorCodes::RESET << expr << std::endl
 
-    #define DLL_ERROR_PRINT_NO_TEXT() std::cout << ::AsphaltDLL::Utility::ColorCodes::RED \
+    #define DLL_ERROR_LOG_FILE_NO_TEXT() std::cout << ::AsphaltDLL::Utility::ColorCodes::RED \
     << "\n[ERROR] File: " << __FILENAME__HELPER__ << ::AsphaltDLL::Utility::ColorCodes::GREEN \
     << " Line " << __LINE__ << ::AsphaltDLL::Utility::ColorCodes::RESET << std::endl
 
-    #define DLL_INFO_LOG(expr) std::cout << ::AsphaltDLL::Utility::ColorCodes::YELLOW \
+    #define DLL_INFO_PRINT(expr) std::cout << ::AsphaltDLL::Utility::ColorCodes::YELLOW \
     << "\n[INFO] File: " << __FILENAME__HELPER__ << ::AsphaltDLL::Utility::ColorCodes::GREEN \
     << " Line " << __LINE__ << ": " << ::AsphaltDLL::Utility::ColorCodes::RESET << expr << std::endl
 
-    #define DLL_DEBUG_PRINT(expr) std::cout << ::AsphaltDLL::Utility::ColorCodes::BLUE \
-    << "\n[ERROR] File: " << __FILENAME__HELPER__ << ::AsphaltDLL::Utility::ColorCodes::GREEN \
-    << " Line " << __LINE__ << ": " << ::AsphaltDLL::Utility::ColorCodes::RESET << expr << std::endl
+    #define DLL_ERROR_LOG_FILE(expr) \
+        do { \
+            std::ostringstream _log_stream; \
+            _log_stream << "[ERROR]: File: " << __FILENAME__HELPER__ << " Line: " << __LINE__ << ": " << expr; \
+            ::AsphaltDLL::Utility::LogToFile(_log_stream.str()); \
+        } while (false)
+
+    #define DLL_INFO_LOG_FILE(expr) \
+        do { \
+            std::ostringstream _log_stream; \
+            _log_stream << "[INFO]: File: " << __FILENAME__HELPER__ << " Line: " << __LINE__ << ": " << expr; \
+            ::AsphaltDLL::Utility::LogToFile(_log_stream.str()); \
+        } while (false)
+
+    #define DLL_ERROR_LOG_FILE_FORMATED(expr) \
+        do { \
+            constexpr const char* file = __FILENAME__HELPER__; \
+            ::AsphaltDLL::Utility::LogToFile(std::format("[ERROR]: File: {} Line: {}: {}", file, __LINE__, std::format(expr))); \
+        } while (false)
+
+    #define DLL_INFO_LOG_FILE_FORMATED(expr) \
+        do { \
+            constexpr const char* file = __FILENAME__HELPER__; \
+            ::AsphaltDLL::Utility::LogToFile(std::format("[INFO]: File: {} Line: {}: {}", file, __LINE__, std::format(expr))); \
+        } while (false)
+
 #elif defined(__GNUC__)
 
     #define DLL_ERROR_PRINT(expr) std::cout << ::AsphaltDLL::Utility::ColorCodes::RED \
     << "\n[ERROR] File: " << __FILE_NAME__ << ::AsphaltDLL::Utility::ColorCodes::GREEN \
     << " Line " << __LINE__ << ": " << ::AsphaltDLL::Utility::ColorCodes::RESET << expr << std::endl
 
-    #define DLL_ERROR_PRINT_NO_TEXT() std::cout << ::AsphaltDLL::Utility::ColorCodes::RED \
+    #define DLL_ERROR_LOG_FILE_NO_TEXT() std::cout << ::AsphaltDLL::Utility::ColorCodes::RED \
     << "\n[ERROR] File: " << __FILE_NAME__ << ::AsphaltDLL::Utility::ColorCodes::GREEN \
     << " Line " << __LINE__ << ::AsphaltDLL::Utility::ColorCodes::RESET << std::endl
 
-    #define DLL_INFO_LOG(expr) std::cout << ::AsphaltDLL::Utility::ColorCodes::YELLOW \
+    #define DLL_INFO_PRINT(expr) std::cout << ::AsphaltDLL::Utility::ColorCodes::YELLOW \
     << "\n[INFO] File: " << __FILE_NAME__ << ::AsphaltDLL::Utility::ColorCodes::GREEN \
     << " Line " << __LINE__ << ": " << ::AsphaltDLL::Utility::ColorCodes::RESET << expr << std::endl
 
-    #define DLL_DEBUG_PRINT(expr) std::cout << ::AsphaltDLL::Utility::ColorCodes::BLUE \
-    << "\n[INFO] File: " << __FILE_NAME__ << ::AsphaltDLL::Utility::ColorCodes::GREEN \
-    << " Line " << __LINE__ << ": " << ::AsphaltDLL::Utility::ColorCodes::RESET << expr << std::endl
+    #define DLL_ERROR_LOG_FILE(expr) \
+        do { \
+            std::ostringstream _log_stream; \
+            _log_stream << "[ERROR]: File: " << __FILE_NAME__ << " Line: " << __LINE__ << ": " << expr; \
+            ::AsphaltDLL::Utility::LogToFile(_log_stream.str()); \
+        } while (false)
+
+    #define DLL_INFO_LOG_FILE(expr) \
+        do { \
+            std::ostringstream _log_stream; \
+            _log_stream << "[INFO]: File: " << __FILE_NAME__ << " Line: " << __LINE__ << ": " << expr; \
+            ::AsphaltDLL::Utility::LogToFile(_log_stream.str()); \
+        } while (false)
+
+    #define DLL_ERROR_LOG_FILE_FORMATED(expr) \
+        do { \
+            constexpr const char* file = __FILE_NAME__; \
+            ::AsphaltDLL::Utility::LogToFile(std::format("[ERROR]: File: {} Line: {}: {}", file, __LINE__, std::format(expr))); \
+        } while (false)
+
+    #define DLL_INFO_LOG_FILE_FORMATED(expr) \
+        do { \
+            constexpr const char* file = __FILE_NAME__; \
+            ::AsphaltDLL::Utility::LogToFile(std::format("[INFO]: File: {} Line: {}: {}", file, __LINE__, std::format(expr))); \
+        } while (false)
 #endif 
