@@ -27,12 +27,25 @@ namespace AsphaltTas
         static void DeleteInstance() noexcept;
 
     private:
+        void OnLoadHotkeys(const std::string& path) noexcept;
+
         bool m_use_transform_override_patch = true;
         bool m_is_in_delete_all_process = false;
         CoreEngine::Timer m_delete_all_timer;
 
+        struct Hotkey
+        {
+            enum class Type { NONE, RESTART_RACE, QUIT_RACE };
+            Type m_type         = Type::NONE;
+            int  m_gflw_key     = 0;
+            int  m_win32_key    = 0;
+            bool m_was_pressed = false;
+        };
+
+        std::vector<Hotkey> m_hotkeys;
+
         static inline TasInputLayer* s_instance = nullptr;
         constexpr static inline std::string REPLAY_FOLDER_PATH = "replays/";
-
+        constexpr static char HOTKEY_DEF_FILE_NAME[] = "tas.HOTKEYDEF";
     };
 }

@@ -5,6 +5,8 @@
 #include "common/Replay.h"
 #include "common/Utility.h"
 #include "core/application/Application.h"
+#include "core/event/EventDispatcher.h"
+#include "core/event/InputEvents.h"
 #include "core/utility/Assert.h"
 #include "core/utility/Units.h"
 #include "imgui.h"
@@ -14,7 +16,9 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <ranges>
+#include <synchapi.h>
 #include <utility>
 
 
@@ -23,6 +27,7 @@ namespace AsphaltTas
     TasInputLayer::TasInputLayer(CoreEngine::Window::Handle handle) noexcept : CoreEngine::Basic_Layer(handle)
     {
         s_instance = this;
+        OnLoadHotkeys(HOTKEY_DEF_FILE_NAME);
     }
 
     TasInputLayer::~TasInputLayer() noexcept
@@ -34,12 +39,41 @@ namespace AsphaltTas
         
     void TasInputLayer::OnEvent([[maybe_unused]] CoreEngine::Basic_Event& e) noexcept
     {
-        
+
     }
 
     void TasInputLayer::OnUpdate([[maybe_unused]] CoreEngine::Units::MicroSecond dt) noexcept
     {
-        
+        for (Hotkey& key : m_hotkeys)
+        {
+            if (key.m_win32_key == 0) 
+                continue;
+
+            bool is_currently_down = (GetAsyncKeyState(key.m_win32_key) & 0x8000) != 0;
+
+            if (is_currently_down && !key.m_was_pressed)
+            {
+                ScopeLockedAccess<ComDllIn::DllGeneralCommandsIn> general_cmd_ref = AsphaltDllManager::GetDllGeneralCommandsInRef();
+                
+                switch (key.m_type)
+                {
+                    case Hotkey::Type::QUIT_RACE:
+                    {
+                        general_cmd_ref->m_write_meta_data.m_paused_menu_cmd = ComDllIn::PausedMenuCmd::QUIT;
+                        break;
+                    }   
+                    case Hotkey::Type::RESTART_RACE:
+                    {
+                        general_cmd_ref->m_write_meta_data.m_paused_menu_cmd = ComDllIn::PausedMenuCmd::RESTART;
+                        break;
+                    }
+                    case Hotkey::Type::NONE: 
+                        break;
+                }
+            }
+
+            key.m_was_pressed = is_currently_down;
+        }
     }
 
     void TasInputLayer::OnRender() noexcept
@@ -100,7 +134,7 @@ namespace AsphaltTas
                 ///////////////////// Desired frame interval / game target fps
                 ImGui::TextUnformatted("Target Frame Interval:");
                 ImGui::SameLine();
-                ImGui::SliderInt("##Target Frame Interval", (int*)&general_cmd_ref->m_write_meta_data.m_game_target_fps_interval_micros, 1000, 33'332);
+                ImGui::SliderInt("##Target Frame Interval", (int*)&general_cmd_ref->m_write_meta_data.m_target_frame_interval_micros, 1000, 33'332);
 
                 ///////////////////// Replay Playback
                 ImGui::TextUnformatted("Speed Up Replay      :");
@@ -129,7 +163,6 @@ namespace AsphaltTas
                     PUSH_SCOPED_STYLE_COLOR(ImGuiCol_Button, GuiStyle::COLOR_BLUE);
                     if (ImGui::Button("Soft Reset Track"))
                     {
-                        ENGINE_INFO_LOG("REQUEST BUTTON CLICK");
                         general_cmd_ref->m_write_meta_data.m_request_track_reset = true;
                     }
                 }
@@ -440,6 +473,111 @@ namespace AsphaltTas
         }
 
         ImGui::End();
+    }
+
+    void TasInputLayer::OnLoadHotkeys(const std::string& path) noexcept
+    {
+        const auto CharToGLFWKey = [](char c) noexcept -> int
+        {
+            char upper = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+
+            if (upper >= 'A' && upper <= 'Z')
+            {
+                return GLFW_KEY_A + (upper - 'A');
+            }
+
+            if (upper >= '0' && upper <= '9')
+            {
+                return GLFW_KEY_0 + (upper - '0');
+            }
+
+            return GLFW_KEY_LAST;
+        };
+
+        const auto GlfwKeyToWin32 = [](int glfw_key) noexcept -> int
+        {
+            if (glfw_key >= GLFW_KEY_A && glfw_key <= GLFW_KEY_Z)
+            {
+                return 'A' + (glfw_key - GLFW_KEY_A);
+            }
+            if (glfw_key >= GLFW_KEY_0 && glfw_key <= GLFW_KEY_9)
+            {
+                return '0' + (glfw_key - GLFW_KEY_0);
+            }
+            return 0;
+        };
+
+        std::ifstream file(path);
+        if (!file.is_open())
+        {
+            ENGINE_ERROR_PRINT("OnLoadHotkeys: Failed to open hotkey config file.");
+            return;
+        }
+
+        m_hotkeys.clear();
+        std::string line;
+
+        while (std::getline(file, line))
+        {
+            if (line.empty() || line[0] == '#') 
+                continue;
+
+            size_t colon_pos = line.find(':');
+            if (colon_pos == std::string::npos) 
+            {
+                ENGINE_ERROR_PRINT("Hotkey line skipped - No : found");
+                continue;
+            }
+
+            std::string action_str = line.substr(0, colon_pos);
+            std::string val_str    = line.substr(colon_pos + 1);
+
+            const auto trim = [](std::string& s) 
+            {
+                s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); }));
+                s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) { return !std::isspace(ch); }).base(), s.end());
+            };
+
+            trim(action_str);
+            trim(val_str);
+
+            std::transform(action_str.begin(), action_str.end(), action_str.begin(), [](unsigned char c){ return static_cast<char>(std::tolower(c)); });
+
+            if (val_str.length() < 3 || val_str.front() != '"' || val_str.back() != '"')
+            {
+                ENGINE_ERROR_PRINT("Hotkey line skipped - malformed value. Value must be given like: \"n\"");
+                continue;
+            }
+
+            char key_char = val_str[1];
+            int glfw_key = CharToGLFWKey(key_char);
+            if (glfw_key >= GLFW_KEY_LAST) 
+            {
+                ENGINE_ERROR_PRINT("Hotkey line skipped - value exceeds all GLFW keys: " << glfw_key);
+                continue;
+            }
+
+            Hotkey hotkey;
+            hotkey.m_gflw_key     = glfw_key;
+            hotkey.m_win32_key    = GlfwKeyToWin32(glfw_key);
+            hotkey.m_was_pressed = false;
+
+            if (action_str == "restart")
+            {
+                hotkey.m_type = Hotkey::Type::RESTART_RACE;
+                m_hotkeys.push_back(hotkey);
+            }
+            else if (action_str == "quit")
+            {
+                hotkey.m_type = Hotkey::Type::QUIT_RACE;
+                m_hotkeys.push_back(hotkey);
+            }
+            else 
+            {
+                ENGINE_ERROR_PRINT("Hotkey line skipped - Action Type unkown: " << action_str);
+                continue;
+            }
+        }
     }
 
     ///////////////// Static functions

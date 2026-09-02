@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <cstddef>
 #include <format>
-#include <algorithm>
 #include <type_traits>
 
 #ifdef HAS_GET_MAIN_MODULE_FUNCTION
@@ -34,7 +33,7 @@ namespace BulletTypes
         [[nodiscard]] UnalignedVector3 Cross(const UnalignedVector3& other) const noexcept { return { y * other.z - z * other.y, z * other.x - x * other.z, x * other.y - y * other.x};}
         [[nodiscard]] float Dot(const UnalignedVector3& other) const noexcept { return x * other.x + y * other.y + z * other.z; }
         [[nodiscard]] float Magnitude() const noexcept { return std::hypot(x, y, z); }
-        void Normalize() noexcept { const float mag = Magnitude(); const float inv_mag = 1.0f / mag; x *= inv_mag; y *= inv_mag; z *= inv_mag; }
+        void Normalize() noexcept { const float inv_mag = 1.0f / Magnitude(); x *= inv_mag; y *= inv_mag; z *= inv_mag; }
         UnalignedVector3& operator+=(const UnalignedVector3& other) noexcept { x += other.x; y += other.y; z += other.z; return *this; }
         UnalignedVector3& operator-=(const UnalignedVector3& other) noexcept { x -= other.x; y -= other.y; z -= other.z; return *this; }
         UnalignedVector3& operator*=(float scalar) noexcept { x *= scalar; y *= scalar; z *= scalar; return *this; }
@@ -65,7 +64,7 @@ namespace BulletTypes
         [[nodiscard]] Vector3 Cross(const Vector3& other) const noexcept { return { y * other.z - z * other.y, z * other.x - x * other.z, x * other.y - y * other.x};}
         [[nodiscard]] float Dot(const Vector3& other) const noexcept { return x * other.x + y * other.y + z * other.z; }
         [[nodiscard]] float Magnitude() const noexcept { return std::hypot(x, y, z); }
-        void Normalize() noexcept { const float mag = Magnitude(); const float inv_mag = 1 / mag; x *= inv_mag; y *= inv_mag; z *= inv_mag; }
+        void Normalize() noexcept { const float inv_mag = 1 / Magnitude(); x *= inv_mag; y *= inv_mag; z *= inv_mag; }
         Vector3& operator+=(const Vector3& other) { x += other.x; y += other.y; z += other.z; return *this; }
         Vector3& operator-=(const Vector3& other) { x -= other.x; y -= other.y; z -= other.z; return *this; }
         Vector3& operator*=(float scalar) { x *= scalar; y *= scalar; z *= scalar; return *this; }
@@ -603,16 +602,16 @@ namespace BulletTypes
             reinterpret_cast<Fn*>(m_vtable_ptr)[11](this, aabb_min, aabb_max);
         }
 
-        // Verifies 4 function offsets vs. base of VTable to verify we're a TriangleVertexMaterialArray
+        // Verifies function offsets vs. base of VTable to verify we're a TriangleVertexMaterialArray
         [[nodiscard]] bool IsInternalTriangleVertexMaterialArray() const noexcept 
         {
             if (!m_vtable_ptr) return false;
 
-            const auto* f0 = reinterpret_cast<const uint8_t*>(m_vtable_ptr[0]);
+            const uint8_t* f0 = reinterpret_cast<const uint8_t*>(m_vtable_ptr[0]);
 
             const auto check = [&](size_t index, ptrdiff_t expected)
             {
-                const auto* fi = reinterpret_cast<const uint8_t*>(m_vtable_ptr[index]);
+                const uint8_t* fi = reinterpret_cast<const uint8_t*>(m_vtable_ptr[index]);
                 return (fi - f0) == expected;
             };
 
@@ -1570,7 +1569,6 @@ namespace BulletTypes
     static_assert(offsetof(DynamicsWorld, m_solver_info)                == 0xC8);
     static_assert(offsetof(DynamicsWorld, m_solver_info.m_time_step)    == 0xD4);
     
-    //TODO: MABY UNVERIFIED OFFSETS, VERIFY THESE
     struct alignas(16) DiscreteDynamicsWorld : public DynamicsWorld
     {
         uint8_t m_header_padd[40]; 

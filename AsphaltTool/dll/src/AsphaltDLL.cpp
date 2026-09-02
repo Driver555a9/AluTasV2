@@ -124,9 +124,11 @@ namespace AsphaltDLL
             EXPAND_HOOK(DetourFunctions::XInput_GetState),
             EXPAND_HOOK(DetourFunctions::NewLogicTickDispatcher),
             EXPAND_HOOK(DetourFunctions::AnimationProgressFunction),
+            EXPAND_HOOK(DetourFunctions::UpdateCursorVisibility),
             EXPAND_HOOK(DetourFunctions::SpeedUpUIAnimations),
             EXPAND_HOOK(DetourFunctions::UcrtBaseRand),
             EXPAND_HOOK(DetourFunctions::BVHBroadphaseTraversal),
+            EXPAND_HOOK(DetourFunctions::PauseMenuLogic),
             EXPAND_HOOK(DetourFunctions::WorldShouldResetQuery),
             EXPAND_HOOK(DetourFunctions::ProcessLevelResetFadePhase)
             ///////////////////////// Experimental /////////////////////////

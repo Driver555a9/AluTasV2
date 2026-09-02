@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <random>
-#include <chrono>
 
 namespace AsphaltDLL::Utility
 {

@@ -38,6 +38,7 @@ namespace AsphaltTas
         bool m_render_gui = true;
         bool m_show_non_triangle_meshes = false; // This is a hack that just moves the other objects
 
+        constexpr static char COLOR_DEF_FILE_NAME[] = "trackview.COLORDEF";
         constexpr static size_t COLOR_DEFS_INDEX_RAMPS     = 0;
         constexpr static size_t COLOR_DEFS_INDEX_DYNAMICS  = 1;
         constexpr static size_t COLOR_DEFS_INDEX_BOX       = 2;

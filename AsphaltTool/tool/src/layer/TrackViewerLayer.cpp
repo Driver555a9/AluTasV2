@@ -88,7 +88,7 @@ namespace AsphaltTas
         light.m_intensity = 200.0f;
         m_scene.EmplaceLightSource(light);
 
-        LoadColorDefFromFile("trackview.COLORDEF");
+        LoadColorDefFromFile(COLOR_DEF_FILE_NAME);
 
         m_indirect_pipeline.GetRenderConfigRef().m_use_cull_face = false;
         m_draw_lines_pipeline.SetLineThicknessFactor(10.0f);

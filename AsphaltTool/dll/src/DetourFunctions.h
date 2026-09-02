@@ -449,6 +449,21 @@ namespace AsphaltDLL
             bool DisableHook() noexcept;
             [[nodiscard]] HookState GetHookState() noexcept;
         }
+        
+        ////////////////////////////////////////////
+        // Hooks for restarting race (slow path)
+        ////////////////////////////////////////////
+        namespace PauseMenuLogic
+        {
+            void QueueRestart() noexcept;
+            void QueueQuit() noexcept;
+            void QueueNothing() noexcept;
+            bool SetupHook() noexcept;
+            bool RemoveHook() noexcept;
+            bool EnableHook() noexcept;
+            bool DisableHook() noexcept;
+            [[nodiscard]] HookState GetHookState() noexcept;
+        }
 
         ////////////////////////////////////////////
         // Query function that checks if track should be reset and if so calls ProcessLevelResetFadePhase
@@ -505,6 +520,18 @@ namespace AsphaltDLL
         // DT here can be changed and seems to only affect UI animation
         ///////////////////////////////////////////
         namespace SpeedUpUIAnimations
+        {
+            bool SetupHook() noexcept;
+            bool RemoveHook() noexcept;
+            bool EnableHook() noexcept;
+            bool DisableHook() noexcept;
+            [[nodiscard]] HookState GetHookState() noexcept;
+        }
+
+        ///////////////////////////////////////////
+        // Updates visibility of cursor
+        ///////////////////////////////////////////
+        namespace UpdateCursorVisibility
         {
             bool SetupHook() noexcept;
             bool RemoveHook() noexcept;

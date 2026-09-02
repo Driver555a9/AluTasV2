@@ -2,14 +2,15 @@
 #include "AsphaltDLL.h"
 #include "AsphaltDLLUtility.h"
 #include "BulletTypes.h"
-#include "Tests.h"
-#include "Timer.h"
-#include "BulletDebugDrawStream.h"
 #include "Communication.h"
+#include "Tests.h"
+#include "BulletDebugDrawStream.h"
 #include "BulletSerializer.h"
+#include "Timer.h"
 
 #include <atomic>
 #include <basetsd.h>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 
@@ -205,6 +206,9 @@ namespace AsphaltDLL
             
             uint32_t g_after_restart_remaining_locked_ticks = 0;
 
+            // FWD declaration
+            bool OnQueuePauseMenuCmd(ComDllIn::PausedMenuCmd cmd) noexcept;
+
             // No mutex lock, caller must lock
             void OnHandleGeneralInBuffer() noexcept
             {
@@ -250,7 +254,7 @@ namespace AsphaltDLL
                             
                         curr_meta.m_physics_interval                        = meta_cmd.m_physics_interval;
                         curr_meta.m_fixed_frame_interval_micros             = std::clamp<uint32_t>(meta_cmd.m_fixed_frame_interval_micros, 4167, 8333);
-                        curr_meta.m_game_target_fps_interval_micros         = std::clamp<uint32_t>(meta_cmd.m_game_target_fps_interval_micros, 1, 1'000'000);
+                        curr_meta.m_target_frame_interval_micros         = std::clamp<uint32_t>(meta_cmd.m_target_frame_interval_micros, 1, 1'000'000);
                         curr_meta.m_replay_mode_status                      = meta_cmd.m_replay_mode;
                         curr_meta.m_apply_physics_interval_override         = meta_cmd.m_apply_physics_interval_override; 
                         curr_meta.m_gui_is_hidden                           = meta_cmd.m_hide_gui;
@@ -263,24 +267,20 @@ namespace AsphaltDLL
                         curr_meta.m_update_debug_draw_stream                = meta_cmd.m_update_debug_draw_stream;
                         curr_meta.m_bullet_debug_draw_flags                 = meta_cmd.m_bullet_debug_draw_flags;
 
-                        g_debug_draw_stream.SetDebugMode(curr_meta.m_bullet_debug_draw_flags);
+                        OnQueuePauseMenuCmd(meta_cmd.m_paused_menu_cmd);
+                        g_debug_draw_stream.SetDebugMode(meta_cmd.m_bullet_debug_draw_flags);
 
                         if (meta_cmd.m_request_track_reset && curr_meta.m_race_status_state == ComDllOut::RaceStatusState::IN_RACE)
                         {
                             WorldShouldResetQuery::QueueResetWorld();
                         }
 
-                        if (meta_cmd.m_acknowledge_quick_restart_pause && curr_meta.m_race_status_state == ComDllOut::RaceStatusState::IN_QUICK_RESTART_PAUSE)
-                        {
-                            curr_meta.m_race_status_state = ComDllOut::RaceStatusState::IN_RACE;
-                            GameDLLState::g_current_state.m_replay_inputs.m_race_frame_tick = 0;
-                        }
-
                         const auto& resolved_addresses = GameDLLState::g_current_state.m_resolved_addresses;
 
                         if (resolved_addresses.m_game_target_fps_interval_address != NO_VALID_RESOLVED_ADDRESS)
                         {
-                            *reinterpret_cast<uint32_t*>(resolved_addresses.m_game_target_fps_interval_address) = curr_meta.m_game_target_fps_interval_micros;
+                            //Keep game fps setting 
+                            //*reinterpret_cast<uint32_t*>(resolved_addresses.m_game_target_fps_interval_address) = curr_meta.m_target_frame_interval_micros;
                         }
                     }
 
@@ -437,7 +437,8 @@ namespace AsphaltDLL
 
                 if (fps_addr != NO_VALID_RESOLVED_ADDRESS)
                 {
-                    GameDLLState::g_current_state.m_meta_data.m_game_target_fps_interval_micros = *reinterpret_cast<uint32_t*>(GameDLLState::g_current_state.m_resolved_addresses.m_game_target_fps_interval_address);
+                    //Detached our logic interval from game fps
+                    //GameDLLState::g_current_state.m_meta_data.m_target_frame_interval_micros = *reinterpret_cast<uint32_t*>(GameDLLState::g_current_state.m_resolved_addresses.m_game_target_fps_interval_address);
                 }
             }
 
@@ -515,18 +516,7 @@ namespace AsphaltDLL
                     ComSharedMem::GetSharedState()->m_dll_out_secondary_buffer.PushOverwrite(GameDLLState::g_current_state);
                 };
 
-                if (g_after_restart_remaining_locked_ticks > 0)
-                {
-                    if (--g_after_restart_remaining_locked_ticks == 0)
-                    {
-                        GameDLLState::g_current_state.m_meta_data.m_race_status_state = ComDllOut::RaceStatusState::IN_QUICK_RESTART_PAUSE;
-                        PushData();
-                    }
-                }
-                else 
-                {
-                    PushData();
-                }
+                PushData();
 
                 // Reset tick specific input state that is not updated per tick on its own
                 GameDLLState::g_current_state.m_replay_inputs.m_respawn_button_press              = false;
@@ -731,7 +721,7 @@ namespace AsphaltDLL
             }
 
             // Does not lock, caller must lock
-            bool OnSynchronousQuickRestart() noexcept
+            bool OnQueueQuickRestart() noexcept
             {
                 if (! g_last_equilibrium_state.has_value())
                 {
@@ -758,6 +748,52 @@ namespace AsphaltDLL
 
                 return true;
             }
+
+            // Does not lock, caller must lock
+            bool OnQueuePauseMenuCmd(ComDllIn::PausedMenuCmd cmd) noexcept
+            {
+                const auto SendEscapeKeyInput = []()
+                {
+                    INPUT inputs[2] = {};
+
+                    inputs[0].type       = INPUT_KEYBOARD;
+                    inputs[0].ki.wVk     = VK_ESCAPE;
+                    inputs[0].ki.dwFlags = 0;
+                    inputs[1].type       = INPUT_KEYBOARD;
+                    inputs[1].ki.wVk     = VK_ESCAPE;
+                    inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
+
+                    SendInput(2, inputs, sizeof(INPUT));
+                };
+                
+                const auto state = GameDLLState::g_current_state.m_meta_data.m_race_status_state;
+                if (! Utility::EqualsAny(state, ComDllOut::RaceStatusState::IN_RACE, ComDllOut::RaceStatusState::IN_PRE_RACE_CINEMATIC) || IsPaused::GetIsPaused())
+                {
+                    return false;
+                }
+
+                switch (cmd)
+                {
+                    case ComDllIn::PausedMenuCmd::NONE: 
+                    {
+                        //PauseMenuLogic::QueueNothing();
+                        break;
+                    }
+                    case ComDllIn::PausedMenuCmd::QUIT:
+                    {
+                        SendEscapeKeyInput();
+                        PauseMenuLogic::QueueQuit();
+                        break;
+                    }
+                    case ComDllIn::PausedMenuCmd::RESTART:
+                    {
+                        SendEscapeKeyInput();
+                        PauseMenuLogic::QueueRestart();
+                        break;
+                    }
+                }
+                return true;
+            }
         }
 
         namespace NewLogicTickDispatcher
@@ -774,10 +810,10 @@ namespace AsphaltDLL
                 {
             //////////////////////////////// Experimental
                     //Tests::LoadCustomTrack();
-                   /* static Timer s_timer {};
+                    /*static Timer s_timer {};
                     if (GetAsyncKeyState('R') & 0x8000 && s_timer.AtLeastElapsed(Units::MilliSecond(300)))
                     {
-                        StateManager::OnSynchronousQuickRestart();
+                        StateManager::OnQueuePauseMenuCmd();
                         s_timer.Restart();
                     } */
             ////////////////////////////////
@@ -844,7 +880,7 @@ namespace AsphaltDLL
                             static int64_t accumulator = 0;
                             accumulator += (elapsed * speed_factor);
                             
-                            const int64_t target_interval = GameDLLState::g_current_state.m_meta_data.m_game_target_fps_interval_micros;
+                            const int64_t target_interval = GameDLLState::g_current_state.m_meta_data.m_target_frame_interval_micros;
 
                             if (target_interval > 0)
                             {
@@ -927,12 +963,6 @@ namespace AsphaltDLL
                         if (g_ticks_left_to_skip > 0)
                         {
                             g_ticks_left_to_skip--;
-                            *p_in_delta_micros  = 0; 
-                            *p_out_delta_micros = 0;
-                            return p_out_delta_micros;
-                        }
-                        if (GameDLLState::g_current_state.m_meta_data.m_race_status_state == ComDllOut::RaceStatusState::IN_QUICK_RESTART_PAUSE)
-                        {
                             *p_in_delta_micros  = 0; 
                             *p_out_delta_micros = 0;
                             return p_out_delta_micros;
@@ -2512,6 +2542,93 @@ namespace AsphaltDLL
             HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire); }
         }
 
+        namespace PauseMenuLogic
+        {
+            namespace 
+            {
+                std::atomic<HookState> g_hook_state = HookState::NotInPlace;
+                LPVOID g_real_function_address = nullptr;
+
+                using PauseMenuLogic_t = void (*)(uintptr_t a1);
+                PauseMenuLogic_t RealPauseMenuLogicCall = nullptr;
+
+                enum class CmdMode
+                {
+                    NONE, QUIT, RESTART
+                };
+
+                std::atomic<CmdMode> g_menu_forced_cmd = CmdMode::NONE;
+
+                void DETOUR_FUNCTION_DEF Detour_PauseMenuLogic(uintptr_t a1)
+                {
+                    const CmdMode cmd = g_menu_forced_cmd.exchange(CmdMode::NONE, std::memory_order::acq_rel);
+                    if (cmd == CmdMode::NONE)
+                    {
+                        RealPauseMenuLogicCall(a1);
+                    }
+                    else 
+                    {
+                        __try 
+                        {
+                            using TransitionFn = uintptr_t(__fastcall*)(uintptr_t, int*);
+                            constexpr uintptr_t OFFSET_STATE_TRANSITION_FUNC = 0xA2F110;
+                            
+                            TransitionFn StateTransition = reinterpret_cast<TransitionFn>(GetMainModule() + OFFSET_STATE_TRANSITION_FUNC);
+
+                            constexpr int RESTART_VAL = 4;
+                            constexpr int QUIT_VAL    = 2;
+                            
+                            if (cmd == CmdMode::RESTART)
+                            {
+                                int arg = RESTART_VAL;
+                                StateTransition(a1, &arg);
+                            }
+                            else if (cmd == CmdMode::QUIT)
+                            {
+                                int arg = QUIT_VAL;
+                                StateTransition(a1, &arg);
+                            }
+                            else 
+                            {
+                                Utility::LogToFile("Unkown command mode: This shouldn't happen");
+                            }
+                        } 
+                        __except(EXCEPTION_EXECUTE_HANDLER)
+                        {
+                            Utility::LogToFile("Could not restart race due to exception");
+                        }
+                    }
+                }
+            }
+
+            void QueueRestart() noexcept
+            {
+                g_menu_forced_cmd.store(CmdMode::RESTART, std::memory_order::release);
+            }
+
+            void QueueQuit() noexcept
+            {
+                g_menu_forced_cmd.store(CmdMode::QUIT, std::memory_order::release);
+            }
+
+            void QueueNothing() noexcept
+            {       
+                g_menu_forced_cmd.store(CmdMode::NONE, std::memory_order::release);
+            }
+
+            bool SetupHook() noexcept
+            {
+                constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0xA27180;
+                return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_PauseMenuLogic),
+                        &g_real_function_address, reinterpret_cast<LPVOID*>(&RealPauseMenuLogicCall), g_hook_state);
+            }
+
+            bool RemoveHook() noexcept  { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }
+            bool EnableHook() noexcept  { return _Implementation::EnableHook(g_real_function_address, g_hook_state); }
+            bool DisableHook() noexcept { return _Implementation::DisableHook(g_real_function_address, g_hook_state); }
+            HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire); }
+        }
+
         namespace WorldShouldResetQuery
         {
             namespace
@@ -2781,6 +2898,36 @@ namespace AsphaltDLL
                 constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x255290;
                 return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_SpeedUpUIAnimations),
                         &g_real_function_address, reinterpret_cast<LPVOID*>(&RealSpeedUpUIAnimationsCall), g_hook_state);
+            }
+
+            bool RemoveHook() noexcept  { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }
+            bool EnableHook() noexcept  { return _Implementation::EnableHook(g_real_function_address, g_hook_state); }
+            bool DisableHook() noexcept { return _Implementation::DisableHook(g_real_function_address, g_hook_state); }
+            HookState GetHookState() noexcept { return g_hook_state.load(std::memory_order::acquire); }
+        }
+
+        namespace UpdateCursorVisibility
+        {
+            namespace
+            {
+                std::atomic<HookState> g_hook_state = HookState::NotInPlace;
+                LPVOID g_real_function_address = nullptr;
+
+                using UpdateCursorVisibility_t = void (*)(uint64_t a1, bool a2);
+                UpdateCursorVisibility_t RealUpdateCursorVisibilityCall = nullptr;
+
+                void DETOUR_FUNCTION_DEF Detour_UpdateCursorVisibility(uint64_t a1, bool a2)
+                {
+                    a2 = true;
+                    RealUpdateCursorVisibilityCall(a1, a2);
+                }
+            }
+
+            bool SetupHook() noexcept
+            {
+                constexpr uintptr_t STATIC_OFFSET_ABI_47_1_0 = 0x5E45780;
+                return _Implementation::SetupHook(L"Asphalt9_Steam_x64_rtl.exe", STATIC_OFFSET_ABI_47_1_0, reinterpret_cast<LPVOID>(&Detour_UpdateCursorVisibility),
+                        &g_real_function_address, reinterpret_cast<LPVOID*>(&RealUpdateCursorVisibilityCall), g_hook_state);
             }
 
             bool RemoveHook() noexcept  { return _Implementation::RemoveHook(g_real_function_address, g_hook_state); }

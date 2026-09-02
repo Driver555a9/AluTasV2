@@ -192,36 +192,37 @@ namespace AsphaltTas
                 };
 
                 struct AddressEntry { const char* name; uintptr_t addr; };
-                std::array<AddressEntry, 12> entries;
+                std::vector<AddressEntry> entries;
                 if (dll_state_copy.has_value())
                 {
-                    entries[0] = { "Camera Base", dll_state_copy->m_resolved_addresses.m_camera_state_base_address };
-                    entries[1] = { "Local Racer Base", dll_state_copy->m_resolved_addresses.m_local_racer_base_address };
-                    entries[2] = { "Nitro Bar Encrypted", dll_state_copy->m_resolved_addresses.m_nitro_bar_encrypted_address };
-                    entries[3] = { "Steering Struct Base", dll_state_copy->m_resolved_addresses.m_steering_struct_base_address };
-                    entries[4] = { "Target Frame Interval", dll_state_copy->m_resolved_addresses.m_game_target_fps_interval_address };
-                    entries[5] = { "Respawn func RCX Arg", dll_state_copy->m_resolved_addresses.m_respawn_func_spoofed_rcx_arg };
-                    entries[6] = { "Target Fps Interval", dll_state_copy->m_resolved_addresses.m_game_target_fps_interval_address };
-                    entries[7] = { "Brake func RCX Arg", dll_state_copy->m_resolved_addresses.m_brake_func_spoofed_rcx_arg };
-                    entries[8] = { "Nitro func RCX Arg", dll_state_copy->m_resolved_addresses.m_nitro_func_spoofed_rcx_arg };
-                    entries[9] = { "Dynamics World", dll_state_copy->m_resolved_addresses.m_discrete_dynamics_world_instance_address };
-                    entries[10] = {"World Wrapper", dll_state_copy->m_resolved_addresses.m_physics_world_wrapper_address };
-                    entries[11] = { "Physics Context", dll_state_copy->m_resolved_addresses.m_physics_context_address };
+                    entries.emplace_back("Camera Base", dll_state_copy->m_resolved_addresses.m_camera_state_base_address);
+                    entries.emplace_back("Local Racer Base", dll_state_copy->m_resolved_addresses.m_local_racer_base_address);
+                    entries.emplace_back("Nitro Bar Encrypted", dll_state_copy->m_resolved_addresses.m_nitro_bar_encrypted_address);
+                    entries.emplace_back("Steering Struct Base", dll_state_copy->m_resolved_addresses.m_steering_struct_base_address);
+                    entries.emplace_back("Target Frame Interval", dll_state_copy->m_resolved_addresses.m_game_target_fps_interval_address);
+                    entries.emplace_back("Respawn func RCX Arg", dll_state_copy->m_resolved_addresses.m_respawn_func_spoofed_rcx_arg);
+                    entries.emplace_back("Target Fps Interval", dll_state_copy->m_resolved_addresses.m_game_target_fps_interval_address);
+                    entries.emplace_back("Brake func RCX Arg", dll_state_copy->m_resolved_addresses.m_brake_func_spoofed_rcx_arg);
+                    entries.emplace_back("Nitro func RCX Arg", dll_state_copy->m_resolved_addresses.m_nitro_func_spoofed_rcx_arg);
+                    entries.emplace_back("Dynamics World", dll_state_copy->m_resolved_addresses.m_discrete_dynamics_world_instance_address);
+                    entries.emplace_back("World Wrapper", dll_state_copy->m_resolved_addresses.m_physics_world_wrapper_address);
+                    entries.emplace_back("Physics Context", dll_state_copy->m_resolved_addresses.m_physics_context_address);
                 }
                 else 
                 {
-                    entries[0] = { "Camera Base", 0};
-                    entries[1] = { "Local Racer Base", 0};
-                    entries[2] = { "Nitro Bar Encrypted", 0};
-                    entries[3] = { "Steering Struct Base", 0};
-                    entries[4] = { "Target Frame Interval", 0 };
-                    entries[5] = { "Respawn func RCX Arg", 0 };
-                    entries[6] = { "Target Fps Interval", 0};
-                    entries[7] = { "Brake func RCX Arg", 0};
-                    entries[8] = { "Nitro func RCX Arg", 0};
-                    entries[9] = { "Dynamics World", 0};
-                    entries[10] = {"World Wrapper", 0};
-                    entries[11] = { "Physics Context", 0};
+                    entries.emplace_back( "Camera Base", 0);
+                    entries.emplace_back( "Local Racer Base", 0);
+                    entries.emplace_back( "Nitro Bar Encrypted", 0);
+                    entries.emplace_back( "Steering Struct Base", 0);
+                    entries.emplace_back( "Target Frame Interval", 0 );
+                    entries.emplace_back( "Respawn func RCX Arg", 0 );
+                    entries.emplace_back( "Target Fps Interval", 0);
+                    entries.emplace_back( "Brake func RCX Arg", 0);
+                    entries.emplace_back( "Nitro func RCX Arg", 0);
+                    entries.emplace_back( "Paused Menu Manager", 0);
+                    entries.emplace_back( "Dynamics World", 0);
+                    entries.emplace_back("World Wrapper", 0);
+                    entries.emplace_back( "Physics Context", 0);
                 }
 
                 if (ImGui::BeginTable("AddressesTable", 2, ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchSame))

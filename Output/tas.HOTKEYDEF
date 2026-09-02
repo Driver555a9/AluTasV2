@@ -1,0 +1,6 @@
+#v1.0
+#Avaiable hotkey actions [restart, quit]
+#Avaiable keys are all letters and numbers 0..9
+restart: "r"
+quit: "q"
+

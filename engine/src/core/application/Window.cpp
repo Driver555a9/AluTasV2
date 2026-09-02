@@ -5,6 +5,7 @@
 #include "core/application/Application.h"
 
 #include "default_fonts/JetBrainsMono.h"
+#include "imgui.h"
 
 //std
 #include <iostream>

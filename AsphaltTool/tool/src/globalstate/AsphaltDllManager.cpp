@@ -10,7 +10,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "layer/TasInputLayer.h"
 #include "memory/MemoryUtility.h"
-#include "common/Utility.h"
 
 #include <atomic>
 #include <memory>
@@ -178,14 +177,6 @@ namespace AsphaltTas
                 {
                     TasInputLayer::OnRaceEnded();
                 }
-
-                ComDllOut::DllStateOut dummy;
-                if (out_state.m_meta_data.m_race_status_state == Communication::DllOut::RaceStatusState::IN_QUICK_RESTART_PAUSE && ! shared->m_dll_out_buffer.TryPeek(dummy))
-                {
-                    TasInputLayer::OnRaceEnded();
-                    TasInputLayer::OnRaceStarted();
-                    has_ack_quick_restart = true;
-                }
                 
                 TasInputLayer::OnDLLUpdate();
             }
@@ -230,11 +221,13 @@ namespace AsphaltTas
 
             ScopeLockedAccess<ComDllIn::DllGeneralCommandsIn> general_cmd = GetDllGeneralCommandsInRef();
             general_cmd->m_write_meta_data.m_command_type = ComDllIn::CommandType::ExecuteCommand;
-            general_cmd->m_write_meta_data.m_acknowledge_quick_restart_pause = has_ack_quick_restart;
 
             shared->m_dll_in_buffer_general.PushOverwrite(*general_cmd);
 
-            general_cmd->m_write_meta_data.m_request_track_reset = false; //Insure request runs only once
+            //Insure one time requests run only once
+            general_cmd->m_write_meta_data.m_request_track_reset  = false;
+            general_cmd->m_write_meta_data.m_request_dll_shutdown = false;
+            general_cmd->m_write_meta_data.m_paused_menu_cmd      = ComDllIn::PausedMenuCmd::NONE;
         }
 
         [[nodiscard]] std::vector<CoreEngine::BulletDebugDraw_RenderPipeline::CompletedStaticMesh> TakeNewlyCompletedStaticMeshes() noexcept

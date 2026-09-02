@@ -38,9 +38,8 @@ namespace Communication
     };
 
     constexpr char DLL_DUMPED_TRACK_FILE_NAME[] = "objects.TRACK";
-    constexpr static inline std::string REPLAY_FILE_TYPE   = ".NEOREPLAY";
-
-    constexpr uint32_t CURRENT_NON_NEGOTIABLE_COMMUNICATION_VERSION = 5; // Detect dll ABI missmatches
+    constexpr std::string REPLAY_FILE_TYPE = ".NEOREPLAY";
+    constexpr uint32_t CURRENT_NON_NEGOTIABLE_COMMUNICATION_VERSION = 6; // Detect dll ABI missmatches
 
     namespace DllOut
     {
@@ -174,7 +173,7 @@ namespace Communication
 
         enum class RaceStatusState : uint8_t 
         {
-            IN_MENU, IN_RACE, IN_LOADING_SCREEN, IN_PRE_RACE_CINEMATIC, IN_QUICK_RESTART_PAUSE
+            IN_MENU, IN_RACE, IN_LOADING_SCREEN, IN_PRE_RACE_CINEMATIC
         };
 
         struct DllStateMetaData 
@@ -182,7 +181,7 @@ namespace Communication
             ReplayMode m_replay_mode_status                 = ReplayMode::Inactive;
             std::uint32_t m_fixed_frame_interval_micros     = 8333;
             float m_physics_interval                        = 1/60.0f;
-            std::uint32_t m_game_target_fps_interval_micros = 8333;
+            std::uint32_t m_target_frame_interval_micros    = 8333;
             SkipAnimationFlags m_skip_animation_flags       = SkipAnimationFlags::SKIP_NONE; // Deprecated, prefer m_speed_up_pre_race_cinematic
             std::uint32_t m_on_replay_end_skip_tick_count   = 0;
             std::uint32_t m_replay_speed_factor             = 1;
@@ -320,13 +319,20 @@ namespace Communication
         };
         static_assert(sizeof(WriteCameraState) == sizeof(CommandType) + 11 * sizeof(float) + sizeof(std::uint32_t) + 8 * sizeof(uint8_t), "No packing should occur");
 
+        enum class PausedMenuCmd : uint8_t
+        {
+            NONE    = 0,
+            QUIT    = 1 << 0,
+            RESTART = 1 << 1
+        };
+
         struct WriteMetaData
         {
             CommandType m_command_type                      = CommandType::IgnoreCommand;
             ReplayMode  m_replay_mode                       = ReplayMode::Inactive;
             std::uint32_t m_fixed_frame_interval_micros     = 8333;    // 120fps
             float m_physics_interval                        = 1/60.0f; // 60pf
-            std::uint32_t m_game_target_fps_interval_micros = 8333;
+            std::uint32_t m_target_frame_interval_micros    = 8333;
             SkipAnimationFlags m_skip_animation_flags       = SkipAnimationFlags::SKIP_NONE;
             std::uint32_t m_on_replay_end_skip_tick_count   = 0; 
             std::uint32_t m_dump_track_request_id           = 0;       // This must be greater than out states index for dump to happen
@@ -338,12 +344,12 @@ namespace Communication
             bool m_speed_up_pre_race_cinematic              = false;
             bool m_speed_up_gui_animations                  = false;
             bool m_request_track_reset                      = false;
-            bool m_acknowledge_quick_restart_pause          = false;
             bool m_update_debug_draw_stream                 = false;
-            uint8_t __ignore__padd__[4];
+            PausedMenuCmd m_paused_menu_cmd                 = PausedMenuCmd::NONE;
+            uint8_t __ignore__padd__[3];
         };
         static_assert(sizeof(WriteMetaData) == sizeof(CommandType) + sizeof(ReplayMode) + 5 * sizeof(std::uint32_t) + sizeof(float) +
-                      sizeof(SkipAnimationFlags) + sizeof(int) + 8 * sizeof(bool) + 4* sizeof(uint8_t), "No packing should occur");
+                      sizeof(SkipAnimationFlags) + sizeof(int) + 8 * sizeof(bool) + sizeof(PausedMenuCmd) + 3 * sizeof(uint8_t), "No packing should occur");
 
         struct DllGeneralCommandsIn
         {
@@ -369,7 +375,6 @@ namespace Communication
         template <typename T, std::uint32_t Size>
         requires std::is_trivially_copyable_v<T> && std::is_trivially_destructible_v<T> 
         && requires(const T& obj) { { obj.GetActiveByteSize() } -> std::convertible_to<std::size_t>; }
-
         struct alignas(64) SharedRingBuffer
         {
             static_assert(Size > 0, "Ring Buffer size must not be empty.");
