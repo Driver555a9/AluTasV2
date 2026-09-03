@@ -94,6 +94,11 @@ namespace CoreEngine
         {
             glfwSetWindowCloseCallback (m_window_ptr, &Application::WindowCloseCallback);
         }
+
+        if (Application::Get()->GetGlobalWindowIcon().has_value())
+        {
+            glfwSetWindowIcon(m_window_ptr, 1, &Application::Get()->GetGlobalWindowIcon().value());
+        }
     ///////////////////////////////
     // OpenGL
     ///////////////////////////////

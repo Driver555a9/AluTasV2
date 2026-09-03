@@ -12,6 +12,7 @@
 #include "core/utility/Assert.h"
 #include "core/utility/Performance.h"
 
+#include "stb_image.h"
 #include "imgui.h"
 
 #include <filesystem>
@@ -23,6 +24,33 @@ namespace CoreEngine
     Application::Application(ApplicationConfig config) noexcept : m_original_config(config), m_vsync_is_on(config.m_enable_vsync)
     {
         s_application_instance_ptr = this;
+
+        /// window icons
+        if (config.m_window_icon_path.has_value())
+        {
+            if (std::filesystem::is_regular_file(config.m_window_icon_path.value()))
+            {
+                int width, height, channels;
+                unsigned char* pixels = stbi_load(config.m_window_icon_path.value().c_str(), &width, &height, &channels, 4);
+
+                if (pixels)
+                {
+                    GLFWimage icon;
+                    icon.width  = width;
+                    icon.height = height;
+                    icon.pixels = pixels;
+                    m_active_window_icon = icon;
+                }
+                else 
+                {
+                    ENGINE_ERROR_PRINT("Could not load icon from path: " << config.m_window_icon_path.value() << " stb error: " << stbi_failure_reason());
+                }
+            }
+            else 
+            {
+                ENGINE_ERROR_PRINT("Could not load icon from path: " << config.m_window_icon_path.value());
+            }
+        }
     }
 
     Application::~Application()
@@ -30,6 +58,10 @@ namespace CoreEngine
         m_window_layer_stacks.clear();
         s_application_instance_ptr = nullptr;
         glfwTerminate();
+        if (m_active_window_icon.has_value())
+        {
+            stbi_image_free(m_active_window_icon->pixels);
+        }
     }
 
     void Application::Run() noexcept
@@ -318,6 +350,11 @@ namespace CoreEngine
     const std::optional<std::string>& Application::GetGlobalImGuiFontPath() noexcept
     {
         return m_active_global_font_path;
+    }
+
+    const std::optional<GLFWimage>& Application::GetGlobalWindowIcon() noexcept
+    {
+        return m_active_window_icon;
     }
 
     //////////////////////////////////////////////// 

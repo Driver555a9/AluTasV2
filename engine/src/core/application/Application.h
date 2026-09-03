@@ -28,9 +28,10 @@ namespace CoreEngine
         //////////////////////////////////////////////// 
         struct ApplicationConfig
         {
-            bool                    m_enable_vsync                     {false};
-            bool                    m_debug_launch_with_console        {true};
-            bool                    m_use_glfw_await_events            {false};
+            std::optional<std::string> m_window_icon_path = std::nullopt;
+            bool                       m_enable_vsync                     {false};
+            bool                       m_debug_launch_with_console        {true};
+            bool                       m_use_glfw_await_events            {false};
         };
 
         /////////////////////////////////////////////// 
@@ -101,6 +102,7 @@ namespace CoreEngine
 
         void SetImGuiFontGlobal(const std::optional<std::string>& path) noexcept;
         const std::optional<std::string>& GetGlobalImGuiFontPath() noexcept;
+        const std::optional<GLFWimage>& GetGlobalWindowIcon() noexcept;
 
         //////////////////////////////////////////////// 
         //--------- Glfw callbacks
@@ -131,11 +133,12 @@ namespace CoreEngine
         std::vector<Window::Handle> m_window_layer_stacks_to_delete_next_frame;
         std::vector<std::pair<Window::WindowCreationConfig, std::vector<LayerFactory>>> m_window_creations_to_add_next_frame;
 
-        std::optional<std::string> m_active_global_font_path = std::nullopt;               
-        bool                      m_stop_flag        {false};
-        Units::MicroSecond        m_frame_delta_time {0};
-        ApplicationConfig         m_original_config  {};
-        bool                      m_vsync_is_on      {false};
+        std::optional<std::string> m_active_global_font_path = std::nullopt;
+        std::optional<GLFWimage>   m_active_window_icon      = std::nullopt;           
+        Units::MicroSecond         m_frame_delta_time {0};
+        ApplicationConfig          m_original_config  {};
+        bool                       m_stop_flag        {false};
+        bool                       m_vsync_is_on      {false};
         
         //////////////////////////////////////////////// 
         //--------- Instance

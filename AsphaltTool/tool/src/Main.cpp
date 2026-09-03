@@ -9,6 +9,7 @@ int main()
 {
     constexpr CoreEngine::Application::ApplicationConfig application_config 
     {
+        .m_window_icon_path                 = "icondark.png",
         .m_enable_vsync                     = true,
         .m_debug_launch_with_console        = true,
         .m_use_glfw_await_events            = false
